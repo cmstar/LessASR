@@ -1,0 +1,26 @@
+.*
+tmp/
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.user
+*.suo
+
+# NuGet
+*.nupkg
+project.lock.json
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Agent temp scripts
+_*.py
+_*.txt

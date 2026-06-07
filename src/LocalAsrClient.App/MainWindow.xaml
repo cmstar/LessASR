@@ -1,0 +1,96 @@
+<Window x:Class="LocalAsrClient.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="本地语音输入"
+        Width="760"
+        Height="520"
+        MinWidth="640"
+        MinHeight="420"
+        WindowStartupLocation="CenterScreen">
+    <Grid Margin="12">
+        <TabControl>
+            <TabItem Header="状态">
+                <StackPanel Margin="16" Width="420" HorizontalAlignment="Left">
+                    <TextBlock Text="当前状态" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                    <TextBlock Text="{Binding Status.CurrentState}" Margin="0,0,0,8"/>
+                    <TextBlock Text="{Binding Status.CurrentModel}" Margin="0,0,0,8"/>
+                    <TextBlock Text="{Binding Status.ServiceState}" Margin="0,0,0,8"/>
+                    <TextBlock Text="{Binding Status.Hotkey}" Margin="0,0,0,8"/>
+                    <TextBlock Text="{Binding Status.LastResult}" TextWrapping="Wrap"/>
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="历史">
+                <DataGrid ItemsSource="{Binding History.Items}" AutoGenerateColumns="False" Margin="12">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="时间" Binding="{Binding CreatedAt}" Width="160"/>
+                        <DataGridTextColumn Header="文本" Binding="{Binding Text}" Width="*"/>
+                        <DataGridTextColumn Header="字数" Binding="{Binding CharacterCount}" Width="70"/>
+                        <DataGridTemplateColumn Header="操作" Width="90">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Content="复制"
+                                            Command="{Binding DataContext.History.CopyCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+            <TabItem Header="统计">
+                <DataGrid ItemsSource="{Binding Stats.Days}" AutoGenerateColumns="False" Margin="12">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="日期" Binding="{Binding Date}" Width="120"/>
+                        <DataGridTextColumn Header="次数" Binding="{Binding InputCount}" Width="80"/>
+                        <DataGridTextColumn Header="成功" Binding="{Binding SuccessCount}" Width="80"/>
+                        <DataGridTextColumn Header="失败" Binding="{Binding FailedCount}" Width="80"/>
+                        <DataGridTextColumn Header="录音秒数" Binding="{Binding RecordingSeconds}" Width="100"/>
+                        <DataGridTextColumn Header="识别秒数" Binding="{Binding ProcessingSeconds}" Width="100"/>
+                        <DataGridTextColumn Header="字数" Binding="{Binding CharacterCount}" Width="80"/>
+                        <DataGridTextColumn Header="词数" Binding="{Binding WordCount}" Width="80"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+            <TabItem Header="模型">
+                <StackPanel Margin="16" Width="520" HorizontalAlignment="Left">
+                    <TextBlock Text="{Binding Model.ServiceState}" Margin="0,0,0,8"/>
+                    <TextBlock Text="{Binding Model.ServiceAddress}" Margin="0,0,0,12"/>
+                    <WrapPanel>
+                        <Button Content="启动服务" Command="{Binding Model.StartCommand}" Margin="0,0,8,8"/>
+                        <Button Content="停止服务" Command="{Binding Model.StopCommand}" Margin="0,0,8,8"/>
+                        <Button Content="重启服务" Command="{Binding Model.RestartCommand}" Margin="0,0,8,8"/>
+                        <Button Content="健康检查" Command="{Binding Model.HealthCheckCommand}" Margin="0,0,8,8"/>
+                    </WrapPanel>
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="设置">
+                <StackPanel Margin="16" Width="560" HorizontalAlignment="Left">
+                    <TextBlock Text="模型文件路径"/>
+                    <TextBox Text="{Binding Settings.ModelPath, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,12"/>
+                    <TextBlock Text="whisper-server 路径"/>
+                    <TextBox Text="{Binding Settings.WhisperServerPath, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,12"/>
+                    <TextBlock Text="数据存储路径"/>
+                    <TextBox Text="{Binding Settings.DataDirectory, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,12"/>
+                    <CheckBox Content="客户端启动时自动加载当前模型" IsChecked="{Binding Settings.StartModelOnAppStartup}" Margin="0,0,0,12"/>
+                    <Button Content="保存设置" Command="{Binding Settings.SaveCommand}" Width="100" HorizontalAlignment="Left"/>
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="Debug">
+                <StackPanel Margin="16" Width="520" HorizontalAlignment="Left">
+                    <TextBlock Text="覆盖状态模拟" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                    <WrapPanel>
+                        <Button Content="模型加载中" Command="{Binding Debug.ShowLoadingCommand}" Margin="0,0,8,8"/>
+                        <Button Content="待录音" Command="{Binding Debug.ShowReadyCommand}" Margin="0,0,8,8"/>
+                        <Button Content="正在聆听" Command="{Binding Debug.ShowRecordingCommand}" Margin="0,0,8,8"/>
+                        <Button Content="识别中" Command="{Binding Debug.ShowTranscribingCommand}" Margin="0,0,8,8"/>
+                        <Button Content="正在输入" Command="{Binding Debug.ShowInjectingCommand}" Margin="0,0,8,8"/>
+                        <Button Content="已注入" Command="{Binding Debug.ShowInjectedCommand}" Margin="0,0,8,8"/>
+                        <Button Content="识别结果" Command="{Binding Debug.ShowResultCommand}" Margin="0,0,8,8"/>
+                        <Button Content="错误状态" Command="{Binding Debug.ShowErrorCommand}" Margin="0,0,8,8"/>
+                        <Button Content="隐藏覆盖" Command="{Binding Debug.HideCommand}" Margin="0,0,8,8"/>
+                    </WrapPanel>
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Window>
