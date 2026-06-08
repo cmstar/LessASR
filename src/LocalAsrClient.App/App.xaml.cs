@@ -1,5 +1,7 @@
 using System.Windows;
+using System.Windows.Threading;
 using LocalAsrClient.App.Bootstrap;
+using LocalAsrClient.App.Infrastructure;
 using LocalAsrClient.App.Tray;
 
 namespace LocalAsrClient.App;
@@ -13,6 +15,11 @@ public partial class App : System.Windows.Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        AppExceptionLogger.Initialize();
+        DispatcherUnhandledException += OnDispatcherUnhandledException;
+        AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
+        TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
+
         try
         {
             _services = await AppServices.CreateAsync(CancellationToken.None);
@@ -24,13 +31,29 @@ public partial class App : System.Windows.Application
         }
         catch (Exception ex)
         {
-            System.Windows.MessageBox.Show(
-                $"启动失败：{ex.Message}",
-                "本地语音输入",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            AppExceptionLogger.Report(ex, "应用启动失败", showDialog: true);
             Shutdown(1);
         }
+    }
+
+    private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+    {
+        AppExceptionLogger.Report(e.Exception, "UI 线程未处理异常");
+        e.Handled = true;
+    }
+
+    private void OnDomainUnhandledException(object sender, UnhandledExceptionEventArgs e)
+    {
+        if (e.ExceptionObject is Exception exception)
+        {
+            AppExceptionLogger.Report(exception, "进程未处理异常", isTerminating: e.IsTerminating);
+        }
+    }
+
+    private void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+    {
+        AppExceptionLogger.Report(e.Exception, "未观察到的 Task 异常", showDialog: false);
+        e.SetObserved();
     }
 
     protected override async void OnExit(ExitEventArgs e)

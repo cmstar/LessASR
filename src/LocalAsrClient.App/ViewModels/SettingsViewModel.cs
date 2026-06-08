@@ -1,5 +1,6 @@
 using System.Windows.Input;
 using LocalAsrClient.App.Bootstrap;
+using LocalAsrClient.App.Infrastructure;
 using LocalAsrClient.Core.Persistence;
 
 namespace LocalAsrClient.App.ViewModels;
@@ -19,7 +20,7 @@ public sealed class SettingsViewModel
     public TranscriptRetentionPolicy TranscriptRetentionPolicy { get; set; } = TranscriptRetentionPolicy.SevenDays;
     public bool StartModelOnAppStartup { get; set; }
 
-    public ICommand SaveCommand => new RelayCommand(async () =>
+    public ICommand SaveCommand => new AsyncRelayCommand(async () =>
     {
         await _services.SettingsStore.SaveAsync(new AppSettings(
             ModelPath,
@@ -27,7 +28,7 @@ public sealed class SettingsViewModel
             DataDirectory,
             TranscriptRetentionPolicy,
             StartModelOnAppStartup), CancellationToken.None);
-    });
+    }, "保存设置失败");
 
     public async Task LoadAsync()
     {
@@ -39,12 +40,4 @@ public sealed class SettingsViewModel
         StartModelOnAppStartup = settings.StartModelOnAppStartup;
     }
 
-    private sealed class RelayCommand : ICommand
-    {
-        private readonly Func<Task> _execute;
-        public RelayCommand(Func<Task> execute) => _execute = execute;
-        public event EventHandler? CanExecuteChanged;
-        public bool CanExecute(object? parameter) => true;
-        public async void Execute(object? parameter) => await _execute();
-    }
 }

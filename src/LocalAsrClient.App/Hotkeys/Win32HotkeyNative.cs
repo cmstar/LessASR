@@ -7,7 +7,7 @@ internal static class Win32HotkeyNative
     public const int WhKeyboardLl = 13;
     public const int WmKeyDown = 0x0100;
     public const int WmSysKeyDown = 0x0104;
-    public const int VkRMenu = 0xA5;
+    public const int VkRControl = 0xA3;
 
     public delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
 

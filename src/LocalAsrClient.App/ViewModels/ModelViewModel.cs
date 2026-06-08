@@ -1,5 +1,6 @@
 using System.Windows.Input;
 using LocalAsrClient.App.Bootstrap;
+using LocalAsrClient.App.Infrastructure;
 
 namespace LocalAsrClient.App.ViewModels;
 
@@ -15,26 +16,21 @@ public sealed class ModelViewModel
     public string ServiceState => _services.ServerManager.Status.ToString();
     public string ServiceAddress => _services.ServerManager.BaseUri.ToString();
 
-    public ICommand StartCommand => new RelayCommand(async () => await _services.ServerManager.EnsureStartedAsync(CancellationToken.None));
-    public ICommand StopCommand => new RelayCommand(async () => await _services.ServerManager.StopAsync(CancellationToken.None));
-    public ICommand RestartCommand => new RelayCommand(async () =>
+    public ICommand StartCommand => new AsyncRelayCommand(
+        () => _services.ServerManager.EnsureStartedAsync(CancellationToken.None),
+        "启动模型服务失败");
+
+    public ICommand StopCommand => new AsyncRelayCommand(
+        () => _services.ServerManager.StopAsync(CancellationToken.None),
+        "停止模型服务失败");
+
+    public ICommand RestartCommand => new AsyncRelayCommand(async () =>
     {
         await _services.ServerManager.StopAsync(CancellationToken.None);
         await _services.ServerManager.EnsureStartedAsync(CancellationToken.None);
-    });
-    public ICommand HealthCheckCommand => new RelayCommand(async () => await _services.ServerManager.EnsureStartedAsync(CancellationToken.None));
+    }, "重启模型服务失败");
 
-    private sealed class RelayCommand : ICommand
-    {
-        private readonly Func<Task> _execute;
-
-        public RelayCommand(Func<Task> execute)
-        {
-            _execute = execute;
-        }
-
-        public event EventHandler? CanExecuteChanged;
-        public bool CanExecute(object? parameter) => true;
-        public async void Execute(object? parameter) => await _execute();
-    }
+    public ICommand HealthCheckCommand => new AsyncRelayCommand(
+        () => _services.ServerManager.EnsureStartedAsync(CancellationToken.None),
+        "模型服务健康检查失败");
 }

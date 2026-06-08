@@ -4,13 +4,13 @@ using LocalAsrClient.Core.Abstractions;
 
 namespace LocalAsrClient.App.Hotkeys;
 
-public sealed class RightAltHotkeyListener : IHotkeyListener
+public sealed class RightCtrlHotkeyListener : IHotkeyListener
 {
     private readonly Win32HotkeyNative.LowLevelKeyboardProc _callback;
     private IntPtr _hook;
     private bool _isDown;
 
-    public RightAltHotkeyListener()
+    public RightCtrlHotkeyListener()
     {
         _callback = HookCallback;
     }
@@ -31,7 +31,7 @@ public sealed class RightAltHotkeyListener : IHotkeyListener
         _hook = Win32HotkeyNative.SetWindowsHookEx(Win32HotkeyNative.WhKeyboardLl, _callback, moduleHandle, 0);
         if (_hook == IntPtr.Zero)
         {
-            throw new InvalidOperationException("无法注册右 Alt 全局键盘监听");
+            throw new InvalidOperationException("无法注册右 Ctrl 全局键盘监听。");
         }
     }
 
@@ -58,7 +58,7 @@ public sealed class RightAltHotkeyListener : IHotkeyListener
             var message = wParam.ToInt32();
             var data = Marshal.PtrToStructure<Win32HotkeyNative.KbdLlHookStruct>(lParam);
             if ((message == Win32HotkeyNative.WmKeyDown || message == Win32HotkeyNative.WmSysKeyDown)
-                && data.VkCode == Win32HotkeyNative.VkRMenu)
+                && data.VkCode == Win32HotkeyNative.VkRControl)
             {
                 if (!_isDown)
                 {
@@ -66,7 +66,7 @@ public sealed class RightAltHotkeyListener : IHotkeyListener
                     Triggered?.Invoke();
                 }
             }
-            else if (data.VkCode == Win32HotkeyNative.VkRMenu)
+            else if (data.VkCode == Win32HotkeyNative.VkRControl)
             {
                 _isDown = false;
             }

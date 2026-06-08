@@ -19,7 +19,7 @@ public sealed class AppServices : IAsyncDisposable
         SqliteStatsRepository statsRepository,
         SqliteTextHistoryRepository historyRepository,
         DictationOverlayWindow overlayWindow,
-        RightAltHotkeyListener hotkeyListener,
+        RightCtrlHotkeyListener hotkeyListener,
         DictationOrchestrator orchestrator,
         WhisperServerProcessManager serverManager)
     {
@@ -38,7 +38,7 @@ public sealed class AppServices : IAsyncDisposable
     public SqliteStatsRepository StatsRepository { get; }
     public SqliteTextHistoryRepository HistoryRepository { get; }
     public DictationOverlayWindow OverlayWindow { get; }
-    public RightAltHotkeyListener HotkeyListener { get; }
+    public RightCtrlHotkeyListener HotkeyListener { get; }
     public DictationOrchestrator Orchestrator { get; }
     public WhisperServerProcessManager ServerManager { get; }
 
@@ -64,7 +64,7 @@ public sealed class AppServices : IAsyncDisposable
         var recorder = new NAudioMemoryRecorder();
         var injector = new SendInputTextInjector();
         var overlayWindow = new DictationOverlayWindow();
-        var hotkeyListener = new RightAltHotkeyListener();
+        var hotkeyListener = new RightCtrlHotkeyListener();
         var orchestrator = new DictationOrchestrator(
             recorder,
             backend,

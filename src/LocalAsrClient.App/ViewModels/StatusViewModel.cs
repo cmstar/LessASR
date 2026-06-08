@@ -9,7 +9,7 @@ public sealed class StatusViewModel : INotifyPropertyChanged
     private string _currentState = "空闲";
     private string _currentModel = "未选择模型";
     private string _serviceState = "未启动";
-    private string _hotkey = "右 Alt";
+    private string _hotkey = "右 Ctrl";
     private string _lastResult = "";
 
     public event PropertyChangedEventHandler? PropertyChanged;
