@@ -97,7 +97,9 @@
                     </Grid>
                     <TextBlock Text="{Binding Settings.DataDirectoryPath, StringFormat=数据目录：{0}}" Foreground="Gray" Margin="0,0,0,4"/>
                     <TextBlock Text="{Binding Settings.LogsDirectoryPath, StringFormat=日志目录：{0}}" Foreground="Gray" Margin="0,0,0,12"/>
-                    <CheckBox Content="客户端启动时自动加载当前模型" IsChecked="{Binding Settings.StartModelOnAppStartup}" Margin="0,0,0,12"/>
+                    <CheckBox Content="客户端启动时自动加载当前模型" IsChecked="{Binding Settings.StartModelOnAppStartup}" Margin="0,0,0,8"/>
+                    <CheckBox Content="关闭窗口时最小化到系统托盘" IsChecked="{Binding Settings.MinimizeToTrayOnClose}" Margin="0,0,0,4"/>
+                    <TextBlock Text="取消勾选后，点击窗口关闭按钮将直接退出程序。" Foreground="Gray" Margin="20,0,0,12"/>
                     <Button Content="保存设置" Command="{Binding Settings.SaveCommand}" Width="100" HorizontalAlignment="Left"/>
                 </StackPanel>
             </TabItem>

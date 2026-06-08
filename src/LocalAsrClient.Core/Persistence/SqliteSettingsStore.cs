@@ -30,7 +30,8 @@ public sealed class SqliteSettingsStore : ISettingsStore
             TranscriptRetentionPolicy = Enum.TryParse<TranscriptRetentionPolicy>(
                 values.GetValueOrDefault("TranscriptRetentionPolicy"),
                 out var policy) ? policy : defaults.TranscriptRetentionPolicy,
-            StartModelOnAppStartup = bool.TryParse(values.GetValueOrDefault("StartModelOnAppStartup"), out var start) && start
+            StartModelOnAppStartup = bool.TryParse(values.GetValueOrDefault("StartModelOnAppStartup"), out var start) && start,
+            MinimizeToTrayOnClose = !bool.TryParse(values.GetValueOrDefault("MinimizeToTrayOnClose"), out var minimize) || minimize
         };
     }
 
@@ -41,7 +42,8 @@ public sealed class SqliteSettingsStore : ISettingsStore
             ["ModelPath"] = settings.ModelPath,
             ["WhisperServerPath"] = settings.WhisperServerPath,
             ["TranscriptRetentionPolicy"] = settings.TranscriptRetentionPolicy.ToString(),
-            ["StartModelOnAppStartup"] = settings.StartModelOnAppStartup.ToString()
+            ["StartModelOnAppStartup"] = settings.StartModelOnAppStartup.ToString(),
+            ["MinimizeToTrayOnClose"] = settings.MinimizeToTrayOnClose.ToString()
         };
 
         foreach (var pair in values)

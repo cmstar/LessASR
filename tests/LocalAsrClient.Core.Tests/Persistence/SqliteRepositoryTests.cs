@@ -14,12 +14,24 @@ public sealed class SqliteRepositoryTests
             ModelPath: @"D:\models\ggml-large-v3-turbo-q5_0.bin",
             WhisperServerPath: @"D:\tools\whisper-server.exe",
             TranscriptRetentionPolicy: TranscriptRetentionPolicy.OneMonth,
-            StartModelOnAppStartup: true);
+            StartModelOnAppStartup: true,
+            MinimizeToTrayOnClose: false);
 
         await store.SaveAsync(settings, CancellationToken.None);
         var loaded = await store.LoadAsync(CancellationToken.None);
 
         Assert.Equal(settings, loaded);
+    }
+
+    [Fact]
+    public async Task SettingsStore_DefaultsMinimizeToTrayOnCloseWhenMissing()
+    {
+        await using var database = await SqliteDatabase.CreateInMemoryAsync();
+        var store = new SqliteSettingsStore(database);
+
+        var loaded = await store.LoadAsync(CancellationToken.None);
+
+        Assert.True(loaded.MinimizeToTrayOnClose);
     }
 
     [Fact]

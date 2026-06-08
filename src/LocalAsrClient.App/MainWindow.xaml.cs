@@ -7,10 +7,12 @@ namespace LocalAsrClient.App;
 
 public partial class MainWindow : Window
 {
+    private readonly AppServices _services;
     private bool _allowClose;
 
     public MainWindow(AppServices services)
     {
+        _services = services;
         InitializeComponent();
         DataContext = new MainViewModel(services);
     }
@@ -22,14 +24,28 @@ public partial class MainWindow : Window
 
     protected override void OnClosing(CancelEventArgs e)
     {
-        if (!_allowClose)
+        if (_allowClose)
+        {
+            base.OnClosing(e);
+            return;
+        }
+
+        var minimizeToTray = _services.SettingsStore
+            .LoadAsync(CancellationToken.None)
+            .GetAwaiter()
+            .GetResult()
+            .MinimizeToTrayOnClose;
+
+        if (minimizeToTray)
         {
             e.Cancel = true;
             Hide();
             return;
         }
 
+        _allowClose = true;
         base.OnClosing(e);
+        System.Windows.Application.Current.Shutdown();
     }
 
     protected override void OnStateChanged(EventArgs e)

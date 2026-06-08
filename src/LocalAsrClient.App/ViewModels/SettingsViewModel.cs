@@ -43,6 +43,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     public bool StartModelOnAppStartup { get; set; }
 
+    public bool MinimizeToTrayOnClose { get; set; } = true;
+
     public ICommand BrowseModelPathCommand => new RelayCommand(BrowseModelPath);
 
     public ICommand BrowseWhisperServerPathCommand => new RelayCommand(BrowseWhisperServerPath);
@@ -53,7 +55,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             ModelPath,
             WhisperServerPath,
             TranscriptRetentionPolicy,
-            StartModelOnAppStartup), CancellationToken.None);
+            StartModelOnAppStartup,
+            MinimizeToTrayOnClose), CancellationToken.None);
         await _services.ApplyServerOptionsFromSettingsAsync();
         if (_onSettingsSaved is not null)
         {
@@ -68,6 +71,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         WhisperServerPath = settings.WhisperServerPath;
         TranscriptRetentionPolicy = settings.TranscriptRetentionPolicy;
         StartModelOnAppStartup = settings.StartModelOnAppStartup;
+        MinimizeToTrayOnClose = settings.MinimizeToTrayOnClose;
     }
 
     private void BrowseModelPath()
