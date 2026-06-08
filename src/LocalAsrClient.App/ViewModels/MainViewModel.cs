@@ -15,7 +15,7 @@ public sealed class MainViewModel
         History = new HistoryViewModel();
         Stats = new StatsViewModel();
         Model = new ModelViewModel(services);
-        Settings = new SettingsViewModel(services);
+        Settings = new SettingsViewModel(services, Model.RefreshFromSettingsAsync);
         Debug = new DebugViewModel(services);
         _services.Orchestrator.StatusChanged += OnDictationStatusChanged;
         _ = LoadAsync();
@@ -69,6 +69,7 @@ public sealed class MainViewModel
     private async Task LoadAsync()
     {
         await Settings.LoadAsync();
+        await Model.InitializeAsync();
         var history = await _services.HistoryRepository.GetRecentAsync(50, CancellationToken.None);
         History.Load(history);
         var end = DateOnly.FromDateTime(DateTime.Now);

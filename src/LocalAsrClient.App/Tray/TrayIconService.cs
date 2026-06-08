@@ -1,4 +1,4 @@
-using System.Windows;
+using LocalAsrClient.Core;
 using Forms = System.Windows.Forms;
 
 namespace LocalAsrClient.App.Tray;
@@ -13,7 +13,7 @@ public sealed class TrayIconService : IDisposable
         _window = window;
         _notifyIcon = new Forms.NotifyIcon
         {
-            Text = "本地语音输入",
+            Text = LessAsrPaths.ProductName,
             Icon = System.Drawing.SystemIcons.Application,
             Visible = true,
             ContextMenuStrip = BuildMenu()

@@ -22,12 +22,11 @@ public sealed class SqliteSettingsStore : ISettingsStore
             values[reader.GetString(0)] = reader.GetString(1);
         }
 
-        var defaults = AppSettings.CreateDefault(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
+        var defaults = AppSettings.CreateDefault();
         return defaults with
         {
             ModelPath = values.GetValueOrDefault("ModelPath", defaults.ModelPath),
             WhisperServerPath = values.GetValueOrDefault("WhisperServerPath", defaults.WhisperServerPath),
-            DataDirectory = values.GetValueOrDefault("DataDirectory", defaults.DataDirectory),
             TranscriptRetentionPolicy = Enum.TryParse<TranscriptRetentionPolicy>(
                 values.GetValueOrDefault("TranscriptRetentionPolicy"),
                 out var policy) ? policy : defaults.TranscriptRetentionPolicy,
@@ -41,7 +40,6 @@ public sealed class SqliteSettingsStore : ISettingsStore
         {
             ["ModelPath"] = settings.ModelPath,
             ["WhisperServerPath"] = settings.WhisperServerPath,
-            ["DataDirectory"] = settings.DataDirectory,
             ["TranscriptRetentionPolicy"] = settings.TranscriptRetentionPolicy.ToString(),
             ["StartModelOnAppStartup"] = settings.StartModelOnAppStartup.ToString()
         };

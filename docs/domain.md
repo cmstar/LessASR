@@ -2,7 +2,7 @@
 
 ## 业务场景
 
-为 Windows 用户提供接近 Typeless 的本地语音输入体验：托盘常驻、快捷键触发、识别后优先直接写入当前焦点文本框。
+为 Windows 用户提供接近 Typeless 的本地语音输入体验（产品名 **LessASR**）：托盘常驻、快捷键触发、识别后优先直接写入当前焦点文本框。
 
 ## 核心角色
 
@@ -13,7 +13,7 @@
 | 对象 | 说明 |
 | --- | --- |
 | DictationSession | 一次从按键到注入/展示的听写过程 |
-| AppSettings | 模型路径、whisper-server 路径、数据目录、保留策略等 |
+| AppSettings | 模型路径、whisper-server 路径、保留策略等（存于固定数据目录下的 SQLite） |
 | TextHistoryEntry | 可选保存的识别文本记录 |
 | DailyStatsSnapshot | 按日聚合的使用统计（不含识别原文） |
 | AsrResult | ASR 返回的文本与耗时指标 |
@@ -31,6 +31,7 @@
 - 统计数据不可关闭，最多保留 2 个月，不保存识别原文。
 - 窗口关闭仅隐藏到托盘；仅托盘菜单「退出程序」才真正退出并释放资源。
 - MVP 不做 LLM 润色，ASR 原文直接注入（经空后处理器）。
+- 用户数据目录固定为 `%USERPROFILE%\.lessasr\`（`data/` 存 SQLite，`logs/` 存日志），不可配置。
 
 ## 术语
 

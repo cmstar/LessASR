@@ -1,6 +1,16 @@
-# LocalAsrClient
+# LessASR
 
-Windows 本地语音输入客户端 MVP。程序常驻系统托盘，通过右 Ctrl 键触发听写，识别结果优先直接写入当前文本框。
+LessASR（代码仓库名仍为 `LocalAsrClient`）是 Windows 本地语音输入客户端 MVP。程序常驻系统托盘，通过右 Ctrl 键触发听写，识别结果优先直接写入当前文本框。
+
+## 数据目录
+
+用户数据固定存放在 `%USERPROFILE%\.lessasr\`，不可通过设置修改：
+
+```text
+.lessasr/
+  data/          # SQLite（client.db）、历史与统计
+  logs/          # 应用日志
+```
 
 ## 快速开始
 

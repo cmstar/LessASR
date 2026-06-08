@@ -13,7 +13,6 @@ public sealed class SqliteRepositoryTests
         var settings = new AppSettings(
             ModelPath: @"D:\models\ggml-large-v3-turbo-q5_0.bin",
             WhisperServerPath: @"D:\tools\whisper-server.exe",
-            DataDirectory: @"D:\asr-data",
             TranscriptRetentionPolicy: TranscriptRetentionPolicy.OneMonth,
             StartModelOnAppStartup: true);
 

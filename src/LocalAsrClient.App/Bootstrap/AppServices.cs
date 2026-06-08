@@ -4,6 +4,7 @@ using LocalAsrClient.App.Audio;
 using LocalAsrClient.App.Hotkeys;
 using LocalAsrClient.App.Overlay;
 using LocalAsrClient.App.TextInjection;
+using LocalAsrClient.Core;
 using LocalAsrClient.Core.Asr;
 using LocalAsrClient.Core.Dictation;
 using LocalAsrClient.Core.Persistence;
@@ -42,11 +43,20 @@ public sealed class AppServices : IAsyncDisposable
     public DictationOrchestrator Orchestrator { get; }
     public WhisperServerProcessManager ServerManager { get; }
 
+    public async Task ApplyServerOptionsFromSettingsAsync(CancellationToken cancellationToken = default)
+    {
+        var settings = await SettingsStore.LoadAsync(cancellationToken);
+        ServerManager.UpdateOptions(new WhisperServerOptions(
+            settings.WhisperServerPath,
+            settings.ModelPath,
+            "127.0.0.1",
+            8080));
+    }
+
     public static async Task<AppServices> CreateAsync(CancellationToken cancellationToken)
     {
-        var defaultSettings = AppSettings.CreateDefault(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
-        var databasePath = Path.Combine(defaultSettings.DataDirectory, "client.db");
-        var database = await SqliteDatabase.OpenAsync(databasePath, cancellationToken);
+        Directory.CreateDirectory(LessAsrPaths.DataDirectory);
+        var database = await SqliteDatabase.OpenAsync(LessAsrPaths.DatabasePath, cancellationToken);
         var settingsStore = new SqliteSettingsStore(database);
         var settings = await settingsStore.LoadAsync(cancellationToken);
 
@@ -93,7 +103,15 @@ public sealed class AppServices : IAsyncDisposable
             _ = serverManager.EnsureStartedAsync(CancellationToken.None);
         }
 
-        return new AppServices(database, settingsStore, statsRepository, historyRepository, overlayWindow, hotkeyListener, orchestrator, serverManager);
+        return new AppServices(
+            database,
+            settingsStore,
+            statsRepository,
+            historyRepository,
+            overlayWindow,
+            hotkeyListener,
+            orchestrator,
+            serverManager);
     }
 
     public async ValueTask DisposeAsync()
@@ -103,5 +121,3 @@ public sealed class AppServices : IAsyncDisposable
         await Database.DisposeAsync();
     }
 }
-
-

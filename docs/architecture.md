@@ -54,3 +54,4 @@ whisper-server (外部进程)
 - Core/App 分离以支持无头测试与后续替换 UI 层。
 - 默认不使用剪贴板注入，降低干扰用户剪贴板的风险。
 - LLM 后处理保留接口，MVP 使用 `NoOpTextPostProcessor`。
+- 用户数据目录固定为 `%USERPROFILE%\.lessasr\`（`LessAsrPaths`），设置项仅存于该目录下的 SQLite，避免「路径配置与数据库位置」循环依赖。

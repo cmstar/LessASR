@@ -3,6 +3,7 @@ using System.IO;
 using System.Text;
 using System.Windows;
 using System.Windows.Threading;
+using LocalAsrClient.Core;
 
 namespace LocalAsrClient.App.Infrastructure;
 
@@ -13,12 +14,16 @@ public static class AppExceptionLogger
 
     public static void Initialize()
     {
-        var logDirectory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "LocalAsrClient",
-            "logs");
-        Directory.CreateDirectory(logDirectory);
-        _logFilePath = Path.Combine(logDirectory, $"app-{DateTime.Now:yyyy-MM-dd}.log");
+        ConfigureLogsDirectory(LessAsrPaths.LogsDirectory);
+    }
+
+    public static void ConfigureLogsDirectory(string logsDirectory)
+    {
+        Directory.CreateDirectory(logsDirectory);
+        lock (SyncRoot)
+        {
+            _logFilePath = Path.Combine(logsDirectory, $"app-{DateTime.Now:yyyy-MM-dd}.log");
+        }
     }
 
     public static void Report(Exception exception, string context, bool showDialog = true, bool isTerminating = false)
@@ -62,14 +67,20 @@ public static class AppExceptionLogger
 
     private static void WriteToLogFile(string message)
     {
-        if (string.IsNullOrWhiteSpace(_logFilePath))
+        string? logFilePath;
+        lock (SyncRoot)
+        {
+            logFilePath = _logFilePath;
+        }
+
+        if (string.IsNullOrWhiteSpace(logFilePath))
         {
             return;
         }
 
         lock (SyncRoot)
         {
-            File.AppendAllText(_logFilePath, message + Environment.NewLine, Encoding.UTF8);
+            File.AppendAllText(logFilePath, message + Environment.NewLine, Encoding.UTF8);
         }
     }
 
@@ -80,7 +91,7 @@ public static class AppExceptionLogger
         {
             System.Windows.MessageBox.Show(
                 BuildDialogMessage(context, exception),
-                "本地语音输入",
+                LessAsrPaths.ProductName,
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
             return;
@@ -90,7 +101,7 @@ public static class AppExceptionLogger
         {
             System.Windows.MessageBox.Show(
                 BuildDialogMessage(context, exception),
-                "本地语音输入",
+                LessAsrPaths.ProductName,
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }, DispatcherPriority.Normal);
@@ -98,9 +109,15 @@ public static class AppExceptionLogger
 
     private static string BuildDialogMessage(string context, Exception exception)
     {
-        var logHint = string.IsNullOrWhiteSpace(_logFilePath)
+        string? logFilePath;
+        lock (SyncRoot)
+        {
+            logFilePath = _logFilePath;
+        }
+
+        var logHint = string.IsNullOrWhiteSpace(logFilePath)
             ? string.Empty
-            : $"{Environment.NewLine}{Environment.NewLine}详细日志：{_logFilePath}";
+            : $"{Environment.NewLine}{Environment.NewLine}详细日志：{logFilePath}";
 
         return $"{context}{Environment.NewLine}{Environment.NewLine}{exception.Message}{logHint}";
     }

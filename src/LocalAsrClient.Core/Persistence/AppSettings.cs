@@ -3,18 +3,12 @@ namespace LocalAsrClient.Core.Persistence;
 public sealed record AppSettings(
     string ModelPath,
     string WhisperServerPath,
-    string DataDirectory,
     TranscriptRetentionPolicy TranscriptRetentionPolicy,
     bool StartModelOnAppStartup)
 {
-    public static AppSettings CreateDefault(string localAppData)
-    {
-        var dataDirectory = Path.Combine(localAppData, "LocalAsrClient", "data");
-        return new AppSettings(
-            ModelPath: string.Empty,
-            WhisperServerPath: string.Empty,
-            DataDirectory: dataDirectory,
-            TranscriptRetentionPolicy: TranscriptRetentionPolicy.SevenDays,
-            StartModelOnAppStartup: false);
-    }
+    public static AppSettings CreateDefault() => new(
+        ModelPath: string.Empty,
+        WhisperServerPath: string.Empty,
+        TranscriptRetentionPolicy: TranscriptRetentionPolicy.SevenDays,
+        StartModelOnAppStartup: false);
 }

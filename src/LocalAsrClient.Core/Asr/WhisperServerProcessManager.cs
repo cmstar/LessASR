@@ -6,13 +6,15 @@ public interface IWhisperServerManager
 {
     WhisperServerStatus Status { get; }
     Uri BaseUri { get; }
+    void UpdateOptions(WhisperServerOptions options);
     Task EnsureStartedAsync(CancellationToken cancellationToken);
     Task StopAsync(CancellationToken cancellationToken);
+    Task HealthCheckAsync(CancellationToken cancellationToken);
 }
 
 public sealed class WhisperServerProcessManager : IWhisperServerManager
 {
-    private readonly WhisperServerOptions _options;
+    private WhisperServerOptions _options;
     private Process? _process;
 
     public WhisperServerProcessManager(WhisperServerOptions options)
@@ -23,9 +25,14 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
     public WhisperServerStatus Status { get; private set; } = WhisperServerStatus.Stopped;
     public Uri BaseUri => _options.BaseUri;
 
+    public void UpdateOptions(WhisperServerOptions options)
+    {
+        _options = options;
+    }
+
     public async Task EnsureStartedAsync(CancellationToken cancellationToken)
     {
-        if (Status == WhisperServerStatus.Ready && _process is { HasExited: false })
+        if (_process is { HasExited: false } && Status == WhisperServerStatus.Ready)
         {
             return;
         }
@@ -40,6 +47,12 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
         {
             Status = WhisperServerStatus.Failed;
             throw new FileNotFoundException("未找到 Whisper 模型文件。", _options.ModelPath);
+        }
+
+        if (await TryProbeAsync(cancellationToken))
+        {
+            Status = WhisperServerStatus.Ready;
+            return;
         }
 
         Status = WhisperServerStatus.Starting;
@@ -74,9 +87,16 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
         return Task.CompletedTask;
     }
 
+    public async Task HealthCheckAsync(CancellationToken cancellationToken)
+    {
+        if (!await TryProbeAsync(cancellationToken))
+        {
+            throw new InvalidOperationException($"无法连接到 whisper-server：{_options.BaseUri}");
+        }
+    }
+
     private async Task WaitUntilReadyAsync(CancellationToken cancellationToken)
     {
-        using var httpClient = new HttpClient { BaseAddress = _options.BaseUri, Timeout = TimeSpan.FromSeconds(2) };
         var deadline = DateTimeOffset.UtcNow.AddSeconds(60);
 
         while (DateTimeOffset.UtcNow < deadline)
@@ -88,19 +108,9 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
                 throw new InvalidOperationException("whisper-server 已退出。");
             }
 
-            try
+            if (await TryProbeAsync(cancellationToken))
             {
-                using var response = await httpClient.GetAsync("/", cancellationToken);
-                if ((int)response.StatusCode < 500)
-                {
-                    return;
-                }
-            }
-            catch (HttpRequestException)
-            {
-            }
-            catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
-            {
+                return;
             }
 
             await Task.Delay(500, cancellationToken);
@@ -108,5 +118,24 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
 
         Status = WhisperServerStatus.Failed;
         throw new TimeoutException("等待 whisper-server 启动超时。");
+    }
+
+    private async Task<bool> TryProbeAsync(CancellationToken cancellationToken)
+    {
+        using var httpClient = new HttpClient { BaseAddress = _options.BaseUri, Timeout = TimeSpan.FromSeconds(2) };
+
+        try
+        {
+            using var response = await httpClient.GetAsync("/", cancellationToken);
+            return (int)response.StatusCode < 500;
+        }
+        catch (HttpRequestException)
+        {
+            return false;
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return false;
+        }
     }
 }

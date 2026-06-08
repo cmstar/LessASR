@@ -4,7 +4,7 @@
 
 Read `README.md` for human-facing project introduction.
 
-本项目是 Windows WPF 本地语音输入客户端，核心逻辑在 `LocalAsrClient.Core`，WPF 壳在 `LocalAsrClient.App`。
+本项目是 Windows WPF 本地语音输入客户端 **LessASR**（产品名；代码项目名仍为 `LocalAsrClient`），核心逻辑在 `LocalAsrClient.Core`，WPF 壳在 `LocalAsrClient.App`。
 
 ## Commands
 
@@ -43,7 +43,7 @@ Read `README.md` for human-facing project introduction.
 
 - 不要提交密钥、令牌、密码、Cookie、私钥或生产数据。
 - 不要未经明确批准执行破坏性数据迁移或删除操作。
-- 不要修改用户本地 `LocalAsrClient/data` 目录中的生产数据库（测试使用内存 SQLite）。
+- 不要修改用户本地 `%USERPROFILE%\.lessasr\` 目录中的生产数据库（测试使用内存 SQLite）。
 
 ## Do Not Auto-Modify
 
