@@ -91,8 +91,15 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
     {
         if (!await TryProbeAsync(cancellationToken))
         {
+            if (_process is null or { HasExited: true })
+            {
+                Status = WhisperServerStatus.Stopped;
+            }
+
             throw new InvalidOperationException($"无法连接到 whisper-server：{_options.BaseUri}");
         }
+
+        Status = WhisperServerStatus.Ready;
     }
 
     private async Task WaitUntilReadyAsync(CancellationToken cancellationToken)
