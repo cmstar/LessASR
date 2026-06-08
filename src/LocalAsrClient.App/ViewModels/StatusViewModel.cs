@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using LocalAsrClient.App.Hotkeys;
 using LocalAsrClient.Core.Dictation;
 
 namespace LocalAsrClient.App.ViewModels;
@@ -9,7 +10,7 @@ public sealed class StatusViewModel : INotifyPropertyChanged
     private string _currentState = "空闲";
     private string _currentModel = "未选择模型";
     private string _serviceState = "未启动";
-    private string _hotkey = "右 Ctrl";
+    private string _hotkey = DictationHotkey.ToggleDisplayName;
     private string _lastResult = "";
 
     public event PropertyChangedEventHandler? PropertyChanged;

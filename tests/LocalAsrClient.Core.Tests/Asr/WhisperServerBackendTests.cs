@@ -20,10 +20,27 @@ public sealed class WhisperServerBackendTests
             Data: Encoding.UTF8.GetBytes("fake wav"),
             Format: "wav",
             SampleRate: 16000,
-            Channels: 1), CancellationToken.None);
+            Channels: 1), language: null, CancellationToken.None);
 
         Assert.Equal("你好，世界", result.Text);
-        Assert.Equal("/v1/audio/transcriptions", handler.LastRequestPath);
+        Assert.Equal("/inference", handler.LastRequestPath);
+    }
+
+    [Fact]
+    public async Task Client_SendsLanguageField_WhenProvidedInRequest()
+    {
+        var handler = new StubHttpHandler("""{"text":"你好"}""");
+        var httpClient = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("http://127.0.0.1:8080")
+        };
+        var client = new WhisperServerClient(httpClient);
+
+        await client.TranscribeAsync(new InMemoryAudioInput(
+            Encoding.UTF8.GetBytes("fake"), "wav", 16000, 1), "zh", CancellationToken.None);
+
+        Assert.Contains("language", handler.LastRequestBody, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("\r\nzh\r\n", handler.LastRequestBody, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -53,11 +70,13 @@ public sealed class WhisperServerBackendTests
         }
 
         public string? LastRequestPath { get; private set; }
+        public string LastRequestBody { get; private set; } = "";
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             LastRequestPath = request.RequestUri?.AbsolutePath;
             var content = await request.Content!.ReadAsStringAsync(cancellationToken);
+            LastRequestBody = content;
             Assert.Contains("form-data", request.Content.Headers.ContentType!.MediaType);
             Assert.NotEmpty(content);
 
@@ -103,7 +122,7 @@ public sealed class WhisperServerBackendTests
             _text = text;
         }
 
-        public Task<AsrResult> TranscribeAsync(InMemoryAudioInput audio, CancellationToken cancellationToken)
+        public Task<AsrResult> TranscribeAsync(InMemoryAudioInput audio, string? language, CancellationToken cancellationToken)
         {
             return Task.FromResult(new AsrResult(_text, null, TimeSpan.FromMilliseconds(50), null));
         }

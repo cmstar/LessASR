@@ -1,6 +1,7 @@
 using LocalAsrClient.Core.Abstractions;
 using LocalAsrClient.Core.Asr;
 using LocalAsrClient.Core.Persistence;
+using LocalAsrClient.Core.Text;
 using LocalAsrClient.Core.Utilities;
 
 namespace LocalAsrClient.Core.Dictation;
@@ -15,7 +16,11 @@ public sealed class DictationOrchestrator
     private readonly ISettingsStore _settingsStore;
     private readonly IClock _clock;
     private readonly ITextPostProcessor _postProcessor;
+    private static readonly TimeSpan MinRecordingDuration = TimeSpan.FromMilliseconds(300);
+    private readonly SemaphoreSlim _toggleLock = new(1, 1);
     private DictationState _state = DictationState.Idle;
+
+    public DictationState State => _state;
 
     public DictationOrchestrator(
         IAudioRecorder recorder,
@@ -51,17 +56,68 @@ public sealed class DictationOrchestrator
 
     public event Action<DictationStatus>? StatusChanged;
 
-    public async Task ToggleAsync(CancellationToken cancellationToken)
+    public void DismissOverlay()
     {
-        if (_state == DictationState.Idle || _state == DictationState.Ready)
+        if (_state is not (DictationState.Error or DictationState.ResultNeedsAction or DictationState.Ready))
         {
-            await StartRecordingAsync(cancellationToken);
             return;
         }
 
-        if (_state == DictationState.Recording)
+        _state = DictationState.Idle;
+    }
+
+    public async Task CancelRecordingAsync(CancellationToken cancellationToken)
+    {
+        if (!await _toggleLock.WaitAsync(0, cancellationToken))
         {
-            await StopAndTranscribeAsync(cancellationToken);
+            return;
+        }
+
+        try
+        {
+            if (_state != DictationState.Recording)
+            {
+                return;
+            }
+
+            await _recorder.StopAsync(cancellationToken);
+            _state = DictationState.Idle;
+            Publish("已取消");
+        }
+        finally
+        {
+            _toggleLock.Release();
+        }
+    }
+
+    public async Task ToggleAsync(CancellationToken cancellationToken)
+    {
+        if (!await _toggleLock.WaitAsync(0, cancellationToken))
+        {
+            return;
+        }
+
+        try
+        {
+            if (_state is DictationState.Transcribing or DictationState.Injecting or DictationState.EnsuringModelReady)
+            {
+                return;
+            }
+
+            if (_state is DictationState.Idle or DictationState.Ready or DictationState.Error or DictationState.ResultNeedsAction)
+            {
+                await StartRecordingAsync(cancellationToken);
+                return;
+            }
+
+            if (_state == DictationState.Recording)
+            {
+                await StopAndTranscribeAsync(cancellationToken);
+            }
+        }
+        finally
+        {
+            _toggleLock.Release();
         }
     }
 
@@ -89,6 +145,13 @@ public sealed class DictationOrchestrator
             _state = DictationState.Transcribing;
             Publish("识别中");
             var recording = await _recorder.StopAsync(cancellationToken);
+            if (ShouldSkipTranscription(recording))
+            {
+                _state = DictationState.Idle;
+                Publish("已取消");
+                return;
+            }
+
             var asrResult = await _asrBackend.TranscribeAsync(new AsrRequest(
                 new InMemoryAudioInput(recording.WavData, "wav", recording.SampleRate, recording.Channels),
                 Language: "zh",
@@ -96,6 +159,14 @@ public sealed class DictationOrchestrator
                 Options: new Dictionary<string, string>()), cancellationToken);
 
             var finalText = await _postProcessor.ProcessAsync(asrResult.Text, cancellationToken);
+
+            if (string.IsNullOrWhiteSpace(finalText))
+            {
+                await PersistResultAsync(string.Empty, recording.Duration, asrResult.ProcessingDuration ?? TimeSpan.Zero, succeeded: false, cancellationToken);
+                _state = DictationState.ResultNeedsAction;
+                Publish("识别文本为空");
+                return;
+            }
 
             _state = DictationState.Injecting;
             Publish("正在输入", finalText);
@@ -111,10 +182,22 @@ public sealed class DictationOrchestrator
             }
 
             _state = DictationState.ResultNeedsAction;
-            Publish("未找到可输入位置", finalText);
+            var message = injection.Status == TextInjectionStatus.NoEditableTarget
+                ? "未找到可输入位置"
+                : injection.Message ?? "文本注入失败";
+            Publish(message, finalText);
         }
         catch (Exception ex)
         {
+            try
+            {
+                await PersistResultAsync(string.Empty, TimeSpan.Zero, TimeSpan.Zero, succeeded: false, cancellationToken);
+            }
+            catch
+            {
+                // 统计写入失败不再掩盖原始异常。
+            }
+
             _state = DictationState.Error;
             Publish("输入失败", ErrorMessage: ex.Message);
         }
@@ -139,7 +222,7 @@ public sealed class DictationOrchestrator
             wordCount), cancellationToken);
 
         var settings = await _settingsStore.LoadAsync(cancellationToken);
-        if (settings.TranscriptRetentionPolicy != TranscriptRetentionPolicy.Disabled)
+        if (!string.IsNullOrWhiteSpace(text) && settings.TranscriptRetentionPolicy != TranscriptRetentionPolicy.Disabled)
         {
             await _historyRepository.AddAsync(new TextHistoryEntry(
                 Guid.NewGuid(),
@@ -155,6 +238,11 @@ public sealed class DictationOrchestrator
         }
 
         await _statsRepository.PruneAsync(_clock.Today, cancellationToken);
+    }
+
+    private static bool ShouldSkipTranscription(RecordingResult recording)
+    {
+        return recording.Duration < MinRecordingDuration;
     }
 
     private void Publish(string message, string? resultText = null, string? ErrorMessage = null)

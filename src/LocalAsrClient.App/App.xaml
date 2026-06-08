@@ -4,5 +4,7 @@
              ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <Infrastructure:StringNotEmptyToVisibilityConverter x:Key="StringNotEmptyToVisibilityConverter"
+            xmlns:Infrastructure="clr-namespace:LocalAsrClient.App.Infrastructure"/>
     </Application.Resources>
 </Application>

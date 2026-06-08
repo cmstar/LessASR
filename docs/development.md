@@ -22,7 +22,7 @@ src/LocalAsrClient.Core/
 src/LocalAsrClient.App/
   Bootstrap/      # 服务组合根
   Audio/          # NAudio 录音实现
-  Hotkeys/        # 右 Ctrl 钩子
+  Hotkeys/        # 全局热键钩子（键位见 DictationHotkey）
   TextInjection/  # SendInput 实现
   Tray/           # 托盘图标
   Overlay/        # 听写浮窗

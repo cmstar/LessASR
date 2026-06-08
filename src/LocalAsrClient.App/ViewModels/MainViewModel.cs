@@ -34,19 +34,32 @@ public sealed class MainViewModel
         {
             Status.Apply(status);
             var overlayState = ToOverlayState(status.State);
-            _services.OverlayWindow.ShowOverlay(overlayState, status.Message, status.ResultText ?? "");
-            if (status.State == DictationState.Idle && status.Message == "已输入")
+            _services.OverlayWindow.ShowOverlay(
+                overlayState,
+                status.Message,
+                status.ResultText ?? "",
+                status.ErrorMessage);
+
+            if (status.State == DictationState.Idle && status.Message is "已输入" or "已取消")
             {
-                var timer = new System.Windows.Threading.DispatcherTimer
+                _services.InjectionTargetCapture.Clear();
+                if (status.Message == "已输入")
                 {
-                    Interval = TimeSpan.FromMilliseconds(700)
-                };
-                timer.Tick += (_, _) =>
+                    var timer = new System.Windows.Threading.DispatcherTimer
+                    {
+                        Interval = TimeSpan.FromMilliseconds(700)
+                    };
+                    timer.Tick += (_, _) =>
+                    {
+                        timer.Stop();
+                        _services.OverlayWindow.HideOverlay();
+                    };
+                    timer.Start();
+                }
+                else
                 {
-                    timer.Stop();
                     _services.OverlayWindow.HideOverlay();
-                };
-                timer.Start();
+                }
             }
         });
     }

@@ -15,18 +15,41 @@
             CornerRadius="8"
             Padding="16">
         <StackPanel>
-            <TextBlock Text="{Binding Message}"
-                       FontSize="16"
-                       FontWeight="SemiBold"
-                       Foreground="#0F172A"
-                       Margin="0,0,0,8"/>
+            <Grid Margin="0,0,0,8">
+                <TextBlock Text="{Binding Message}"
+                           FontSize="16"
+                           FontWeight="SemiBold"
+                           Foreground="#0F172A"
+                           VerticalAlignment="Center"
+                           Margin="0,0,36,0"/>
+                <Button Content="×"
+                        Width="28"
+                        Height="28"
+                        Padding="0"
+                        FontSize="18"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Foreground="#64748B"
+                        Cursor="Hand"
+                        Command="{Binding CloseCommand}"
+                        ToolTip="关闭"
+                        Visibility="{Binding ShowCloseButton, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+            </Grid>
+            <TextBlock Text="{Binding ErrorMessage}"
+                       TextWrapping="Wrap"
+                       FontSize="13"
+                       Foreground="#B91C1C"
+                       Margin="0,0,0,8"
+                       Visibility="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyToVisibilityConverter}}"/>
             <TextBox Text="{Binding ResultText}"
                      TextWrapping="Wrap"
-                     MinHeight="80"
-                     MaxHeight="180"
+                     MinHeight="60"
+                     MaxHeight="{Binding ResultMaxHeight}"
                      IsReadOnly="True"
                      VerticalScrollBarVisibility="Auto"
-                     Visibility="{Binding ShowCopyButton, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                     Visibility="{Binding ShowResultText, Converter={StaticResource BooleanToVisibilityConverter}}"/>
             <Button Content="复制"
                     Width="88"
                     HorizontalAlignment="Right"

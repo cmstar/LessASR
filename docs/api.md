@@ -4,9 +4,9 @@
 
 客户端通过 `WhisperServerClient` 调用本地托管的 whisper-server。
 
-### POST /v1/audio/transcriptions
+### POST /inference
 
-OpenAI 兼容的语音转文字端点。
+whisper.cpp `whisper-server` 默认转写端点（可通过 `--inference-path` 自定义）。
 
 **请求**
 
@@ -14,6 +14,7 @@ OpenAI 兼容的语音转文字端点。
 - 字段：
   - `file`：WAV 音频（`audio/wav`）
   - `response_format`：`json`
+  - `language`：可选，推荐 `zh`
 
 **响应**
 
@@ -42,7 +43,7 @@ Core 层平台抽象见 `src/LocalAsrClient.Core/Abstractions/`：
 | `IAsrBackend` | ASR 就绪检查与转写 |
 | `IAudioRecorder` | 录音开始/停止 |
 | `ITextInjector` | 文本注入 |
-| `IHotkeyListener` | 右 Ctrl 触发事件 |
+| `IHotkeyListener` | 右 Alt 触发事件 |
 | `ISettingsStore` | 应用设置读写 |
 | `IStatsRepository` | 每日统计 |
 | `ITextHistoryRepository` | 文本历史 |

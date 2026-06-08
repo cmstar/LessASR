@@ -4,18 +4,21 @@ using LocalAsrClient.Core.Abstractions;
 
 namespace LocalAsrClient.App.Hotkeys;
 
-public sealed class RightCtrlHotkeyListener : IHotkeyListener
+public sealed class EscapeCancelListener : IDisposable
 {
     private readonly Win32HotkeyNative.LowLevelKeyboardProc _callback;
+    private readonly Func<bool> _canCancel;
     private IntPtr _hook;
     private bool _isDown;
 
-    public RightCtrlHotkeyListener()
+    public EscapeCancelListener(Func<bool> canCancel)
     {
+        _canCancel = canCancel;
         _callback = HookCallback;
     }
 
-    public event Action? Triggered;
+    public event Action? CancelRequested;
+
     public bool IsRunning => _hook != IntPtr.Zero;
 
     public void Start()
@@ -31,7 +34,7 @@ public sealed class RightCtrlHotkeyListener : IHotkeyListener
         _hook = Win32HotkeyNative.SetWindowsHookEx(Win32HotkeyNative.WhKeyboardLl, _callback, moduleHandle, 0);
         if (_hook == IntPtr.Zero)
         {
-            throw new InvalidOperationException("无法注册右 Ctrl 全局键盘监听。");
+            throw new InvalidOperationException("无法注册 Esc 全局键盘监听。");
         }
     }
 
@@ -58,15 +61,15 @@ public sealed class RightCtrlHotkeyListener : IHotkeyListener
             var message = wParam.ToInt32();
             var data = Marshal.PtrToStructure<Win32HotkeyNative.KbdLlHookStruct>(lParam);
             if ((message == Win32HotkeyNative.WmKeyDown || message == Win32HotkeyNative.WmSysKeyDown)
-                && data.VkCode == Win32HotkeyNative.VkRControl)
+                && data.VkCode == Win32HotkeyNative.VkEscape)
             {
-                if (!_isDown)
+                if (!_isDown && _canCancel())
                 {
                     _isDown = true;
-                    Triggered?.Invoke();
+                    CancelRequested?.Invoke();
                 }
             }
-            else if (data.VkCode == Win32HotkeyNative.VkRControl)
+            else if (data.VkCode == Win32HotkeyNative.VkEscape)
             {
                 _isDown = false;
             }

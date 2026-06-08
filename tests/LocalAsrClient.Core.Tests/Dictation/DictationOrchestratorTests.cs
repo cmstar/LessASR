@@ -62,6 +62,133 @@ public sealed class DictationOrchestratorTests
         Assert.Equal("测试文本", fixture.LastStatus.ResultText);
     }
 
+    [Fact]
+    public async Task ToggleAsync_FromError_StartsNewRecording()
+    {
+        var fixture = new Fixture();
+        fixture.Backend.Status = AsrBackendStatus.Ready;
+
+        await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+        fixture.Backend.TranscribeThrows = new InvalidOperationException("转写失败");
+        await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+
+        Assert.Equal(DictationState.Error, fixture.LastStatus.State);
+
+        await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+
+        Assert.Equal(DictationState.Recording, fixture.LastStatus.State);
+        Assert.Equal("正在聆听", fixture.LastStatus.Message);
+        Assert.True(fixture.Recorder.Started);
+    }
+
+    [Fact]
+    public async Task ToggleAsync_FromResultNeedsAction_StartsNewRecording()
+    {
+        var fixture = new Fixture();
+        fixture.Backend.Status = AsrBackendStatus.Ready;
+        fixture.Injector.Result = new TextInjectionResult(TextInjectionStatus.NoEditableTarget, "没有输入框");
+
+        await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+        await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+
+        Assert.Equal(DictationState.ResultNeedsAction, fixture.LastStatus.State);
+
+        await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+
+        Assert.Equal(DictationState.Recording, fixture.LastStatus.State);
+    }
+
+    [Fact]
+    public async Task ToggleAsync_WhenInjectionReturnsFailed_UsesInjectorMessage()
+    {
+        var fixture = new Fixture();
+        fixture.Backend.Status = AsrBackendStatus.Ready;
+        fixture.Injector.Result = new TextInjectionResult(TextInjectionStatus.Failed, "SendInput 被拒绝");
+
+        await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+        await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+
+        Assert.Equal(DictationState.ResultNeedsAction, fixture.LastStatus.State);
+        Assert.Equal("SendInput 被拒绝", fixture.LastStatus.Message);
+    }
+
+    [Fact]
+    public async Task ToggleAsync_WhenTranscriptionEmpty_ShowsEmptyTextMessage()
+    {
+        var fixture = new Fixture();
+        fixture.Backend.Status = AsrBackendStatus.Ready;
+        fixture.Backend.TranscribeText = "";
+
+        await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+        await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+
+        Assert.Equal(DictationState.ResultNeedsAction, fixture.LastStatus.State);
+        Assert.Equal("识别文本为空", fixture.LastStatus.Message);
+        Assert.Single(fixture.Stats.Recorded);
+        Assert.False(fixture.Stats.Recorded[0].Succeeded);
+        Assert.Empty(fixture.History.Entries);
+    }
+
+    [Fact]
+    public async Task ToggleAsync_WhenTranscribeThrows_RecordsFailedStatsWithoutHistory()
+    {
+        var fixture = new Fixture();
+        fixture.Backend.Status = AsrBackendStatus.Ready;
+
+        await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+        fixture.Backend.TranscribeThrows = new HttpRequestException("连接被拒绝");
+        await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+
+        Assert.Equal(DictationState.Error, fixture.LastStatus.State);
+        Assert.Single(fixture.Stats.Recorded);
+        Assert.False(fixture.Stats.Recorded[0].Succeeded);
+        Assert.Empty(fixture.History.Entries);
+    }
+
+    [Fact]
+    public async Task CancelRecordingAsync_StopsWithoutTranscribing()
+    {
+        var fixture = new Fixture();
+        fixture.Backend.Status = AsrBackendStatus.Ready;
+
+        await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+        await fixture.Orchestrator.CancelRecordingAsync(CancellationToken.None);
+
+        Assert.Equal(DictationState.Idle, fixture.LastStatus.State);
+        Assert.Equal("已取消", fixture.LastStatus.Message);
+        Assert.Equal(0, fixture.Backend.TranscribeCallCount);
+    }
+
+    [Fact]
+    public async Task ToggleAsync_WhenRecordingTooShort_SkipsTranscription()
+    {
+        var fixture = new Fixture();
+        fixture.Backend.Status = AsrBackendStatus.Ready;
+        fixture.Recorder.DurationOverride = TimeSpan.FromMilliseconds(100);
+
+        await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+        await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+
+        Assert.Equal(DictationState.Idle, fixture.LastStatus.State);
+        Assert.Equal("已取消", fixture.LastStatus.Message);
+        Assert.Equal(0, fixture.Backend.TranscribeCallCount);
+    }
+
+    [Fact]
+    public async Task ToggleAsync_IgnoresPressWhileTranscribing()
+    {
+        var fixture = new Fixture();
+        fixture.Backend.Status = AsrBackendStatus.Ready;
+        fixture.Backend.TranscribeDelay = TimeSpan.FromMilliseconds(200);
+
+        await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+        var stopTask = fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+        await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+        await stopTask;
+
+        Assert.Equal(1, fixture.Backend.TranscribeCallCount);
+    }
+
     private sealed class Fixture
     {
         public Fixture()
@@ -91,6 +218,7 @@ public sealed class DictationOrchestratorTests
     private sealed class StubRecorder : IAudioRecorder
     {
         public bool Started { get; private set; }
+        public TimeSpan DurationOverride { get; set; } = TimeSpan.FromSeconds(2);
 
         public Task StartAsync(CancellationToken cancellationToken)
         {
@@ -100,7 +228,7 @@ public sealed class DictationOrchestratorTests
 
         public Task<RecordingResult> StopAsync(CancellationToken cancellationToken)
         {
-            return Task.FromResult(new RecordingResult(new byte[] { 1, 2, 3 }, TimeSpan.FromSeconds(2), 16000, 1));
+            return Task.FromResult(new RecordingResult(new byte[1000], DurationOverride, 16000, 1));
         }
     }
 
@@ -109,6 +237,10 @@ public sealed class DictationOrchestratorTests
         public string Name => "Whisper Server";
         public AsrBackendStatus Status { get; set; } = AsrBackendStatus.Ready;
         public bool EnsureReadyCalled { get; private set; }
+        public int TranscribeCallCount { get; private set; }
+        public string TranscribeText { get; set; } = "测试文本";
+        public Exception? TranscribeThrows { get; set; }
+        public TimeSpan TranscribeDelay { get; set; }
 
         public Task EnsureReadyAsync(CancellationToken cancellationToken)
         {
@@ -117,9 +249,20 @@ public sealed class DictationOrchestratorTests
             return Task.CompletedTask;
         }
 
-        public Task<AsrResult> TranscribeAsync(AsrRequest request, CancellationToken cancellationToken)
+        public async Task<AsrResult> TranscribeAsync(AsrRequest request, CancellationToken cancellationToken)
         {
-            return Task.FromResult(new AsrResult("测试文本", TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), null));
+            TranscribeCallCount++;
+            if (TranscribeThrows is not null)
+            {
+                throw TranscribeThrows;
+            }
+
+            if (TranscribeDelay > TimeSpan.Zero)
+            {
+                await Task.Delay(TranscribeDelay, cancellationToken);
+            }
+
+            return new AsrResult(TranscribeText, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), null);
         }
     }
 
