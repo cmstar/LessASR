@@ -127,7 +127,16 @@ public sealed class AppServices : IAsyncDisposable
 
         ServerManager.UpdateOptions(options);
 
-        HttpClient.BaseAddress = options.BaseUri;
+        // HttpClient 在发出首个请求后不可再修改 BaseAddress；地址未变时跳过赋值。
+        var baseUri = options.BaseUri;
+        if (HttpClient.BaseAddress is null
+            || !string.Equals(
+                HttpClient.BaseAddress.GetLeftPart(UriPartial.Authority),
+                baseUri.GetLeftPart(UriPartial.Authority),
+                StringComparison.OrdinalIgnoreCase))
+        {
+            HttpClient.BaseAddress = baseUri;
+        }
 
     }
 
