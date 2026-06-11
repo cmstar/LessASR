@@ -7,7 +7,9 @@
         AllowsTransparency="True"
         Background="Transparent"
         Topmost="True"
+        ShowActivated="False"
         ShowInTaskbar="False"
+        Focusable="False"
         ResizeMode="NoResize">
     <Border Background="#F8FAFC"
             BorderBrush="#CBD5E1"

@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
+using LocalAsrClient.App.TextInjection;
 
 namespace LocalAsrClient.App.Overlay;
 
@@ -8,16 +9,21 @@ public partial class DictationOverlayWindow : Window
 {
     private const int GwlExStyle = -20;
     private const int WsExNoActivate = 0x08000000;
+    private const int WsExToolWindow = 0x00000080;
+    private const int SwShownoactivate = 4;
     private const double BottomMargin = 20;
     private const double TopMargin = 16;
     private const double ChromeHeightWithoutResult = 130;
     private readonly OverlayViewModel _viewModel;
+    private readonly WindowInteropHelper _interopHelper;
 
     public DictationOverlayWindow()
     {
         _viewModel = new OverlayViewModel(OnCloseRequested);
         InitializeComponent();
         DataContext = _viewModel;
+        _interopHelper = new WindowInteropHelper(this);
+        ConfigureNoActivateStyle(_interopHelper.EnsureHandle());
         SizeChanged += (_, _) =>
         {
             if (IsVisible)
@@ -33,7 +39,7 @@ public partial class DictationOverlayWindow : Window
     {
         _viewModel.ShowState(state, message, resultText, errorMessage);
         ApplyHeightConstraints();
-        Show();
+        ShowWithoutActivation();
         UpdateLayout();
         PositionBottomCenter();
     }
@@ -52,9 +58,35 @@ public partial class DictationOverlayWindow : Window
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
-        var handle = new WindowInteropHelper(this).Handle;
+        ConfigureNoActivateStyle(_interopHelper.Handle);
+    }
+
+    protected override void OnActivated(EventArgs e)
+    {
+        base.OnActivated(e);
+        var previous = Win32FocusNative.GetForegroundWindow();
+        if (previous != _interopHelper.Handle && previous != IntPtr.Zero)
+        {
+            Win32FocusNative.SetForegroundWindow(previous);
+        }
+    }
+
+    private void ShowWithoutActivation()
+    {
+        var handle = _interopHelper.Handle;
+        ConfigureNoActivateStyle(handle);
+        if (!IsVisible)
+        {
+            Show();
+        }
+
+        ShowWindow(handle, SwShownoactivate);
+    }
+
+    private static void ConfigureNoActivateStyle(IntPtr handle)
+    {
         var styles = GetWindowLong(handle, GwlExStyle);
-        SetWindowLong(handle, GwlExStyle, styles | WsExNoActivate);
+        SetWindowLong(handle, GwlExStyle, styles | WsExNoActivate | WsExToolWindow);
     }
 
     private void ApplyHeightConstraints()
@@ -95,4 +127,8 @@ public partial class DictationOverlayWindow : Window
 
     [DllImport("user32.dll")]
     private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 }

@@ -7,6 +7,8 @@ internal static class Win32InputNative
     public const int InputKeyboard = 1;
     public const ushort KeyEventFUnicode = 0x0004;
     public const ushort KeyEventFKeyUp = 0x0002;
+    public const ushort VirtualKeyControl = 0x11;
+    public const ushort VirtualKeyV = 0x56;
 
     [StructLayout(LayoutKind.Sequential)]
     public struct Input
