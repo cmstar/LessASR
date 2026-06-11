@@ -1,6 +1,6 @@
 # LessASR
 
-LessASR（代码仓库名仍为 `LocalAsrClient`）是 Windows 本地语音输入客户端 MVP。程序常驻系统托盘，通过右 Alt 键触发听写，识别结果优先直接写入当前文本框。
+LessASR（代码仓库名仍为 `LocalAsrClient`）是 Windows 本地语音输入客户端 MVP。程序常驻系统托盘，通过 F10 键触发听写，识别结果优先直接写入当前文本框。
 
 ## 数据目录
 
