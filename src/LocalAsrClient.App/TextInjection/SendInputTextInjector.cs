@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using LocalAsrClient.App.Diagnostics;
 using LocalAsrClient.Core.Abstractions;
 using LocalAsrClient.Core.Text;
 using WpfClipboard = System.Windows.Clipboard;
@@ -10,27 +11,44 @@ namespace LocalAsrClient.App.TextInjection;
 public sealed class SendInputTextInjector : ITextInjector
 {
     private readonly InjectionTargetCapture _targetCapture;
+    private readonly IDiagnosticEventSink _diagnostics;
 
     public SendInputTextInjector(InjectionTargetCapture targetCapture)
+        : this(targetCapture, NullDiagnosticEventSink.Instance)
+    {
+    }
+
+    public SendInputTextInjector(InjectionTargetCapture targetCapture, IDiagnosticEventSink diagnostics)
     {
         _targetCapture = targetCapture;
+        _diagnostics = diagnostics;
     }
 
     public async Task<TextInjectionResult> TryInjectAsync(string text, CancellationToken cancellationToken)
     {
+        var textLength = text?.Length ?? 0;
+        _ = _diagnostics.WriteAsync(CreateEvent("TextInjection.Before", textLength, null));
+
         if (string.IsNullOrEmpty(text))
         {
-            return new TextInjectionResult(TextInjectionStatus.Failed, "识别文本为空。");
+            var emptyResult = new TextInjectionResult(TextInjectionStatus.Failed, "识别文本为空。");
+            _ = _diagnostics.WriteAsync(CreateEvent("TextInjection.After", textLength, emptyResult.Status.ToString()));
+            return emptyResult;
         }
 
         var editWindow = _targetCapture.GetInjectionTarget();
         if (editWindow != IntPtr.Zero)
         {
             var className = EditableFocusDetector.GetClassName(editWindow);
+            var method = TextInjectionStrategy.Select(className);
+            _ = _diagnostics.WriteAsync(CreateEvent("TextInjection.StrategySelected", text.Length, method.ToString()));
+
             if (TryInjectDirect(editWindow, className, text, cancellationToken))
             {
                 Debug.WriteLine($"Text injection succeeded via direct message. ClassName={className}");
-                return new TextInjectionResult(TextInjectionStatus.Success, null);
+                var directResult = new TextInjectionResult(TextInjectionStatus.Success, null);
+                _ = _diagnostics.WriteAsync(CreateEvent("TextInjection.After", text.Length, directResult.Status.ToString()));
+                return directResult;
             }
 
             var directRootWindow = _targetCapture.GetRootWindow();
@@ -38,7 +56,9 @@ public sealed class SendInputTextInjector : ITextInjector
                 && TryInjectViaForegroundSendInput(directRootWindow, text, cancellationToken))
             {
                 Debug.WriteLine($"Text injection succeeded via SendInput fallback. ClassName={className}");
-                return new TextInjectionResult(TextInjectionStatus.Success, null);
+                var sendInputResult = new TextInjectionResult(TextInjectionStatus.Success, null);
+                _ = _diagnostics.WriteAsync(CreateEvent("TextInjection.After", text.Length, sendInputResult.Status.ToString()));
+                return sendInputResult;
             }
         }
 
@@ -47,11 +67,30 @@ public sealed class SendInputTextInjector : ITextInjector
             && await TryInjectViaClipboardPasteAsync(rootWindow, text, cancellationToken))
         {
             Debug.WriteLine("Text injection succeeded via clipboard paste fallback.");
-            return new TextInjectionResult(TextInjectionStatus.Success, null);
+            var clipboardResult = new TextInjectionResult(TextInjectionStatus.Success, null);
+            _ = _diagnostics.WriteAsync(CreateEvent("TextInjection.After", text.Length, clipboardResult.Status.ToString()));
+            return clipboardResult;
         }
 
         Debug.WriteLine("Text injection failed: no editable target or fallback failed.");
-        return new TextInjectionResult(TextInjectionStatus.NoEditableTarget, "未找到可输入位置。");
+        var failedResult = new TextInjectionResult(TextInjectionStatus.NoEditableTarget, "未找到可输入位置。");
+        _ = _diagnostics.WriteAsync(CreateEvent("TextInjection.After", text.Length, failedResult.Status.ToString()));
+        return failedResult;
+    }
+
+    private DiagnosticEvent CreateEvent(string eventName, int textLength, string? state)
+    {
+        return new DiagnosticEvent(
+            0,
+            DateTimeOffset.Now,
+            eventName,
+            state,
+            Environment.CurrentManagedThreadId,
+            DiagnosticSnapshotCollector.Capture(),
+            new Dictionary<string, string?>
+            {
+                ["textLength"] = textLength.ToString()
+            });
     }
 
     private static bool TryInjectDirect(IntPtr editWindow, string className, string text, CancellationToken cancellationToken)

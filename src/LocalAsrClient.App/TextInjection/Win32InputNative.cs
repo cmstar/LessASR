@@ -17,7 +17,8 @@ internal static class Win32InputNative
         public InputUnion Union;
     }
 
-    [StructLayout(LayoutKind.Explicit)]
+    // x64 INPUT 的 union 必须按 MOUSEINPUT 对齐为 32 字节，否则 cbSize 不匹配会导致 SendInput 返回 0。
+    [StructLayout(LayoutKind.Explicit, Size = 32)]
     public struct InputUnion
     {
         [FieldOffset(0)]

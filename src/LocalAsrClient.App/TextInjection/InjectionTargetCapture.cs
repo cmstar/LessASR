@@ -1,21 +1,36 @@
 using System.Diagnostics;
+using LocalAsrClient.App.Diagnostics;
 
 namespace LocalAsrClient.App.TextInjection;
 
 public sealed class InjectionTargetCapture
 {
     private static readonly uint CurrentProcessId = (uint)Process.GetCurrentProcess().Id;
+    private readonly IDiagnosticEventSink _diagnostics;
+
+    public InjectionTargetCapture()
+        : this(NullDiagnosticEventSink.Instance)
+    {
+    }
+
+    public InjectionTargetCapture(IDiagnosticEventSink diagnostics)
+    {
+        _diagnostics = diagnostics;
+    }
 
     public IntPtr ForegroundWindow { get; private set; }
     public IntPtr FocusWindow { get; private set; }
 
     public void Capture()
     {
+        _ = _diagnostics.WriteAsync(CreateEvent("InjectionTargetCapture.Before", null));
+
         var foreground = Win32FocusNative.GetForegroundWindow();
         if (foreground == IntPtr.Zero || BelongsToCurrentProcess(foreground))
         {
             ForegroundWindow = IntPtr.Zero;
             FocusWindow = IntPtr.Zero;
+            WriteAfterEvent();
             return;
         }
 
@@ -25,6 +40,8 @@ public sealed class InjectionTargetCapture
         FocusWindow = EditableFocusDetector.IsEditableWindow(focused)
             ? focused
             : EditableFocusDetector.ResolveEditableTarget(foreground);
+
+        WriteAfterEvent();
     }
 
     public void Clear()
@@ -60,6 +77,28 @@ public sealed class InjectionTargetCapture
 
         var foreground = Win32FocusNative.GetForegroundWindow();
         return BelongsToCurrentProcess(foreground) ? IntPtr.Zero : foreground;
+    }
+
+    private void WriteAfterEvent()
+    {
+        _ = _diagnostics.WriteAsync(CreateEvent("InjectionTargetCapture.After", new Dictionary<string, string?>
+        {
+            ["foregroundWindow"] = $"0x{ForegroundWindow.ToInt64():X}",
+            ["focusWindow"] = $"0x{FocusWindow.ToInt64():X}",
+            ["focusClassName"] = EditableFocusDetector.GetClassName(FocusWindow)
+        }));
+    }
+
+    private DiagnosticEvent CreateEvent(string eventName, IReadOnlyDictionary<string, string?>? properties)
+    {
+        return new DiagnosticEvent(
+            0,
+            DateTimeOffset.Now,
+            eventName,
+            null,
+            Environment.CurrentManagedThreadId,
+            DiagnosticSnapshotCollector.Capture(),
+            properties ?? new Dictionary<string, string?>());
     }
 
     private static bool BelongsToCurrentProcess(IntPtr hwnd)

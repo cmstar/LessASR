@@ -13,6 +13,8 @@ public static class LessAsrPaths
 
     public const string LogsDirectoryName = "logs";
 
+    public const string DiagnosticsDirectoryName = "diagnostics";
+
     public const string DatabaseFileName = "client.db";
 
     public static string AppDataRoot =>
@@ -23,6 +25,8 @@ public static class LessAsrPaths
     public static string DataDirectory => Path.Combine(AppDataRoot, DataDirectoryName);
 
     public static string LogsDirectory => Path.Combine(AppDataRoot, LogsDirectoryName);
+
+    public static string DiagnosticsDirectory => Path.Combine(AppDataRoot, DiagnosticsDirectoryName);
 
     public static string DatabasePath => Path.Combine(DataDirectory, DatabaseFileName);
 }

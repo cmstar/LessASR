@@ -17,6 +17,7 @@ public sealed class LessAsrPathsTests
     {
         Assert.Equal(Path.Combine(LessAsrPaths.AppDataRoot, "data"), LessAsrPaths.DataDirectory);
         Assert.Equal(Path.Combine(LessAsrPaths.AppDataRoot, "logs"), LessAsrPaths.LogsDirectory);
+        Assert.Equal(Path.Combine(LessAsrPaths.AppDataRoot, "diagnostics"), LessAsrPaths.DiagnosticsDirectory);
         Assert.Equal(Path.Combine(LessAsrPaths.DataDirectory, "client.db"), LessAsrPaths.DatabasePath);
     }
 

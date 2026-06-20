@@ -61,6 +61,33 @@ dotnet test LocalAsrClient.sln
 dotnet test tests/LocalAsrClient.Core.Tests/LocalAsrClient.Core.Tests.csproj --filter <TestClassName>
 ```
 
+## 焦点诊断自动化测试
+
+焦点诊断 E2E 测试只依赖本地 TestTarget，不依赖记事本、VS Code、浏览器或真实 whisper-server。
+
+运行前先构建：
+
+```powershell
+dotnet build src/LocalAsrClient.App/LocalAsrClient.App.csproj
+dotnet build tests/LocalAsrClient.TestTarget/LocalAsrClient.TestTarget.csproj
+dotnet build tests/LocalAsrClient.App.Tests/LocalAsrClient.App.Tests.csproj
+```
+
+显式开启 UI E2E：
+
+```powershell
+$env:LESSASR_RUN_UI_E2E='1'
+dotnet test tests/LocalAsrClient.App.Tests/LocalAsrClient.App.Tests.csproj --filter FocusDiagnosticsE2ETests
+```
+
+LessASR 诊断日志写入：
+
+```text
+%USERPROFILE%\.lessasr\diagnostics\diagnostics-YYYY-MM-DD-HHmmss-pPID.jsonl
+```
+
+测试音频固定来自 `tests/Resources/test-sound.wav`，测试模式下 ASR 固定返回测试文本，不验证 whisper-server 识别准确率。
+
 ## 实现计划
 
 分步任务见 `docs/superpowers/plans/2026-06-07-windows-asr-client-mvp.md`，按 Task 1–13 顺序实施。

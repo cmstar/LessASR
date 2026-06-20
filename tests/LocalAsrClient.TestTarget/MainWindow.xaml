@@ -1,0 +1,61 @@
+<Window x:Class="LocalAsrClient.TestTarget.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wfi="clr-namespace:System.Windows.Forms.Integration;assembly=WindowsFormsIntegration"
+        Title="LessASR TestTarget"
+        Width="900"
+        Height="650">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+            <Button x:Name="ClearButton"
+                    AutomationProperties.AutomationId="ClearButton"
+                    Content="Clear"
+                    Width="80"
+                    Margin="0,0,8,0"
+                    Click="ClearButton_Click"/>
+            <Button x:Name="FocusNativeButton"
+                    AutomationProperties.AutomationId="FocusNativeButton"
+                    Content="Focus Native"
+                    Width="120"
+                    Click="FocusNativeButton_Click"/>
+        </StackPanel>
+        <Grid Grid.Row="1" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                <TextBlock Text="Native / WinForms TextBox"/>
+                <wfi:WindowsFormsHost x:Name="NativeTextBoxHost"
+                                      AutomationProperties.AutomationId="NativeTextBoxHost"
+                                      Height="100"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1">
+                <TextBlock Text="WPF TextBox"/>
+                <TextBox x:Name="WpfTextBox"
+                         AutomationProperties.AutomationId="WpfTextBox"
+                         Height="100"
+                         AcceptsReturn="True"
+                         TextChanged="WpfTextBox_TextChanged"
+                         GotKeyboardFocus="Control_GotKeyboardFocus"
+                         LostKeyboardFocus="Control_LostKeyboardFocus"/>
+                <TextBlock Text="Read-only TextBox" Margin="0,12,0,0"/>
+                <TextBox x:Name="ReadOnlyTextBox"
+                         AutomationProperties.AutomationId="ReadOnlyTextBox"
+                         IsReadOnly="True"
+                         Text="Read only target"/>
+            </StackPanel>
+        </Grid>
+        <TextBox Grid.Row="2"
+                 x:Name="ScreenLogTextBox"
+                 AutomationProperties.AutomationId="ScreenLogTextBox"
+                 IsReadOnly="True"
+                 VerticalScrollBarVisibility="Auto"
+                 TextWrapping="NoWrap"/>
+    </Grid>
+</Window>

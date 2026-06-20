@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using LocalAsrClient.App.Diagnostics;
 using LocalAsrClient.Core.Abstractions;
 
 namespace LocalAsrClient.App.Hotkeys;
@@ -7,13 +8,20 @@ namespace LocalAsrClient.App.Hotkeys;
 public sealed class GlobalHotkeyListener : IHotkeyListener
 {
     private readonly int _virtualKeyCode;
+    private readonly IDiagnosticEventSink _diagnostics;
     private readonly Win32HotkeyNative.LowLevelKeyboardProc _callback;
     private IntPtr _hook;
     private bool _isDown;
 
     public GlobalHotkeyListener(int virtualKeyCode)
+        : this(virtualKeyCode, NullDiagnosticEventSink.Instance)
+    {
+    }
+
+    public GlobalHotkeyListener(int virtualKeyCode, IDiagnosticEventSink diagnostics)
     {
         _virtualKeyCode = virtualKeyCode;
+        _diagnostics = diagnostics;
         _callback = HookCallback;
     }
 
@@ -61,6 +69,8 @@ public sealed class GlobalHotkeyListener : IHotkeyListener
             var data = Marshal.PtrToStructure<Win32HotkeyNative.KbdLlHookStruct>(lParam);
             if (data.VkCode == _virtualKeyCode)
             {
+                _ = _diagnostics.WriteAsync(CreateEvent("Hotkey.Callback.Enter", message, data, suppressed: false));
+
                 if (message is Win32HotkeyNative.WmKeyDown or Win32HotkeyNative.WmSysKeyDown)
                 {
                     if (!_isDown)
@@ -69,17 +79,40 @@ public sealed class GlobalHotkeyListener : IHotkeyListener
                         Triggered?.Invoke();
                     }
 
+                    _ = _diagnostics.WriteAsync(CreateEvent("Hotkey.Suppressed", message, data, suppressed: true));
                     return (IntPtr)1;
                 }
 
                 if (message is Win32HotkeyNative.WmKeyUp or Win32HotkeyNative.WmSysKeyUp)
                 {
                     _isDown = false;
+                    _ = _diagnostics.WriteAsync(CreateEvent("Hotkey.Suppressed", message, data, suppressed: true));
                     return (IntPtr)1;
                 }
             }
         }
 
         return Win32HotkeyNative.CallNextHookEx(_hook, nCode, wParam, lParam);
+    }
+
+    private DiagnosticEvent CreateEvent(
+        string eventName,
+        int message,
+        Win32HotkeyNative.KbdLlHookStruct data,
+        bool suppressed)
+    {
+        return new DiagnosticEvent(
+            0,
+            DateTimeOffset.Now,
+            eventName,
+            null,
+            Environment.CurrentManagedThreadId,
+            DiagnosticSnapshotCollector.Capture(),
+            new Dictionary<string, string?>
+            {
+                ["vkCode"] = data.VkCode.ToString(),
+                ["message"] = message.ToString(),
+                ["suppressed"] = suppressed.ToString()
+            });
     }
 }

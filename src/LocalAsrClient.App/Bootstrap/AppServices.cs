@@ -4,11 +4,15 @@ using System.Net.Http;
 
 using LocalAsrClient.App.Audio;
 
+using LocalAsrClient.App.Diagnostics;
+
 using LocalAsrClient.App.Infrastructure;
 
 using LocalAsrClient.App.Hotkeys;
 
 using LocalAsrClient.App.Overlay;
+
+using LocalAsrClient.App.TestMode;
 
 using LocalAsrClient.App.TextInjection;
 
@@ -55,7 +59,9 @@ public sealed class AppServices : IAsyncDisposable
 
         HttpClient httpClient,
 
-        WhisperServerProcessManager serverManager)
+        WhisperServerProcessManager serverManager,
+
+        IDiagnosticEventSink diagnosticSink)
 
     {
 
@@ -80,6 +86,8 @@ public sealed class AppServices : IAsyncDisposable
         HttpClient = httpClient;
 
         ServerManager = serverManager;
+
+        DiagnosticSink = diagnosticSink;
 
     }
 
@@ -106,6 +114,8 @@ public sealed class AppServices : IAsyncDisposable
     public HttpClient HttpClient { get; }
 
     public WhisperServerProcessManager ServerManager { get; }
+
+    public IDiagnosticEventSink DiagnosticSink { get; }
 
 
 
@@ -148,6 +158,11 @@ public sealed class AppServices : IAsyncDisposable
 
         Directory.CreateDirectory(LessAsrPaths.DataDirectory);
 
+        var testMode = TestModeOptions.FromEnvironment();
+        IDiagnosticEventSink diagnosticSink = testMode.DiagnosticsEnabled
+            ? JsonlDiagnosticEventSink.Create(LessAsrPaths.DiagnosticsDirectory)
+            : NullDiagnosticEventSink.Instance;
+
         var database = await SqliteDatabase.OpenAsync(LessAsrPaths.DatabasePath, cancellationToken);
 
         var settingsStore = new SqliteSettingsStore(database);
@@ -170,7 +185,9 @@ public sealed class AppServices : IAsyncDisposable
 
         var httpClient = new HttpClient { BaseAddress = options.BaseUri };
 
-        var backend = new ManagedWhisperServerBackend(serverManager, new WhisperServerClient(httpClient));
+        IAsrBackend backend = testMode.Enabled
+            ? new TestAsrBackend(testMode.AsrText)
+            : new ManagedWhisperServerBackend(serverManager, new WhisperServerClient(httpClient));
 
 
 
@@ -178,15 +195,17 @@ public sealed class AppServices : IAsyncDisposable
 
         var historyRepository = new SqliteTextHistoryRepository(database);
 
-        var recorder = new NAudioMemoryRecorder();
+        IAudioRecorder recorder = testMode.Enabled
+            ? new TestAudioRecorder(testMode.AudioPath)
+            : new NAudioMemoryRecorder();
 
-        var injectionTargetCapture = new InjectionTargetCapture();
+        var injectionTargetCapture = new InjectionTargetCapture(diagnosticSink);
 
-        var injector = new SendInputTextInjector(injectionTargetCapture);
+        var injector = new SendInputTextInjector(injectionTargetCapture, diagnosticSink);
 
-        var overlayWindow = new DictationOverlayWindow();
+        var overlayWindow = new DictationOverlayWindow(diagnosticSink);
 
-        var hotkeyListener = new GlobalHotkeyListener(DictationHotkey.ToggleVirtualKey);
+        var hotkeyListener = new GlobalHotkeyListener(DictationHotkey.ToggleVirtualKey, diagnosticSink);
 
         var orchestrator = new DictationOrchestrator(
 
@@ -203,6 +222,23 @@ public sealed class AppServices : IAsyncDisposable
             settingsStore,
 
             new SystemClock());
+
+        orchestrator.StatusChanged += status =>
+        {
+            _ = diagnosticSink.WriteAsync(new DiagnosticEvent(
+                0,
+                DateTimeOffset.Now,
+                "Dictation.StateChanged",
+                status.State.ToString(),
+                Environment.CurrentManagedThreadId,
+                DiagnosticSnapshotCollector.Capture(),
+                new Dictionary<string, string?>
+                {
+                    ["message"] = status.Message,
+                    ["resultTextLength"] = status.ResultText?.Length.ToString(),
+                    ["errorMessage"] = status.ErrorMessage
+                }));
+        };
 
         var escapeCancelListener = new EscapeCancelListener(() => orchestrator.State == DictationState.Recording);
 
@@ -337,7 +373,9 @@ public sealed class AppServices : IAsyncDisposable
 
             httpClient,
 
-            serverManager);
+            serverManager,
+
+            diagnosticSink);
 
     }
 
@@ -352,6 +390,8 @@ public sealed class AppServices : IAsyncDisposable
         EscapeCancelListener.Dispose();
 
         await ServerManager.StopAsync(CancellationToken.None);
+
+        await DiagnosticSink.DisposeAsync();
 
         await Database.DisposeAsync();
 

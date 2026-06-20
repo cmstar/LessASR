@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
+using LocalAsrClient.App.Diagnostics;
 using LocalAsrClient.App.TextInjection;
 
 namespace LocalAsrClient.App.Overlay;
@@ -14,11 +15,18 @@ public partial class DictationOverlayWindow : Window
     private const double BottomMargin = 20;
     private const double TopMargin = 16;
     private const double ChromeHeightWithoutResult = 130;
+    private readonly IDiagnosticEventSink _diagnostics;
     private readonly OverlayViewModel _viewModel;
     private readonly WindowInteropHelper _interopHelper;
 
     public DictationOverlayWindow()
+        : this(NullDiagnosticEventSink.Instance)
     {
+    }
+
+    public DictationOverlayWindow(IDiagnosticEventSink diagnostics)
+    {
+        _diagnostics = diagnostics;
         _viewModel = new OverlayViewModel(OnCloseRequested);
         InitializeComponent();
         DataContext = _viewModel;
@@ -37,11 +45,15 @@ public partial class DictationOverlayWindow : Window
 
     public void ShowOverlay(OverlayState state, string message, string resultText = "", string? errorMessage = null)
     {
+        _ = _diagnostics.WriteAsync(CreateEvent("Overlay.Show.Before", state));
+
         _viewModel.ShowState(state, message, resultText, errorMessage);
         ApplyHeightConstraints();
         ShowWithoutActivation();
         UpdateLayout();
         PositionBottomCenter();
+
+        _ = _diagnostics.WriteAsync(CreateEvent("Overlay.Show.After", state));
     }
 
     public void HideOverlay()
@@ -120,6 +132,18 @@ public partial class DictationOverlayWindow : Window
             UpdateLayout();
             Top = area.Bottom - ActualHeight - BottomMargin;
         }
+    }
+
+    private DiagnosticEvent CreateEvent(string eventName, OverlayState state)
+    {
+        return new DiagnosticEvent(
+            0,
+            DateTimeOffset.Now,
+            eventName,
+            state.ToString(),
+            Environment.CurrentManagedThreadId,
+            DiagnosticSnapshotCollector.Capture(),
+            new Dictionary<string, string?>());
     }
 
     [DllImport("user32.dll")]
