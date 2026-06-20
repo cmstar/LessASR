@@ -13,7 +13,7 @@
 | 对象 | 说明 |
 | --- | --- |
 | DictationSession | 一次从按键到注入/展示的听写过程 |
-| AppSettings | 模型路径、whisper-server 路径、保留策略等（存于固定数据目录下的 SQLite） |
+| AppSettings | 模型路径、whisper-server 路径与端口、保留策略等（存于固定数据目录下的 SQLite） |
 | TextHistoryEntry | 可选保存的识别文本记录 |
 | DailyStatsSnapshot | 按日聚合的使用统计（不含识别原文） |
 | AsrResult | ASR 返回的文本与耗时指标 |

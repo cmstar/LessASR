@@ -133,7 +133,7 @@ public sealed class AppServices : IAsyncDisposable
 
             "127.0.0.1",
 
-            8080);
+            settings.WhisperServerPort);
 
         ServerManager.UpdateOptions(options);
 
@@ -179,7 +179,7 @@ public sealed class AppServices : IAsyncDisposable
 
             "127.0.0.1",
 
-            8080);
+            settings.WhisperServerPort);
 
         var serverManager = new WhisperServerProcessManager(options);
 

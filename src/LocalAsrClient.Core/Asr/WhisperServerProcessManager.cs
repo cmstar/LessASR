@@ -27,7 +27,17 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
 
     public void UpdateOptions(WhisperServerOptions options)
     {
+        var restartRequired = _options.Host != options.Host
+            || _options.Port != options.Port
+            || !string.Equals(_options.ServerExecutablePath, options.ServerExecutablePath, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(_options.ModelPath, options.ModelPath, StringComparison.OrdinalIgnoreCase);
+
         _options = options;
+
+        if (restartRequired)
+        {
+            StopManagedProcess();
+        }
     }
 
     public async Task EnsureStartedAsync(CancellationToken cancellationToken)
@@ -76,6 +86,12 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
 
     public Task StopAsync(CancellationToken cancellationToken)
     {
+        StopManagedProcess();
+        return Task.CompletedTask;
+    }
+
+    private void StopManagedProcess()
+    {
         if (_process is { HasExited: false })
         {
             _process.Kill(entireProcessTree: true);
@@ -84,7 +100,6 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
 
         _process = null;
         Status = WhisperServerStatus.Stopped;
-        return Task.CompletedTask;
     }
 
     public async Task HealthCheckAsync(CancellationToken cancellationToken)

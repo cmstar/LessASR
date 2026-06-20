@@ -27,6 +27,9 @@ public sealed class SqliteSettingsStore : ISettingsStore
         {
             ModelPath = values.GetValueOrDefault("ModelPath", defaults.ModelPath),
             WhisperServerPath = values.GetValueOrDefault("WhisperServerPath", defaults.WhisperServerPath),
+            WhisperServerPort = int.TryParse(values.GetValueOrDefault("WhisperServerPort"), out var port)
+                ? port
+                : defaults.WhisperServerPort,
             TranscriptRetentionPolicy = Enum.TryParse<TranscriptRetentionPolicy>(
                 values.GetValueOrDefault("TranscriptRetentionPolicy"),
                 out var policy) ? policy : defaults.TranscriptRetentionPolicy,
@@ -41,6 +44,7 @@ public sealed class SqliteSettingsStore : ISettingsStore
         {
             ["ModelPath"] = settings.ModelPath,
             ["WhisperServerPath"] = settings.WhisperServerPath,
+            ["WhisperServerPort"] = settings.WhisperServerPort.ToString(),
             ["TranscriptRetentionPolicy"] = settings.TranscriptRetentionPolicy.ToString(),
             ["StartModelOnAppStartup"] = settings.StartModelOnAppStartup.ToString(),
             ["MinimizeToTrayOnClose"] = settings.MinimizeToTrayOnClose.ToString()

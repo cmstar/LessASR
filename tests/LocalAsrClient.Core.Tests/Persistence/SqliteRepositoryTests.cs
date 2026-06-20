@@ -13,6 +13,7 @@ public sealed class SqliteRepositoryTests
         var settings = new AppSettings(
             ModelPath: @"D:\models\ggml-large-v3-turbo-q5_0.bin",
             WhisperServerPath: @"D:\tools\whisper-server.exe",
+            WhisperServerPort: 8081,
             TranscriptRetentionPolicy: TranscriptRetentionPolicy.OneMonth,
             StartModelOnAppStartup: true,
             MinimizeToTrayOnClose: false);
@@ -32,6 +33,17 @@ public sealed class SqliteRepositoryTests
         var loaded = await store.LoadAsync(CancellationToken.None);
 
         Assert.True(loaded.MinimizeToTrayOnClose);
+    }
+
+    [Fact]
+    public async Task SettingsStore_DefaultsWhisperServerPortWhenMissing()
+    {
+        await using var database = await SqliteDatabase.CreateInMemoryAsync();
+        var store = new SqliteSettingsStore(database);
+
+        var loaded = await store.LoadAsync(CancellationToken.None);
+
+        Assert.Equal(AppSettings.DefaultWhisperServerPort, loaded.WhisperServerPort);
     }
 
     [Fact]

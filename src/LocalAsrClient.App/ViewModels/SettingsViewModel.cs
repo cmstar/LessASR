@@ -14,6 +14,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     private readonly Func<Task>? _onSettingsSaved;
     private string _modelPath = "";
     private string _whisperServerPath = "";
+    private int _whisperServerPort = AppSettings.DefaultWhisperServerPort;
 
     public SettingsViewModel(AppServices services, Func<Task>? onSettingsSaved = null)
     {
@@ -35,6 +36,12 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         set => SetField(ref _whisperServerPath, value);
     }
 
+    public int WhisperServerPort
+    {
+        get => _whisperServerPort;
+        set => SetField(ref _whisperServerPort, value);
+    }
+
     public string DataDirectoryPath => LessAsrPaths.DataDirectory;
 
     public string LogsDirectoryPath => LessAsrPaths.LogsDirectory;
@@ -45,30 +52,52 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     public bool MinimizeToTrayOnClose { get; set; } = true;
 
+    public string LastSavedAtText { get; private set; } = "";
+
     public ICommand BrowseModelPathCommand => new RelayCommand(BrowseModelPath);
 
     public ICommand BrowseWhisperServerPathCommand => new RelayCommand(BrowseWhisperServerPath);
 
     public ICommand SaveCommand => new AsyncRelayCommand(async () =>
     {
+        if (WhisperServerPort is < 1 or > 65535)
+        {
+            throw new InvalidOperationException("whisper-server 端口必须在 1 到 65535 之间。");
+        }
+
         await _services.SettingsStore.SaveAsync(new AppSettings(
             ModelPath,
             WhisperServerPath,
+            WhisperServerPort,
             TranscriptRetentionPolicy,
             StartModelOnAppStartup,
             MinimizeToTrayOnClose), CancellationToken.None);
         await _services.ApplyServerOptionsFromSettingsAsync();
+        LastSavedAtText = $"上次保存：{DateTime.Now:HH:mm:ss}";
+        OnPropertyChanged(nameof(LastSavedAtText));
         if (_onSettingsSaved is not null)
         {
             await _onSettingsSaved();
         }
     }, "保存设置失败");
 
+    public void ResetSaveFeedback()
+    {
+        if (string.IsNullOrEmpty(LastSavedAtText))
+        {
+            return;
+        }
+
+        LastSavedAtText = "";
+        OnPropertyChanged(nameof(LastSavedAtText));
+    }
+
     public async Task LoadAsync()
     {
         var settings = await _services.SettingsStore.LoadAsync(CancellationToken.None);
         ModelPath = settings.ModelPath;
         WhisperServerPath = settings.WhisperServerPath;
+        WhisperServerPort = settings.WhisperServerPort;
         TranscriptRetentionPolicy = settings.TranscriptRetentionPolicy;
         StartModelOnAppStartup = settings.StartModelOnAppStartup;
         MinimizeToTrayOnClose = settings.MinimizeToTrayOnClose;

@@ -325,6 +325,7 @@ public sealed class DictationOrchestratorTests
         private readonly AppSettings _settings = new(
             ModelPath: "model.bin",
             WhisperServerPath: "whisper-server.exe",
+            WhisperServerPort: AppSettings.DefaultWhisperServerPort,
             TranscriptRetentionPolicy: TranscriptRetentionPolicy.SevenDays,
             StartModelOnAppStartup: false);
 

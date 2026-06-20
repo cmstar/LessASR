@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Controls;
 using LocalAsrClient.App.Bootstrap;
 using LocalAsrClient.App.ViewModels;
 
@@ -56,5 +57,15 @@ public partial class MainWindow : Window
             Hide();
             WindowState = WindowState.Normal;
         }
+    }
+
+    private void TabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!SettingsTabItem.IsSelected || DataContext is not MainViewModel viewModel)
+        {
+            return;
+        }
+
+        viewModel.Settings.ResetSaveFeedback();
     }
 }
