@@ -69,24 +69,21 @@ public sealed class GlobalHotkeyListener : IHotkeyListener
             var data = Marshal.PtrToStructure<Win32HotkeyNative.KbdLlHookStruct>(lParam);
             if (data.VkCode == _virtualKeyCode)
             {
-                _ = _diagnostics.WriteAsync(CreateEvent("Hotkey.Callback.Enter", message, data, suppressed: false));
-
                 if (message is Win32HotkeyNative.WmKeyDown or Win32HotkeyNative.WmSysKeyDown)
                 {
                     if (!_isDown)
                     {
                         _isDown = true;
+                        _ = _diagnostics.WriteAsync(CreateTriggeredEvent(message, data));
                         Triggered?.Invoke();
                     }
 
-                    _ = _diagnostics.WriteAsync(CreateEvent("Hotkey.Suppressed", message, data, suppressed: true));
                     return (IntPtr)1;
                 }
 
                 if (message is Win32HotkeyNative.WmKeyUp or Win32HotkeyNative.WmSysKeyUp)
                 {
                     _isDown = false;
-                    _ = _diagnostics.WriteAsync(CreateEvent("Hotkey.Suppressed", message, data, suppressed: true));
                     return (IntPtr)1;
                 }
             }
@@ -95,24 +92,19 @@ public sealed class GlobalHotkeyListener : IHotkeyListener
         return Win32HotkeyNative.CallNextHookEx(_hook, nCode, wParam, lParam);
     }
 
-    private DiagnosticEvent CreateEvent(
-        string eventName,
-        int message,
-        Win32HotkeyNative.KbdLlHookStruct data,
-        bool suppressed)
+    private static DiagnosticEvent CreateTriggeredEvent(int message, Win32HotkeyNative.KbdLlHookStruct data)
     {
         return new DiagnosticEvent(
             0,
             DateTimeOffset.Now,
-            eventName,
+            "Hotkey.Triggered",
             null,
             Environment.CurrentManagedThreadId,
             DiagnosticSnapshotCollector.Capture(),
             new Dictionary<string, string?>
             {
                 ["vkCode"] = data.VkCode.ToString(),
-                ["message"] = message.ToString(),
-                ["suppressed"] = suppressed.ToString()
+                ["message"] = message.ToString()
             });
     }
 }
