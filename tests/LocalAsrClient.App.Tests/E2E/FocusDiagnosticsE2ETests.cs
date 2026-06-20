@@ -7,35 +7,26 @@ public sealed class FocusDiagnosticsE2ETests
 {
     private const string ExpectedText = "LessASR 自动化测试文本";
 
-    [UiE2EFact]
+    [Fact]
+    [Trait("Category", "UiE2E")]
     public async Task F10DictationInjectsFakeAsrTextIntoNativeTarget()
     {
         await using var runner = new ProcessRunner();
         var repo = FindRepoRoot();
         var targetExe = Path.Combine(repo, "tests", "LocalAsrClient.TestTarget", "bin", "Debug", "net8.0-windows", "LocalAsrClient.TestTarget.exe");
         var appExe = Path.Combine(repo, "src", "LocalAsrClient.App", "bin", "Debug", "net8.0-windows", "LocalAsrClient.App.exe");
-        var audioPath = Path.Combine(AppContext.BaseDirectory, "test-sound.wav");
-
         Assert.True(File.Exists(targetExe), $"Build TestTarget first: {targetExe}");
         Assert.True(File.Exists(appExe), $"Build LessASR App first: {appExe}");
-        Assert.True(File.Exists(audioPath), $"Copied audio missing: {audioPath}");
 
         using var automation = new UIA3Automation();
-        var targetProcess = runner.Start(targetExe);
+        var targetArguments = ShouldPauseAfterRun() ? "--pause" : string.Empty;
+        var targetProcess = runner.Start(targetExe, arguments: targetArguments);
         var targetWindow = await WaitForWindowAsync(automation, targetProcess.Id, "LessASR TestTarget");
 
         var clearButton = targetWindow.FindFirstDescendant(cf => cf.ByAutomationId("ClearButton"))!.AsButton();
         clearButton.Invoke();
 
-        var environment = new Dictionary<string, string>
-        {
-            ["LESSASR_TEST_MODE"] = "1",
-            ["LESSASR_DIAGNOSTICS"] = "1",
-            ["LESSASR_TEST_AUDIO"] = audioPath,
-            ["LESSASR_FAKE_ASR_TEXT"] = ExpectedText
-        };
-
-        runner.Start(appExe, environment: environment);
+        runner.Start(appExe, arguments: "--test-mode");
         await Task.Delay(1000);
 
         targetWindow.Focus();
@@ -119,5 +110,11 @@ public sealed class FocusDiagnosticsE2ETests
         }
 
         throw new TimeoutException($"Condition was not met within {timeout}.");
+    }
+
+    private static bool ShouldPauseAfterRun()
+    {
+        return Environment.GetCommandLineArgs().Any(arg =>
+            string.Equals(arg, "PauseAfterRun", StringComparison.OrdinalIgnoreCase));
     }
 }

@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <VSTestTestCaseFilter>(Category!=UiE2E)</VSTestTestCaseFilter>
   </PropertyGroup>
 
   <ItemGroup>
@@ -25,10 +26,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\LocalAsrClient.App\LocalAsrClient.App.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Include="..\Resources\test-sound.wav" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

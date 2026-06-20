@@ -73,11 +73,10 @@ dotnet build tests/LocalAsrClient.TestTarget/LocalAsrClient.TestTarget.csproj
 dotnet build tests/LocalAsrClient.App.Tests/LocalAsrClient.App.Tests.csproj
 ```
 
-显式开启 UI E2E：
+运行 UI E2E（默认 `dotnet test` 会跳过 `UiE2E` 分类）：
 
 ```powershell
-$env:LESSASR_RUN_UI_E2E='1'
-dotnet test tests/LocalAsrClient.App.Tests/LocalAsrClient.App.Tests.csproj --filter FocusDiagnosticsE2ETests
+dotnet test tests/LocalAsrClient.App.Tests/LocalAsrClient.App.Tests.csproj --filter "Category=UiE2E"
 ```
 
 LessASR 诊断日志写入：
@@ -86,7 +85,38 @@ LessASR 诊断日志写入：
 %USERPROFILE%\.lessasr\diagnostics\diagnostics-YYYY-MM-DD-HHmmss-pPID.jsonl
 ```
 
-测试音频固定来自 `tests/Resources/test-sound.wav`，测试模式下 ASR 固定返回测试文本，不验证 whisper-server 识别准确率。
+测试模式启动（不依赖 whisper-server，自动写入上述 JSONL 诊断日志）：
+
+```powershell
+dotnet run --project src/LocalAsrClient.App/LocalAsrClient.App.csproj -- --test-mode
+```
+
+测试模式下 ASR 固定返回默认测试文本，不验证 whisper-server 识别准确率。仍使用双 F10 完整听写链路，仅替换录音与 ASR 后端。
+
+### 进程生命周期说明
+
+`LocalAsrClient.TestTarget` 本身是普通 WPF 窗口程序，**不会**在跑完后自动退出。通过 `dotnet test` 跑 UI E2E 时，测试框架里的 `ProcessRunner` 在断言结束后会依次 `CloseMainWindow()`，超时则 `Kill()`，因此你会看到两个窗口一闪就关——这是测试 runner 主动清理，不是 TestTarget 自己退出。
+
+### 人工查看 E2E 结果
+
+跑完 E2E 后保持 TestTarget 与 LessASR 窗口不关闭：
+
+```powershell
+dotnet test tests/LocalAsrClient.App.Tests/LocalAsrClient.App.Tests.csproj --filter "Category=UiE2E" -- PauseAfterRun
+```
+
+`PauseAfterRun` 会让 TestTarget 以 `--pause` 启动；测试结束后 runner 不再 kill 子进程，可人工检查输入框文本与屏幕日志。确认完毕后手动关闭两个窗口即可。
+
+### 完全手工联调
+
+不跑 `dotnet test`，分别启动两个进程（窗口会一直保留，直到手动关闭）：
+
+```powershell
+dotnet run --project tests/LocalAsrClient.TestTarget/LocalAsrClient.TestTarget.csproj -- --pause
+dotnet run --project src/LocalAsrClient.App/LocalAsrClient.App.csproj -- --test-mode
+```
+
+在 TestTarget 中聚焦 Native 输入框，按两次 F10 完成一次听写，然后查看屏幕日志与 `%USERPROFILE%\.lessasr\diagnostics\` 下的 JSONL。
 
 ## 实现计划
 

@@ -14,6 +14,10 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        if (TestTargetStartupOptions.Current.PauseAfterRun)
+        {
+            Title += " (--pause：关闭窗口后退出)";
+        }
         _nativeTextBox = new LoggingWinFormsTextBox(_recorder);
         NativeTextBoxHost.Child = _nativeTextBox;
         _recorder.Lines.CollectionChanged += (_, _) =>

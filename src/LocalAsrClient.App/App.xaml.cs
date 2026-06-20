@@ -22,7 +22,7 @@ public partial class App : System.Windows.Application
 
         try
         {
-            _services = await AppServices.CreateAsync(CancellationToken.None);
+            _services = await AppServices.CreateAsync(e.Args, CancellationToken.None);
             _mainWindow = new MainWindow(_services);
             MainWindow = _mainWindow;
             _trayIconService = new TrayIconService(_mainWindow);

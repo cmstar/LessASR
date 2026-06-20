@@ -4,7 +4,7 @@ namespace LocalAsrClient.App.Tests.E2E;
 
 public sealed class ProcessRunner : IAsyncDisposable
 {
-    private readonly List<Process> _processes = [];
+    private readonly List<(Process Process, string Arguments)> _processes = [];
 
     public Process Start(string fileName, string arguments = "", IReadOnlyDictionary<string, string>? environment = null)
     {
@@ -23,13 +23,18 @@ public sealed class ProcessRunner : IAsyncDisposable
         }
 
         var process = Process.Start(startInfo) ?? throw new InvalidOperationException($"Failed to start {fileName}.");
-        _processes.Add(process);
+        _processes.Add((process, arguments));
         return process;
     }
 
     public ValueTask DisposeAsync()
     {
-        foreach (var process in _processes)
+        if (ShouldLeaveProcessesRunning())
+        {
+            return ValueTask.CompletedTask;
+        }
+
+        foreach (var (process, _) in _processes)
         {
             try
             {
@@ -50,5 +55,11 @@ public sealed class ProcessRunner : IAsyncDisposable
         }
 
         return ValueTask.CompletedTask;
+    }
+
+    private bool ShouldLeaveProcessesRunning()
+    {
+        return _processes.Any(entry =>
+            entry.Arguments.Contains("--pause", StringComparison.OrdinalIgnoreCase));
     }
 }

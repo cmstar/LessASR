@@ -5,19 +5,16 @@ namespace LocalAsrClient.App.Tests.TestMode;
 public sealed class TestModeTests
 {
     [Fact]
-    public async Task TestAudioRecorderReturnsConfiguredWavFile()
+    public async Task SimulatedAudioRecorderReturnsAtLeastHalfSecondDuration()
     {
-        var path = Path.Combine(AppContext.BaseDirectory, "test-sound.wav");
-        Assert.True(File.Exists(path), $"Missing copied test audio: {path}");
-
-        var recorder = new TestAudioRecorder(path);
+        var recorder = new SimulatedAudioRecorder();
         await recorder.StartAsync(CancellationToken.None);
         var result = await recorder.StopAsync(CancellationToken.None);
 
         Assert.True(result.WavData.Length > 44);
         Assert.Equal(16000, result.SampleRate);
         Assert.Equal(1, result.Channels);
-        Assert.True(result.Duration > TimeSpan.Zero);
+        Assert.True(result.Duration >= TimeSpan.FromMilliseconds(500));
     }
 
     [Fact]
@@ -34,5 +31,25 @@ public sealed class TestModeTests
             CancellationToken.None);
 
         Assert.Equal("LessASR 自动化测试文本", result.Text);
+    }
+
+    [Theory]
+    [InlineData(new[] { "--test-mode" }, true)]
+    [InlineData(new[] { "--TEST-MODE" }, true)]
+    [InlineData(new string[0], false)]
+    public void Resolve_EnablesFromStartupArgument(string[] args, bool expectedEnabled)
+    {
+        var options = TestModeOptions.Resolve(args);
+
+        Assert.Equal(expectedEnabled, options.Enabled);
+        Assert.Equal(expectedEnabled, options.DiagnosticsEnabled);
+    }
+
+    [Fact]
+    public void Resolve_UsesDefaultAsrText()
+    {
+        var options = TestModeOptions.Resolve(["--test-mode"]);
+
+        Assert.Equal(TestModeOptions.DefaultAsrText, options.AsrText);
     }
 }

@@ -152,13 +152,15 @@ public sealed class AppServices : IAsyncDisposable
 
 
 
-    public static async Task<AppServices> CreateAsync(CancellationToken cancellationToken)
+    public static async Task<AppServices> CreateAsync(
+        string[]? startupArgs = null,
+        CancellationToken cancellationToken = default)
 
     {
 
         Directory.CreateDirectory(LessAsrPaths.DataDirectory);
 
-        var testMode = TestModeOptions.FromEnvironment();
+        var testMode = TestModeOptions.Resolve(startupArgs);
         IDiagnosticEventSink diagnosticSink = testMode.DiagnosticsEnabled
             ? JsonlDiagnosticEventSink.Create(LessAsrPaths.DiagnosticsDirectory)
             : NullDiagnosticEventSink.Instance;
@@ -196,7 +198,7 @@ public sealed class AppServices : IAsyncDisposable
         var historyRepository = new SqliteTextHistoryRepository(database);
 
         IAudioRecorder recorder = testMode.Enabled
-            ? new TestAudioRecorder(testMode.AudioPath)
+            ? new SimulatedAudioRecorder()
             : new NAudioMemoryRecorder();
 
         var injectionTargetCapture = new InjectionTargetCapture(diagnosticSink);
@@ -341,7 +343,7 @@ public sealed class AppServices : IAsyncDisposable
 
 
 
-        if (settings.StartModelOnAppStartup)
+        if (settings.StartModelOnAppStartup && !testMode.Enabled)
 
         {
 
