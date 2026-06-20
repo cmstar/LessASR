@@ -85,6 +85,12 @@ LessASR 诊断日志写入：
 %USERPROFILE%\.lessasr\diagnostics\diagnostics-YYYY-MM-DD-HHmmss-pPID.jsonl
 ```
 
+独立诊断模式（生产环境可不依赖 whisper-server 与 `--test-mode`，仅写入上述 JSONL）：
+
+```powershell
+dotnet run --project src/LocalAsrClient.App/LocalAsrClient.App.csproj -- --diagnostics
+```
+
 测试模式启动（不依赖 whisper-server，自动写入上述 JSONL 诊断日志）：
 
 ```powershell

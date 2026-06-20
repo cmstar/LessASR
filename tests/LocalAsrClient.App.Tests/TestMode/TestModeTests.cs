@@ -34,15 +34,18 @@ public sealed class TestModeTests
     }
 
     [Theory]
-    [InlineData(new[] { "--test-mode" }, true)]
-    [InlineData(new[] { "--TEST-MODE" }, true)]
-    [InlineData(new string[0], false)]
-    public void Resolve_EnablesFromStartupArgument(string[] args, bool expectedEnabled)
+    [InlineData(new[] { "--test-mode" }, true, true)]
+    [InlineData(new[] { "--TEST-MODE" }, true, true)]
+    [InlineData(new[] { "--diagnostics" }, false, true)]
+    [InlineData(new[] { "--DIAGNOSTICS" }, false, true)]
+    [InlineData(new[] { "--test-mode", "--diagnostics" }, true, true)]
+    [InlineData(new string[0], false, false)]
+    public void Resolve_EnablesFromStartupArgument(string[] args, bool expectedEnabled, bool expectedDiagnostics)
     {
         var options = TestModeOptions.Resolve(args);
 
         Assert.Equal(expectedEnabled, options.Enabled);
-        Assert.Equal(expectedEnabled, options.DiagnosticsEnabled);
+        Assert.Equal(expectedDiagnostics, options.DiagnosticsEnabled);
     }
 
     [Fact]

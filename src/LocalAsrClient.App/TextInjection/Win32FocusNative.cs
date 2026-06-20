@@ -5,9 +5,13 @@ namespace LocalAsrClient.App.TextInjection;
 internal static class Win32FocusNative
 {
     public const uint WmChar = 0x0102;
+    public const uint WmGetText = 0x000D;
+    public const uint WmGetTextLength = 0x000E;
     public const uint EmGetReadOnly = 0x00CF;
     public const uint EmReplaceSel = 0x00C2;
     public const int WmUser = 0x0400;
+    public const int SciGetTextLength = 2180;
+    public const int SciGetText = 2182;
     public const int SciReplaceSel = 2170;
     public const int AsfwAny = -1;
 
@@ -74,6 +78,9 @@ internal static class Win32FocusNative
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "SendMessageW")]
     public static extern IntPtr SendMessageString(IntPtr hWnd, uint msg, IntPtr wParam, string? lParam);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "SendMessageW")]
+    public static extern IntPtr SendMessageGetText(IntPtr hWnd, uint msg, IntPtr wParam, System.Text.StringBuilder lParam);
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
