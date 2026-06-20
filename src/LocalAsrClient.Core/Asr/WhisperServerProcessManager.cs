@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Text;
+using LocalAsrClient.Core.Abstractions;
 
 namespace LocalAsrClient.Core.Asr;
 
@@ -15,12 +17,16 @@ public interface IWhisperServerManager
 public sealed class WhisperServerProcessManager : IWhisperServerManager
 {
     private readonly SemaphoreSlim _startLock = new(1, 1);
+    private readonly IAppLog? _log;
+    private readonly object _outputLock = new();
+    private readonly StringBuilder _processOutput = new();
     private WhisperServerOptions _options;
     private Process? _process;
 
-    public WhisperServerProcessManager(WhisperServerOptions options)
+    public WhisperServerProcessManager(WhisperServerOptions options, IAppLog? log = null)
     {
         _options = options;
+        _log = log;
     }
 
     public WhisperServerStatus Status { get; private set; } = WhisperServerStatus.Stopped;
@@ -68,17 +74,27 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
 
             StopManagedProcess();
             Status = WhisperServerStatus.Starting;
+            var arguments = WhisperServerStartupArguments.Build(_options);
+            ResetProcessOutput();
+            _log?.Write("whisper-server 启动", WhisperServerLaunchDetails.FormatLaunch(arguments));
+
             var startInfo = new ProcessStartInfo
             {
                 FileName = _options.ServerExecutablePath,
-                Arguments = WhisperServerStartupArguments.Build(_options),
+                Arguments = arguments,
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 WindowStyle = ProcessWindowStyle.Hidden,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                StandardOutputEncoding = Encoding.UTF8,
+                StandardErrorEncoding = Encoding.UTF8,
             };
 
             _process = Process.Start(startInfo)
                 ?? throw new InvalidOperationException("无法启动 whisper-server。");
+
+            AttachProcessOutputHandlers(_process);
 
             await WaitUntilReadyAsync(cancellationToken);
             Status = WhisperServerStatus.Ready;
@@ -147,11 +163,7 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
             if (_process is { HasExited: true })
             {
                 Status = WhisperServerStatus.Failed;
-                var exitCode = _process?.ExitCode;
-                throw new InvalidOperationException(
-                    exitCode is null
-                        ? "whisper-server 已退出。"
-                        : $"whisper-server 已退出（退出码 {exitCode}）。请检查 whisper-server 版本与启动参数。");
+                throw CreateStartupFailureException(exitCode: _process.ExitCode);
             }
 
             if (await TryProbeAsync(cancellationToken))
@@ -163,7 +175,18 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
         }
 
         Status = WhisperServerStatus.Failed;
-        throw new TimeoutException("等待 whisper-server 启动超时（120 秒）。");
+        throw CreateStartupFailureException(exitCode: null, timedOut: true);
+    }
+
+    private InvalidOperationException CreateStartupFailureException(int? exitCode, bool timedOut = false)
+    {
+        var processOutput = GetProcessOutputSnapshot();
+        var failureDetails = WhisperServerLaunchDetails.FormatFailure(exitCode, processOutput, timedOut);
+
+        _log?.Write("whisper-server 启动失败", failureDetails);
+
+        return new InvalidOperationException(
+            WhisperServerLaunchDetails.FormatFailureSummary(exitCode, processOutput, timedOut));
     }
 
     private async Task<bool> TryProbeAsync(CancellationToken cancellationToken)
@@ -182,6 +205,50 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
         catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             return false;
+        }
+    }
+
+    private void ResetProcessOutput()
+    {
+        lock (_outputLock)
+        {
+            _processOutput.Clear();
+        }
+    }
+
+    private void AttachProcessOutputHandlers(Process process)
+    {
+        process.OutputDataReceived += (_, e) =>
+        {
+            if (e.Data is not null)
+            {
+                AppendProcessOutput(e.Data);
+            }
+        };
+        process.ErrorDataReceived += (_, e) =>
+        {
+            if (e.Data is not null)
+            {
+                AppendProcessOutput(e.Data);
+            }
+        };
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+    }
+
+    private void AppendProcessOutput(string line)
+    {
+        lock (_outputLock)
+        {
+            _processOutput.AppendLine(line);
+        }
+    }
+
+    private string GetProcessOutputSnapshot()
+    {
+        lock (_outputLock)
+        {
+            return _processOutput.ToString();
         }
     }
 }

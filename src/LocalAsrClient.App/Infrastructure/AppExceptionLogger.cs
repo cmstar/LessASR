@@ -26,9 +26,16 @@ public static class AppExceptionLogger
         }
     }
 
+    public static void Write(string context, string message)
+    {
+        var formatted = FormatEntry(context, message);
+        WriteToDiagnostics(formatted);
+        WriteToLogFile(formatted);
+    }
+
     public static void Report(Exception exception, string context, bool showDialog = true, bool isTerminating = false)
     {
-        var message = Format(exception, context, isTerminating);
+        var message = FormatException(exception, context, isTerminating);
         WriteToDiagnostics(message);
         WriteToLogFile(message);
 
@@ -38,7 +45,15 @@ public static class AppExceptionLogger
         }
     }
 
-    private static string Format(Exception exception, string context, bool isTerminating)
+    private static string FormatEntry(string context, string message)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {context}");
+        builder.Append(message);
+        return builder.ToString();
+    }
+
+    private static string FormatException(Exception exception, string context, bool isTerminating)
     {
         var builder = new StringBuilder();
         builder.AppendLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {context}");

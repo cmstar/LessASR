@@ -185,7 +185,7 @@ public sealed class AppServices : IAsyncDisposable
 
             settings.WhisperServerPort);
 
-        var serverManager = new WhisperServerProcessManager(options);
+        var serverManager = new WhisperServerProcessManager(options, new AppFileLog());
 
         var transcribeClient = new ResilientWhisperServerClient(options.BaseUri, serverManager);
 

@@ -17,6 +17,10 @@ public sealed class WhisperServerStartupArgumentsTests
 
         Assert.Contains("--host 127.0.0.1", arguments, StringComparison.Ordinal);
         Assert.Contains("--port 8080", arguments, StringComparison.Ordinal);
+        Assert.Contains(
+            $"--threads {WhisperServerThreadCount.RecommendForCurrentMachine()}",
+            arguments,
+            StringComparison.Ordinal);
         Assert.Contains("--max-context 0", arguments, StringComparison.Ordinal);
         Assert.Contains("-m \"C:\\models\\ggml-base.bin\"", arguments, StringComparison.Ordinal);
         Assert.DoesNotContain("-nc", arguments, StringComparison.Ordinal);
