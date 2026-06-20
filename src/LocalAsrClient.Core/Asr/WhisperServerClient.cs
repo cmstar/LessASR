@@ -12,6 +12,7 @@ public interface IWhisperServerClient
 public sealed class WhisperServerClient : IWhisperServerClient
 {
     private const string InferencePath = "/inference";
+    public static readonly TimeSpan TranscribeTimeout = TimeSpan.FromSeconds(30);
     private readonly HttpClient _httpClient;
 
     public WhisperServerClient(HttpClient httpClient)
@@ -32,7 +33,12 @@ public sealed class WhisperServerClient : IWhisperServerClient
             content.Add(new StringContent(language), "language");
         }
 
-        using var response = await _httpClient.PostAsync(InferencePath, content, cancellationToken);
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(TranscribeTimeout);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, InferencePath) { Content = content };
+        request.Headers.ConnectionClose = true;
+        using var response = await _httpClient.SendAsync(request, timeoutCts.Token);
         if (!response.IsSuccessStatusCode)
         {
             var body = await response.Content.ReadAsStringAsync(cancellationToken);

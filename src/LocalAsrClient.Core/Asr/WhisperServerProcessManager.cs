@@ -14,6 +14,7 @@ public interface IWhisperServerManager
 
 public sealed class WhisperServerProcessManager : IWhisperServerManager
 {
+    private readonly SemaphoreSlim _startLock = new(1, 1);
     private WhisperServerOptions _options;
     private Process? _process;
 
@@ -42,11 +43,60 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
 
     public async Task EnsureStartedAsync(CancellationToken cancellationToken)
     {
-        if (_process is { HasExited: false } && Status == WhisperServerStatus.Ready)
+        await _startLock.WaitAsync(cancellationToken);
+        try
         {
-            return;
-        }
+            if (_process is { HasExited: false } && Status == WhisperServerStatus.Ready)
+            {
+                return;
+            }
 
+            if (_process is { HasExited: false } && Status == WhisperServerStatus.Starting)
+            {
+                await WaitUntilReadyAsync(cancellationToken);
+                Status = WhisperServerStatus.Ready;
+                return;
+            }
+
+            ValidatePaths();
+
+            if (await TryProbeAsync(cancellationToken))
+            {
+                Status = WhisperServerStatus.Ready;
+                return;
+            }
+
+            StopManagedProcess();
+            Status = WhisperServerStatus.Starting;
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = _options.ServerExecutablePath,
+                Arguments = WhisperServerStartupArguments.Build(_options),
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden,
+            };
+
+            _process = Process.Start(startInfo)
+                ?? throw new InvalidOperationException("无法启动 whisper-server。");
+
+            await WaitUntilReadyAsync(cancellationToken);
+            Status = WhisperServerStatus.Ready;
+        }
+        finally
+        {
+            _startLock.Release();
+        }
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken)
+    {
+        StopManagedProcess();
+        return Task.CompletedTask;
+    }
+
+    private void ValidatePaths()
+    {
         if (string.IsNullOrWhiteSpace(_options.ServerExecutablePath) || !File.Exists(_options.ServerExecutablePath))
         {
             Status = WhisperServerStatus.Failed;
@@ -58,36 +108,6 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
             Status = WhisperServerStatus.Failed;
             throw new FileNotFoundException("未找到 Whisper 模型文件。", _options.ModelPath);
         }
-
-        if (await TryProbeAsync(cancellationToken))
-        {
-            Status = WhisperServerStatus.Ready;
-            return;
-        }
-
-        Status = WhisperServerStatus.Starting;
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = _options.ServerExecutablePath,
-            Arguments = $"--host {_options.Host} --port {_options.Port} -m \"{_options.ModelPath}\"",
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            WindowStyle = ProcessWindowStyle.Hidden,
-            RedirectStandardError = true,
-            RedirectStandardOutput = true
-        };
-
-        _process = Process.Start(startInfo)
-            ?? throw new InvalidOperationException("无法启动 whisper-server。");
-
-        await WaitUntilReadyAsync(cancellationToken);
-        Status = WhisperServerStatus.Ready;
-    }
-
-    public Task StopAsync(CancellationToken cancellationToken)
-    {
-        StopManagedProcess();
-        return Task.CompletedTask;
     }
 
     private void StopManagedProcess()
@@ -119,7 +139,7 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
 
     private async Task WaitUntilReadyAsync(CancellationToken cancellationToken)
     {
-        var deadline = DateTimeOffset.UtcNow.AddSeconds(60);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(120);
 
         while (DateTimeOffset.UtcNow < deadline)
         {
@@ -127,7 +147,11 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
             if (_process is { HasExited: true })
             {
                 Status = WhisperServerStatus.Failed;
-                throw new InvalidOperationException("whisper-server 已退出。");
+                var exitCode = _process?.ExitCode;
+                throw new InvalidOperationException(
+                    exitCode is null
+                        ? "whisper-server 已退出。"
+                        : $"whisper-server 已退出（退出码 {exitCode}）。请检查 whisper-server 版本与启动参数。");
             }
 
             if (await TryProbeAsync(cancellationToken))
@@ -139,7 +163,7 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
         }
 
         Status = WhisperServerStatus.Failed;
-        throw new TimeoutException("等待 whisper-server 启动超时。");
+        throw new TimeoutException("等待 whisper-server 启动超时（120 秒）。");
     }
 
     private async Task<bool> TryProbeAsync(CancellationToken cancellationToken)

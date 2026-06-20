@@ -28,7 +28,7 @@ whisper.cpp `whisper-server` 默认转写端点（可通过 `--inference-path` �
 
 - 转写前由 `WhisperServerProcessManager` 确保进程已启动并就绪。
 - 默认监听 `http://127.0.0.1:<端口>`，端口可在设置页配置（默认 8080）。
-- 启动参数：`--host 127.0.0.1 --port <端口> -m "<模型路径>"`
+- 启动参数：`--host 127.0.0.1 --port <端口> --max-context 0 -m "<模型路径>"`（`--max-context 0` 禁用跨请求上下文，规避 Windows 上 whisper-server 多次请求后的 handle 泄漏，见 [whisper.cpp#3358](https://github.com/ggml-org/whisper.cpp/issues/3358)）
 
 ### GET /
 

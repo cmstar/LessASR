@@ -1,8 +1,8 @@
 using System.IO;
 
-using System.Net.Http;
-
 using LocalAsrClient.App.Audio;
+
+using LocalAsrClient.App.Asr;
 
 using LocalAsrClient.App.Diagnostics;
 
@@ -57,7 +57,7 @@ public sealed class AppServices : IAsyncDisposable
 
         InjectionTargetCapture injectionTargetCapture,
 
-        HttpClient httpClient,
+        ResilientWhisperServerClient transcribeClient,
 
         WhisperServerProcessManager serverManager,
 
@@ -83,7 +83,7 @@ public sealed class AppServices : IAsyncDisposable
 
         InjectionTargetCapture = injectionTargetCapture;
 
-        HttpClient = httpClient;
+        TranscribeClient = transcribeClient;
 
         ServerManager = serverManager;
 
@@ -111,7 +111,7 @@ public sealed class AppServices : IAsyncDisposable
 
     public InjectionTargetCapture InjectionTargetCapture { get; }
 
-    public HttpClient HttpClient { get; }
+    public ResilientWhisperServerClient TranscribeClient { get; }
 
     public WhisperServerProcessManager ServerManager { get; }
 
@@ -137,17 +137,19 @@ public sealed class AppServices : IAsyncDisposable
 
         ServerManager.UpdateOptions(options);
 
-        // HttpClient 在发出首个请求后不可再修改 BaseAddress；地址未变时跳过赋值。
         var baseUri = options.BaseUri;
-        if (HttpClient.BaseAddress is null
-            || !string.Equals(
-                HttpClient.BaseAddress.GetLeftPart(UriPartial.Authority),
-                baseUri.GetLeftPart(UriPartial.Authority),
-                StringComparison.OrdinalIgnoreCase))
+        var currentAuthority = TranscribeClient.BaseUri.GetLeftPart(UriPartial.Authority);
+        var newAuthority = baseUri.GetLeftPart(UriPartial.Authority);
+        if (!string.Equals(currentAuthority, newAuthority, StringComparison.OrdinalIgnoreCase))
         {
-            HttpClient.BaseAddress = baseUri;
+            TranscribeClient.Refresh(baseUri);
         }
 
+    }
+
+    public void RefreshTranscribeHttpClient()
+    {
+        TranscribeClient.Refresh(ServerManager.BaseUri);
     }
 
 
@@ -185,11 +187,11 @@ public sealed class AppServices : IAsyncDisposable
 
         var serverManager = new WhisperServerProcessManager(options);
 
-        var httpClient = new HttpClient { BaseAddress = options.BaseUri };
+        var transcribeClient = new ResilientWhisperServerClient(options.BaseUri, serverManager);
 
         IAsrBackend backend = testMode.Enabled
             ? new TestAsrBackend(testMode.AsrText)
-            : new ManagedWhisperServerBackend(serverManager, new WhisperServerClient(httpClient));
+            : new ManagedWhisperServerBackend(serverManager, transcribeClient);
 
 
 
@@ -225,8 +227,20 @@ public sealed class AppServices : IAsyncDisposable
 
             new SystemClock());
 
+        var transcribeAttempt = 0;
         orchestrator.StatusChanged += status =>
         {
+            var data = new Dictionary<string, string?>
+            {
+                ["message"] = status.Message,
+                ["resultTextLength"] = status.ResultText?.Length.ToString(),
+                ["errorMessage"] = status.ErrorMessage
+            };
+            if (status.State == DictationState.Transcribing)
+            {
+                data["transcribeAttempt"] = Interlocked.Increment(ref transcribeAttempt).ToString();
+            }
+
             _ = diagnosticSink.WriteAsync(new DiagnosticEvent(
                 0,
                 DateTimeOffset.Now,
@@ -234,12 +248,7 @@ public sealed class AppServices : IAsyncDisposable
                 status.State.ToString(),
                 Environment.CurrentManagedThreadId,
                 DiagnosticSnapshotCollector.Capture(),
-                new Dictionary<string, string?>
-                {
-                    ["message"] = status.Message,
-                    ["resultTextLength"] = status.ResultText?.Length.ToString(),
-                    ["errorMessage"] = status.ErrorMessage
-                }));
+                data));
         };
 
         var escapeCancelListener = new EscapeCancelListener(() => orchestrator.State == DictationState.Recording);
@@ -373,7 +382,7 @@ public sealed class AppServices : IAsyncDisposable
 
             injectionTargetCapture,
 
-            httpClient,
+            transcribeClient,
 
             serverManager,
 
@@ -390,6 +399,8 @@ public sealed class AppServices : IAsyncDisposable
         HotkeyListener.Dispose();
 
         EscapeCancelListener.Dispose();
+
+        TranscribeClient.Dispose();
 
         await ServerManager.StopAsync(CancellationToken.None);
 

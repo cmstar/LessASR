@@ -63,6 +63,20 @@ public sealed class DictationOrchestratorTests
     }
 
     [Fact]
+    public async Task ToggleAsync_WhenEnsureReadyFails_SetsErrorState()
+    {
+        var fixture = new Fixture();
+        fixture.Backend.Status = AsrBackendStatus.Stopped;
+        fixture.Backend.EnsureReadyThrows = new TimeoutException("等待 whisper-server 启动超时（120 秒）。");
+
+        await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+
+        Assert.Equal(DictationState.Error, fixture.LastStatus.State);
+        Assert.Equal("模型加载失败", fixture.LastStatus.Message);
+        Assert.Contains("超时", fixture.LastStatus.ErrorMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ToggleAsync_FromError_StartsNewRecording()
     {
         var fixture = new Fixture();
@@ -242,9 +256,16 @@ public sealed class DictationOrchestratorTests
         public Exception? TranscribeThrows { get; set; }
         public TimeSpan TranscribeDelay { get; set; }
 
+        public Exception? EnsureReadyThrows { get; set; }
+
         public Task EnsureReadyAsync(CancellationToken cancellationToken)
         {
             EnsureReadyCalled = true;
+            if (EnsureReadyThrows is not null)
+            {
+                throw EnsureReadyThrows;
+            }
+
             Status = AsrBackendStatus.Ready;
             return Task.CompletedTask;
         }

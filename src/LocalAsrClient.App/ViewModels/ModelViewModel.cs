@@ -134,6 +134,7 @@ public sealed class ModelViewModel : INotifyPropertyChanged
             async () =>
             {
                 await _services.ServerManager.StopAsync(CancellationToken.None);
+                _services.RefreshTranscribeHttpClient();
                 await _services.ServerManager.EnsureStartedAsync(CancellationToken.None);
             },
             "服务已重启并就绪。");

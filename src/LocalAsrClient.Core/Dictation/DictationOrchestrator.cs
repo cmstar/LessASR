@@ -127,7 +127,17 @@ public sealed class DictationOrchestrator
         {
             _state = DictationState.EnsuringModelReady;
             Publish("模型加载中");
-            await _asrBackend.EnsureReadyAsync(cancellationToken);
+            try
+            {
+                await _asrBackend.EnsureReadyAsync(cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _state = DictationState.Error;
+                Publish("模型加载失败", ErrorMessage: ex.Message);
+                return;
+            }
+
             _state = DictationState.Ready;
             Publish("可录音");
             return;
@@ -186,6 +196,20 @@ public sealed class DictationOrchestrator
                 ? "未找到可输入位置"
                 : injection.Message ?? "文本注入失败";
             Publish(message, finalText);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                await PersistResultAsync(string.Empty, TimeSpan.Zero, TimeSpan.Zero, succeeded: false, cancellationToken);
+            }
+            catch
+            {
+                // 统计写入失败不再掩盖原始异常。
+            }
+
+            _state = DictationState.Error;
+            Publish("输入失败", ErrorMessage: "语音识别超时，请稍后重试或重启 whisper-server。");
         }
         catch (Exception ex)
         {
