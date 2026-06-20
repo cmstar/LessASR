@@ -22,12 +22,27 @@ public sealed class InjectionTextVerifierTests
     [Theory]
     [InlineData("Edit", true)]
     [InlineData("RichEdit50W", true)]
+    [InlineData("RichEditD2DPT", true)]
     [InlineData("Scintilla", true)]
     [InlineData("Chrome_RenderWidgetHostHWND", false)]
     [InlineData("", false)]
     public void CanReadBackText_ReflectsSupportedControlClasses(string className, bool expected)
     {
         var result = InjectionTextVerifier.CanReadBackText(className);
+
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData("RichEditD2DPT", true)]
+    [InlineData("RichEdit50W", true)]
+    [InlineData("RICHEDIT60W", true)]
+    [InlineData("Edit", false)]
+    [InlineData("Scintilla", false)]
+    [InlineData("", false)]
+    public void IsRichEditClassName_DistinguishesRichEditFromClassicEdit(string className, bool expected)
+    {
+        var result = TextInjectionStrategy.IsRichEditClassName(className);
 
         Assert.Equal(expected, result);
     }

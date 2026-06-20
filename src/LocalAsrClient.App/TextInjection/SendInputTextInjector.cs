@@ -39,7 +39,7 @@ public sealed class SendInputTextInjector : ITextInjector
         }
 
         var hadInjectionTarget = false;
-        var verificationAttempted = false;
+        var anyInjectionSucceeded = false;
 
         var editWindow = _targetCapture.GetInjectionTarget();
         if (editWindow != IntPtr.Zero && Win32FocusNative.IsWindow(editWindow))
@@ -49,41 +49,53 @@ public sealed class SendInputTextInjector : ITextInjector
             var method = TextInjectionStrategy.Select(className);
             _ = _diagnostics.WriteAsync(CreateEvent("TextInjection.StrategySelected", text.Length, method.ToString()));
 
-            if (TryInjectDirect(editWindow, className, text, cancellationToken)
-                && TryVerifyInjection(editWindow, className, text, "Direct"))
+            if (TryInjectDirect(editWindow, className, text, cancellationToken))
             {
-                Debug.WriteLine($"Text injection succeeded via direct message. ClassName={className}");
-                var directResult = new TextInjectionResult(TextInjectionStatus.Success, null);
-                _ = _diagnostics.WriteAsync(CreateEvent("TextInjection.After", text.Length, directResult.Status.ToString()));
-                return directResult;
-            }
-
-            verificationAttempted = true;
-
-            var directRootWindow = _targetCapture.GetRootWindow();
-            if (directRootWindow != IntPtr.Zero
-                && Win32FocusNative.IsWindow(directRootWindow)
-                && TryInjectViaForegroundSendInput(directRootWindow, text, cancellationToken))
-            {
-                var verifyTarget = EditableFocusDetector.ResolveEditableTarget(directRootWindow);
-                var verifyClassName = EditableFocusDetector.GetClassName(verifyTarget);
-                if (TryVerifyInjection(verifyTarget, verifyClassName, text, "SendInput"))
+                anyInjectionSucceeded = true;
+                if (TryVerifyInjection(editWindow, className, text, "Direct"))
                 {
-                    Debug.WriteLine($"Text injection succeeded via SendInput fallback. ClassName={className}");
-                    var sendInputResult = new TextInjectionResult(TextInjectionStatus.Success, null);
-                    _ = _diagnostics.WriteAsync(CreateEvent("TextInjection.After", text.Length, sendInputResult.Status.ToString()));
-                    return sendInputResult;
+                    Debug.WriteLine($"Text injection succeeded via direct message. ClassName={className}");
+                    var directResult = new TextInjectionResult(TextInjectionStatus.Success, null);
+                    _ = _diagnostics.WriteAsync(CreateEvent("TextInjection.After", text.Length, directResult.Status.ToString()));
+                    return directResult;
                 }
+
+                Debug.WriteLine("Text injection failed: post-injection verification did not pass after direct message.");
+                var directVerifyFailedResult = new TextInjectionResult(TextInjectionStatus.Failed, VerificationFailedMessage);
+                _ = _diagnostics.WriteAsync(CreateEvent("TextInjection.After", text.Length, directVerifyFailedResult.Status.ToString()));
+                return directVerifyFailedResult;
             }
         }
 
         var rootWindow = _targetCapture.GetRootWindow();
         if (rootWindow != IntPtr.Zero
             && Win32FocusNative.IsWindow(rootWindow)
+            && TryInjectViaForegroundSendInput(rootWindow, text, cancellationToken))
+        {
+            anyInjectionSucceeded = true;
+            hadInjectionTarget = true;
+            var verifyTarget = EditableFocusDetector.ResolveEditableTarget(rootWindow);
+            var verifyClassName = EditableFocusDetector.GetClassName(verifyTarget);
+            if (TryVerifyInjection(verifyTarget, verifyClassName, text, "SendInput"))
+            {
+                Debug.WriteLine($"Text injection succeeded via SendInput fallback. ClassName={verifyClassName}");
+                var sendInputResult = new TextInjectionResult(TextInjectionStatus.Success, null);
+                _ = _diagnostics.WriteAsync(CreateEvent("TextInjection.After", text.Length, sendInputResult.Status.ToString()));
+                return sendInputResult;
+            }
+
+            Debug.WriteLine("Text injection failed: post-injection verification did not pass after SendInput.");
+            var sendInputVerifyFailedResult = new TextInjectionResult(TextInjectionStatus.Failed, VerificationFailedMessage);
+            _ = _diagnostics.WriteAsync(CreateEvent("TextInjection.After", text.Length, sendInputVerifyFailedResult.Status.ToString()));
+            return sendInputVerifyFailedResult;
+        }
+
+        if (rootWindow != IntPtr.Zero
+            && Win32FocusNative.IsWindow(rootWindow)
             && await TryInjectViaClipboardPasteAsync(rootWindow, text, cancellationToken))
         {
+            anyInjectionSucceeded = true;
             hadInjectionTarget = true;
-            verificationAttempted = true;
             var verifyTarget = EditableFocusDetector.ResolveEditableTarget(rootWindow);
             var verifyClassName = EditableFocusDetector.GetClassName(verifyTarget);
             if (TryVerifyInjection(verifyTarget, verifyClassName, text, "ClipboardPaste"))
@@ -93,17 +105,16 @@ public sealed class SendInputTextInjector : ITextInjector
                 _ = _diagnostics.WriteAsync(CreateEvent("TextInjection.After", text.Length, clipboardResult.Status.ToString()));
                 return clipboardResult;
             }
+
+            Debug.WriteLine("Text injection failed: post-injection verification did not pass after clipboard paste.");
+            var clipboardVerifyFailedResult = new TextInjectionResult(TextInjectionStatus.Failed, VerificationFailedMessage);
+            _ = _diagnostics.WriteAsync(CreateEvent("TextInjection.After", text.Length, clipboardVerifyFailedResult.Status.ToString()));
+            return clipboardVerifyFailedResult;
         }
 
-        if (verificationAttempted)
-        {
-            Debug.WriteLine("Text injection failed: post-injection verification did not pass.");
-            var verifyFailedResult = new TextInjectionResult(TextInjectionStatus.Failed, VerificationFailedMessage);
-            _ = _diagnostics.WriteAsync(CreateEvent("TextInjection.After", text.Length, verifyFailedResult.Status.ToString()));
-            return verifyFailedResult;
-        }
-
-        Debug.WriteLine("Text injection failed: no editable target or fallback failed.");
+        Debug.WriteLine(anyInjectionSucceeded
+            ? "Text injection failed: post-injection verification did not pass."
+            : "Text injection failed: no editable target or fallback failed.");
         var failedResult = new TextInjectionResult(
             TextInjectionStatus.NoEditableTarget,
             hadInjectionTarget ? VerificationFailedMessage : "未找到可输入位置。");

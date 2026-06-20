@@ -4,10 +4,15 @@ namespace LocalAsrClient.App.TextInjection;
 
 internal static class Win32FocusNative
 {
+    public const int GwlStyle = -16;
+    public const int EsReadOnly = 0x08000000;
+
     public const uint WmChar = 0x0102;
     public const uint WmGetText = 0x000D;
     public const uint WmGetTextLength = 0x000E;
     public const uint EmGetReadOnly = 0x00CF;
+    public const uint EmGetTextLength = 0x00BA;
+    public const uint EmGetTextRange = 0x00B8;
     public const uint EmReplaceSel = 0x00C2;
     public const int WmUser = 0x0400;
     public const int SciGetTextLength = 2180;
@@ -38,6 +43,20 @@ internal static class Win32FocusNative
         public int Top;
         public int Right;
         public int Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct CharRange
+    {
+        public int CpMin;
+        public int CpMax;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct TextRange
+    {
+        public CharRange Chrg;
+        public IntPtr LpstrText;
     }
 
     [DllImport("user32.dll")]
@@ -81,6 +100,12 @@ internal static class Win32FocusNative
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "SendMessageW")]
     public static extern IntPtr SendMessageGetText(IntPtr hWnd, uint msg, IntPtr wParam, System.Text.StringBuilder lParam);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    public static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, ref TextRange lParam);
+
+    [DllImport("user32.dll")]
+    public static extern int GetWindowLong(IntPtr hWnd, int nIndex);
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]

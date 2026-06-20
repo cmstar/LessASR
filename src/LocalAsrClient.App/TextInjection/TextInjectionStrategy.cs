@@ -21,6 +21,12 @@ internal static class TextInjectionStrategy
         "ThunderRT6TextBox",
     };
 
+    public static bool IsRichEditClassName(string className)
+    {
+        return ReplaceSelectionClassNames.Contains(className)
+            && !string.Equals(className, "Edit", StringComparison.OrdinalIgnoreCase);
+    }
+
     public static TextInjectionMethod Select(string className)
     {
         if (string.Equals(className, "Scintilla", StringComparison.OrdinalIgnoreCase))

@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace LocalAsrClient.App.TextInjection;
@@ -34,7 +35,41 @@ internal static class InjectionTextVerifier
             return TryReadScintillaText(hwnd);
         }
 
+        if (TextInjectionStrategy.IsRichEditClassName(className))
+        {
+            return TryReadRichEditText(hwnd);
+        }
+
         return TryReadStandardEditText(hwnd);
+    }
+
+    private static string TryReadRichEditText(IntPtr hwnd)
+    {
+        var length = (int)Win32FocusNative.SendMessage(hwnd, Win32FocusNative.EmGetTextLength, IntPtr.Zero, IntPtr.Zero);
+        if (length <= 0)
+        {
+            return string.Empty;
+        }
+
+        var buffer = Marshal.AllocHGlobal((length + 1) * sizeof(char));
+        try
+        {
+            var range = new Win32FocusNative.TextRange
+            {
+                Chrg = new Win32FocusNative.CharRange
+                {
+                    CpMin = 0,
+                    CpMax = length
+                },
+                LpstrText = buffer
+            };
+            Win32FocusNative.SendMessage(hwnd, Win32FocusNative.EmGetTextRange, IntPtr.Zero, ref range);
+            return Marshal.PtrToStringUni(buffer) ?? string.Empty;
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(buffer);
+        }
     }
 
     private static string TryReadStandardEditText(IntPtr hwnd)

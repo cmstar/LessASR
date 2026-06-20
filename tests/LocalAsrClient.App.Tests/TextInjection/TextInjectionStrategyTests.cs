@@ -7,6 +7,7 @@ public sealed class TextInjectionStrategyTests
     [Theory]
     [InlineData("Edit")]
     [InlineData("RichEdit50W")]
+    [InlineData("RichEditD2DPT")]
     [InlineData("ThunderRT6TextBox")]
     public void SelectsReplaceSelectionForClassicEditControls(string className)
     {

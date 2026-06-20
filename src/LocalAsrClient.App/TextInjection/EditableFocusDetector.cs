@@ -73,9 +73,17 @@ internal static class EditableFocusDetector
             return false;
         }
 
-        if (!IsEditableClassName(hwnd))
+        var className = GetClassName(hwnd);
+        if (!EditableClassNames.Contains(className))
         {
             return false;
+        }
+
+        if (TextInjectionStrategy.IsRichEditClassName(className))
+        {
+            // RichEdit 的 EM_GETREADONLY 在部分宿主（如 Win11 记事本）上不可靠，改用窗口样式判断。
+            var style = Win32FocusNative.GetWindowLong(hwnd, Win32FocusNative.GwlStyle);
+            return (style & Win32FocusNative.EsReadOnly) == 0;
         }
 
         var readOnly = Win32FocusNative.SendMessage(hwnd, Win32FocusNative.EmGetReadOnly, IntPtr.Zero, IntPtr.Zero);
@@ -169,8 +177,6 @@ internal static class EditableFocusDetector
 
     private static bool IsEditableClassName(IntPtr hwnd)
     {
-        var buffer = new System.Text.StringBuilder(256);
-        return Win32FocusNative.GetClassName(hwnd, buffer, buffer.Capacity) > 0
-            && EditableClassNames.Contains(buffer.ToString());
+        return EditableClassNames.Contains(GetClassName(hwnd));
     }
 }
