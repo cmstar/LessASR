@@ -18,6 +18,7 @@ public partial class DictationOverlayWindow : Window
     private readonly IDiagnosticEventSink _diagnostics;
     private readonly OverlayViewModel _viewModel;
     private readonly WindowInteropHelper _interopHelper;
+    private OverlayFocusSnapshot _focusSnapshotBeforeShow;
 
     public DictationOverlayWindow()
         : this(NullDiagnosticEventSink.Instance)
@@ -32,12 +33,10 @@ public partial class DictationOverlayWindow : Window
         DataContext = _viewModel;
         _interopHelper = new WindowInteropHelper(this);
         ConfigureNoActivateStyle(_interopHelper.EnsureHandle());
+        PrimeLayoutWithoutActivation();
         SizeChanged += (_, _) =>
         {
-            if (IsVisible)
-            {
-                PositionBottomCenter();
-            }
+            PositionBottomCenterNoActivate();
         };
     }
 
@@ -45,20 +44,26 @@ public partial class DictationOverlayWindow : Window
 
     public void ShowOverlay(OverlayState state, string message, string resultText = "", string? errorMessage = null)
     {
+        _focusSnapshotBeforeShow = OverlayFocusGuard.Capture();
         _ = _diagnostics.WriteAsync(CreateEvent("Overlay.Show.Before", state));
 
         _viewModel.ShowState(state, message, resultText, errorMessage);
         ApplyHeightConstraints();
         ShowWithoutActivation();
         UpdateLayout();
-        PositionBottomCenter();
+        PositionBottomCenterNoActivate();
+        OverlayFocusGuard.RestoreIfChanged(_focusSnapshotBeforeShow, _interopHelper.Handle);
 
         _ = _diagnostics.WriteAsync(CreateEvent("Overlay.Show.After", state));
     }
 
     public void HideOverlay()
     {
-        Hide();
+        var handle = _interopHelper.Handle;
+        if (handle != IntPtr.Zero)
+        {
+            ShowWindow(handle, SwHide);
+        }
     }
 
     private void OnCloseRequested()
@@ -76,23 +81,31 @@ public partial class DictationOverlayWindow : Window
     protected override void OnActivated(EventArgs e)
     {
         base.OnActivated(e);
-        var previous = Win32FocusNative.GetForegroundWindow();
-        if (previous != _interopHelper.Handle && previous != IntPtr.Zero)
-        {
-            Win32FocusNative.SetForegroundWindow(previous);
-        }
+        OverlayFocusGuard.RestoreIfChanged(_focusSnapshotBeforeShow, _interopHelper.Handle);
     }
 
     private void ShowWithoutActivation()
     {
         var handle = _interopHelper.Handle;
         ConfigureNoActivateStyle(handle);
+        Visibility = Visibility.Visible;
         if (!IsVisible)
         {
             Show();
         }
 
         ShowWindow(handle, SwShownoactivate);
+        EnsureTopmostNoActivate(handle);
+    }
+
+    private void PrimeLayoutWithoutActivation()
+    {
+        var snapshot = OverlayFocusGuard.Capture();
+        Visibility = Visibility.Visible;
+        Show();
+        UpdateLayout();
+        ShowWindow(_interopHelper.Handle, SwHide);
+        OverlayFocusGuard.RestoreIfChanged(snapshot, _interopHelper.Handle);
     }
 
     private static void ConfigureNoActivateStyle(IntPtr handle)
@@ -109,7 +122,7 @@ public partial class DictationOverlayWindow : Window
         _viewModel.ResultMaxHeight = maxResultHeight;
     }
 
-    private void PositionBottomCenter()
+    private void PositionBottomCenterNoActivate()
     {
         var area = SystemParameters.WorkArea;
         var availableHeight = area.Height - BottomMargin - TopMargin;
@@ -132,6 +145,52 @@ public partial class DictationOverlayWindow : Window
             UpdateLayout();
             Top = area.Bottom - ActualHeight - BottomMargin;
         }
+
+        var handle = _interopHelper.Handle;
+        if (handle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        var source = PresentationSource.FromVisual(this);
+        if (source?.CompositionTarget is null)
+        {
+            Win32FocusNative.SetWindowPos(
+                handle,
+                Win32FocusNative.HwndTopmost,
+                0,
+                0,
+                0,
+                0,
+                Win32FocusNative.SwpNoActivate | Win32FocusNative.SwpNomove | Win32FocusNative.SwpNosize | Win32FocusNative.SwpShowWindow);
+            return;
+        }
+
+        var transform = source.CompositionTarget.TransformToDevice;
+        var physicalLeft = (int)(Left * transform.M11);
+        var physicalTop = (int)(Top * transform.M22);
+        var physicalWidth = Math.Max(1, (int)(ActualWidth * transform.M11));
+        var physicalHeight = Math.Max(1, (int)(ActualHeight * transform.M22));
+        Win32FocusNative.SetWindowPos(
+            handle,
+            Win32FocusNative.HwndTopmost,
+            physicalLeft,
+            physicalTop,
+            physicalWidth,
+            physicalHeight,
+            Win32FocusNative.SwpNoActivate | Win32FocusNative.SwpShowWindow);
+    }
+
+    private static void EnsureTopmostNoActivate(IntPtr handle)
+    {
+        Win32FocusNative.SetWindowPos(
+            handle,
+            Win32FocusNative.HwndTopmost,
+            0,
+            0,
+            0,
+            0,
+            Win32FocusNative.SwpNoActivate | Win32FocusNative.SwpNomove | Win32FocusNative.SwpNosize | Win32FocusNative.SwpShowWindow);
     }
 
     private DiagnosticEvent CreateEvent(string eventName, OverlayState state)
@@ -145,6 +204,8 @@ public partial class DictationOverlayWindow : Window
             DiagnosticSnapshotCollector.Capture(),
             new Dictionary<string, string?>());
     }
+
+    private const int SwHide = 0;
 
     [DllImport("user32.dll")]
     private static extern int GetWindowLong(IntPtr hWnd, int nIndex);

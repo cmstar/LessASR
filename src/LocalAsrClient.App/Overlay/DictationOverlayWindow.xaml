@@ -6,7 +6,6 @@
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
-        Topmost="True"
         ShowActivated="False"
         ShowInTaskbar="False"
         Focusable="False"
@@ -35,6 +34,7 @@
                         BorderThickness="0"
                         Foreground="#64748B"
                         Cursor="Hand"
+                        Focusable="False"
                         Command="{Binding CloseCommand}"
                         ToolTip="关闭"
                         Visibility="{Binding ShowCloseButton, Converter={StaticResource BooleanToVisibilityConverter}}"/>
@@ -50,12 +50,14 @@
                      MinHeight="60"
                      MaxHeight="{Binding ResultMaxHeight}"
                      IsReadOnly="True"
+                     Focusable="False"
                      VerticalScrollBarVisibility="Auto"
                      Visibility="{Binding ShowResultText, Converter={StaticResource BooleanToVisibilityConverter}}"/>
             <Button Content="复制"
                     Width="88"
                     HorizontalAlignment="Right"
                     Margin="0,12,0,0"
+                    Focusable="False"
                     Command="{Binding CopyCommand}"
                     Visibility="{Binding ShowCopyButton, Converter={StaticResource BooleanToVisibilityConverter}}"/>
         </StackPanel>

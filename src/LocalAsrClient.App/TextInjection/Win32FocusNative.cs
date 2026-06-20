@@ -18,7 +18,14 @@ internal static class Win32FocusNative
     public const int SciGetTextLength = 2180;
     public const int SciGetText = 2182;
     public const int SciReplaceSel = 2170;
+    public const int SciGetCurrentPos = 2008;
+    public const int SciInsertText = 2003;
     public const int AsfwAny = -1;
+    public const uint SwpNoActivate = 0x0010;
+    public const uint SwpShowWindow = 0x0040;
+    public const uint SwpNomove = 0x0002;
+    public const uint SwpNosize = 0x0001;
+    public static readonly IntPtr HwndTopmost = new(-1);
 
     public delegate bool EnumChildProc(IntPtr hwnd, IntPtr lParam);
 
@@ -114,4 +121,15 @@ internal static class Win32FocusNative
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool AllowSetForegroundWindow(int dwProcessId);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SetWindowPos(
+        IntPtr hWnd,
+        IntPtr hWndInsertAfter,
+        int x,
+        int y,
+        int cx,
+        int cy,
+        uint uFlags);
 }

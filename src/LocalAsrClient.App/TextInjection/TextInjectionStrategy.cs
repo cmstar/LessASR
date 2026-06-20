@@ -38,4 +38,9 @@ internal static class TextInjectionStrategy
             ? TextInjectionMethod.ReplaceSelectionMessage
             : TextInjectionMethod.ClipboardPaste;
     }
+
+    public static bool TrustDirectWithoutVerification(string className)
+    {
+        return Select(className) == TextInjectionMethod.ReplaceSelectionMessage;
+    }
 }

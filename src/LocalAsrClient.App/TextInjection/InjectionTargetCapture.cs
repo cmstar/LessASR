@@ -36,10 +36,7 @@ public sealed class InjectionTargetCapture
 
         ForegroundWindow = foreground;
 
-        var focused = EditableFocusDetector.GetFocusedWindowFromGuiThreadInfo(foreground);
-        FocusWindow = EditableFocusDetector.IsEditableWindow(focused)
-            ? focused
-            : EditableFocusDetector.ResolveEditableTarget(foreground);
+        FocusWindow = EditableFocusDetector.ResolveEditableTarget(foreground);
 
         WriteAfterEvent();
     }

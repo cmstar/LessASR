@@ -34,4 +34,16 @@ public sealed class TextInjectionStrategyTests
 
         Assert.Equal(TextInjectionMethod.ClipboardPaste, strategy);
     }
+
+    [Theory]
+    [InlineData("Edit", true)]
+    [InlineData("RichEditD2DPT", true)]
+    [InlineData("Scintilla", false)]
+    [InlineData("Chrome_RenderWidgetHostHWND", false)]
+    public void TrustDirectWithoutVerification_OnlyAppliesToRichEditAndEdit(string className, bool expected)
+    {
+        var result = TextInjectionStrategy.TrustDirectWithoutVerification(className);
+
+        Assert.Equal(expected, result);
+    }
 }

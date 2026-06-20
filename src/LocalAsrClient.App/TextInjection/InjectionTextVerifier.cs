@@ -45,6 +45,12 @@ internal static class InjectionTextVerifier
 
     private static string TryReadRichEditText(IntPtr hwnd)
     {
+        var viaGetText = TryReadStandardEditText(hwnd);
+        if (!string.IsNullOrEmpty(viaGetText))
+        {
+            return viaGetText;
+        }
+
         var length = (int)Win32FocusNative.SendMessage(hwnd, Win32FocusNative.EmGetTextLength, IntPtr.Zero, IntPtr.Zero);
         if (length <= 0)
         {
@@ -59,7 +65,7 @@ internal static class InjectionTextVerifier
                 Chrg = new Win32FocusNative.CharRange
                 {
                     CpMin = 0,
-                    CpMax = length
+                    CpMax = -1
                 },
                 LpstrText = buffer
             };
@@ -97,12 +103,21 @@ internal static class InjectionTextVerifier
             return string.Empty;
         }
 
-        var buffer = new StringBuilder(length + 1);
-        Win32FocusNative.SendMessageGetText(
-            hwnd,
-            (uint)(Win32FocusNative.WmUser + Win32FocusNative.SciGetText),
-            (IntPtr)(length + 1),
-            buffer);
-        return buffer.ToString();
+        var buffer = Marshal.AllocHGlobal(length + 1);
+        try
+        {
+            Win32FocusNative.SendMessage(
+                hwnd,
+                (uint)(Win32FocusNative.WmUser + Win32FocusNative.SciGetText),
+                (IntPtr)(length + 1),
+                buffer);
+            var bytes = new byte[length];
+            Marshal.Copy(buffer, bytes, 0, length);
+            return Encoding.UTF8.GetString(bytes);
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(buffer);
+        }
     }
 }

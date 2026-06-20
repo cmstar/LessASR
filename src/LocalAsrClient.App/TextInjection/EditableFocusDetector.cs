@@ -79,6 +79,12 @@ internal static class EditableFocusDetector
             return false;
         }
 
+        if (string.Equals(className, "Scintilla", StringComparison.OrdinalIgnoreCase))
+        {
+            // Scintilla 不响应 EM_GETREADONLY，误用会导致 Notepad++ 等编辑器被判定为不可编辑。
+            return true;
+        }
+
         if (TextInjectionStrategy.IsRichEditClassName(className))
         {
             // RichEdit 的 EM_GETREADONLY 在部分宿主（如 Win11 记事本）上不可靠，改用窗口样式判断。
