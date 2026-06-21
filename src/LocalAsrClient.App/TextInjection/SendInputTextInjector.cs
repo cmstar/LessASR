@@ -40,12 +40,25 @@ public sealed class SendInputTextInjector : ITextInjector
 
         var hadInjectionTarget = false;
         var rootWindow = _targetCapture.GetRootWindow();
-        var editWindow = NotepadPlusPlusTargetResolver.ResolveEditWindow(
+        var editWindow = FileExplorerTargetResolver.ResolveInjectionTarget(
             rootWindow,
-            _targetCapture.GetInjectionTarget());
+            NotepadPlusPlusTargetResolver.ResolveEditWindow(
+                rootWindow,
+                _targetCapture.GetInjectionTarget()),
+            _targetCapture.RawFocusWindow);
         var editClassName = EditableFocusDetector.GetClassName(editWindow);
+        var useExplorerClipboardOnly = FileExplorerInjectionPolicy.ShouldUseClipboardOnly(rootWindow, editClassName);
+
+        if (FileExplorerInjectionPolicy.IsExplorerWindow(rootWindow) && editWindow == IntPtr.Zero)
+        {
+            var explorerNoFocusResult = new TextInjectionResult(TextInjectionStatus.NoEditableTarget, "未找到可输入位置。");
+            _ = _diagnostics.WriteAsync(CreateEvent("TextInjection.After", text.Length, explorerNoFocusResult.Status.ToString()));
+            return explorerNoFocusResult;
+        }
+
         var supportsDirectInject = editWindow != IntPtr.Zero
             && Win32FocusNative.IsWindow(editWindow)
+            && !useExplorerClipboardOnly
             && TextInjectionStrategy.Select(editClassName) is TextInjectionMethod.ReplaceSelectionMessage
                 or TextInjectionMethod.ScintillaReplaceSelectionMessage;
 
@@ -68,7 +81,7 @@ public sealed class SendInputTextInjector : ITextInjector
                 if (TextInjectionStrategy.TrustDirectWithoutVerification(editClassName))
                 {
                     Debug.WriteLine(
-                        "Text injection verification did not pass after direct message; trusting RichEdit/Edit write.");
+                        "Text injection verification did not pass after direct message; trusting RichEdit write.");
                     return CompleteSuccess(text);
                 }
 
@@ -121,7 +134,8 @@ public sealed class SendInputTextInjector : ITextInjector
                 return CompleteSuccess(text);
             }
 
-            if (!InjectionVerificationPolicy.IsVerificationRequired(pasteClassName))
+            if (!InjectionVerificationPolicy.IsVerificationRequired(pasteClassName)
+                && !FileExplorerInjectionPolicy.IsExplorerWindow(rootWindow))
             {
                 Debug.WriteLine("Text injection succeeded via clipboard paste with verification skipped.");
                 return CompleteSuccess(text);

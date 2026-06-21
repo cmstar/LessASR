@@ -41,6 +41,22 @@ internal static class EditableFocusDetector
             : string.Empty;
     }
 
+    public static IntPtr GetRawFocusedWindow(IntPtr rootWindow)
+    {
+        if (rootWindow == IntPtr.Zero)
+        {
+            return IntPtr.Zero;
+        }
+
+        var focused = GetFocusedWindowFromGuiThreadInfo(rootWindow);
+        if (focused != IntPtr.Zero)
+        {
+            return focused;
+        }
+
+        return GetFocusedControlInWindow(rootWindow);
+    }
+
     public static IntPtr ResolveEditableTarget(IntPtr rootWindow)
     {
         if (rootWindow == IntPtr.Zero)
@@ -63,7 +79,8 @@ internal static class EditableFocusDetector
             return rootWindow;
         }
 
-        return FindEditableDescendant(rootWindow);
+        // 不在子树中猜测 Edit；资源管理器等宿主会因此误命中隐藏的地址栏 Edit。
+        return IntPtr.Zero;
     }
 
     public static bool IsEditableWindow(IntPtr hwnd)
@@ -162,27 +179,5 @@ internal static class EditableFocusDetector
                 Win32FocusNative.AttachThreadInput(currentThread, threadId, attach: false);
             }
         }
-    }
-
-    private static IntPtr FindEditableDescendant(IntPtr rootWindow)
-    {
-        IntPtr found = IntPtr.Zero;
-        Win32FocusNative.EnumChildWindows(rootWindow, (hwnd, _) =>
-        {
-            if (!IsEditableWindow(hwnd))
-            {
-                return true;
-            }
-
-            found = hwnd;
-            return false;
-        }, IntPtr.Zero);
-
-        return found;
-    }
-
-    private static bool IsEditableClassName(IntPtr hwnd)
-    {
-        return EditableClassNames.Contains(GetClassName(hwnd));
     }
 }

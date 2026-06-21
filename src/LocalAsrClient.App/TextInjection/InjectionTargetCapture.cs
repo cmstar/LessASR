@@ -20,6 +20,7 @@ public sealed class InjectionTargetCapture
 
     public IntPtr ForegroundWindow { get; private set; }
     public IntPtr FocusWindow { get; private set; }
+    public IntPtr RawFocusWindow { get; private set; }
 
     public void Capture()
     {
@@ -30,12 +31,13 @@ public sealed class InjectionTargetCapture
         {
             ForegroundWindow = IntPtr.Zero;
             FocusWindow = IntPtr.Zero;
+            RawFocusWindow = IntPtr.Zero;
             WriteAfterEvent();
             return;
         }
 
         ForegroundWindow = foreground;
-
+        RawFocusWindow = EditableFocusDetector.GetRawFocusedWindow(foreground);
         FocusWindow = EditableFocusDetector.ResolveEditableTarget(foreground);
 
         WriteAfterEvent();
@@ -45,6 +47,7 @@ public sealed class InjectionTargetCapture
     {
         ForegroundWindow = IntPtr.Zero;
         FocusWindow = IntPtr.Zero;
+        RawFocusWindow = IntPtr.Zero;
     }
 
     public bool HasCapturedTarget => ForegroundWindow != IntPtr.Zero;
@@ -81,6 +84,8 @@ public sealed class InjectionTargetCapture
         _ = _diagnostics.WriteAsync(CreateEvent("InjectionTargetCapture.After", new Dictionary<string, string?>
         {
             ["foregroundWindow"] = $"0x{ForegroundWindow.ToInt64():X}",
+            ["rawFocusWindow"] = $"0x{RawFocusWindow.ToInt64():X}",
+            ["rawFocusClassName"] = EditableFocusDetector.GetClassName(RawFocusWindow),
             ["focusWindow"] = $"0x{FocusWindow.ToInt64():X}",
             ["focusClassName"] = EditableFocusDetector.GetClassName(FocusWindow)
         }));

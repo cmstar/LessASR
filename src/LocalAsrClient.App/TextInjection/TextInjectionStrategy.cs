@@ -41,6 +41,6 @@ internal static class TextInjectionStrategy
 
     public static bool TrustDirectWithoutVerification(string className)
     {
-        return Select(className) == TextInjectionMethod.ReplaceSelectionMessage;
+        return IsRichEditClassName(className);
     }
 }
