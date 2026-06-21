@@ -44,6 +44,22 @@ public sealed class WhisperServerBackendTests
     }
 
     [Fact]
+    public async Task Client_OmitsPromptField()
+    {
+        var handler = new StubHttpHandler("""{"text":"你好"}""");
+        var httpClient = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("http://127.0.0.1:8080")
+        };
+        var client = new WhisperServerClient(httpClient);
+
+        await client.TranscribeAsync(new InMemoryAudioInput(
+            Encoding.UTF8.GetBytes("fake"), "wav", 16000, 1), "zh", CancellationToken.None);
+
+        Assert.DoesNotContain("prompt", handler.LastRequestBody, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Backend_EnsuresServerBeforeTranscription()
     {
         var manager = new StubWhisperServerManager();
@@ -53,7 +69,6 @@ public sealed class WhisperServerBackendTests
         var result = await backend.TranscribeAsync(new AsrRequest(
             new InMemoryAudioInput(Array.Empty<byte>(), "wav", 16000, 1),
             Language: "zh",
-            Prompt: null,
             Options: new Dictionary<string, string>()), CancellationToken.None);
 
         Assert.True(manager.Started);

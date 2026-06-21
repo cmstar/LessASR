@@ -203,6 +203,22 @@ public sealed class DictationOrchestratorTests
         Assert.Equal(1, fixture.Backend.TranscribeCallCount);
     }
 
+    [Fact]
+    public async Task ToggleAsync_UsesPreferredLanguageFromSettings()
+    {
+        var fixture = new Fixture();
+        fixture.Backend.Status = AsrBackendStatus.Ready;
+        fixture.Settings.Settings = fixture.Settings.Settings with
+        {
+            PreferredTranscriptionLanguageId = "zh-Hans"
+        };
+
+        await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+        await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+
+        Assert.Equal("zh", fixture.Backend.LastRequest?.Language);
+    }
+
     private sealed class Fixture
     {
         public Fixture()
@@ -252,6 +268,7 @@ public sealed class DictationOrchestratorTests
         public AsrBackendStatus Status { get; set; } = AsrBackendStatus.Ready;
         public bool EnsureReadyCalled { get; private set; }
         public int TranscribeCallCount { get; private set; }
+        public AsrRequest? LastRequest { get; private set; }
         public string TranscribeText { get; set; } = "测试文本";
         public Exception? TranscribeThrows { get; set; }
         public TimeSpan TranscribeDelay { get; set; }
@@ -273,6 +290,7 @@ public sealed class DictationOrchestratorTests
         public async Task<AsrResult> TranscribeAsync(AsrRequest request, CancellationToken cancellationToken)
         {
             TranscribeCallCount++;
+            LastRequest = request;
             if (TranscribeThrows is not null)
             {
                 throw TranscribeThrows;
@@ -343,14 +361,14 @@ public sealed class DictationOrchestratorTests
 
     private sealed class StubSettingsStore : ISettingsStore
     {
-        private readonly AppSettings _settings = new(
+        public AppSettings Settings { get; set; } = new(
             ModelPath: "model.bin",
             WhisperServerPath: "whisper-server.exe",
             WhisperServerPort: AppSettings.DefaultWhisperServerPort,
             TranscriptRetentionPolicy: TranscriptRetentionPolicy.SevenDays,
             StartModelOnAppStartup: false);
 
-        public Task<AppSettings> LoadAsync(CancellationToken cancellationToken) => Task.FromResult(_settings);
+        public Task<AppSettings> LoadAsync(CancellationToken cancellationToken) => Task.FromResult(Settings);
         public Task SaveAsync(AppSettings settings, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 

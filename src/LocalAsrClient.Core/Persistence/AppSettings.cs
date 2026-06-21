@@ -1,3 +1,5 @@
+using LocalAsrClient.Core.Asr;
+
 namespace LocalAsrClient.Core.Persistence;
 
 public sealed record AppSettings(
@@ -6,7 +8,8 @@ public sealed record AppSettings(
     int WhisperServerPort,
     TranscriptRetentionPolicy TranscriptRetentionPolicy,
     bool StartModelOnAppStartup,
-    bool MinimizeToTrayOnClose = true)
+    bool MinimizeToTrayOnClose = true,
+    string PreferredTranscriptionLanguageId = TranscriptionLanguageCatalog.DefaultId)
 {
     public const int DefaultWhisperServerPort = 8080;
 
@@ -16,5 +19,6 @@ public sealed record AppSettings(
         WhisperServerPort: DefaultWhisperServerPort,
         TranscriptRetentionPolicy: TranscriptRetentionPolicy.SevenDays,
         StartModelOnAppStartup: false,
-        MinimizeToTrayOnClose: true);
+        MinimizeToTrayOnClose: true,
+        PreferredTranscriptionLanguageId: TranscriptionLanguageCatalog.DefaultId);
 }

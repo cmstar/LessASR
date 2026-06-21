@@ -4,6 +4,7 @@ using System.Windows.Input;
 using LocalAsrClient.App.Bootstrap;
 using LocalAsrClient.App.Infrastructure;
 using LocalAsrClient.Core;
+using LocalAsrClient.Core.Asr;
 using LocalAsrClient.Core.Persistence;
 
 namespace LocalAsrClient.App.ViewModels;
@@ -52,6 +53,11 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     public bool MinimizeToTrayOnClose { get; set; } = true;
 
+    public IReadOnlyList<TranscriptionLanguageOption> TranscriptionLanguageOptions { get; } =
+        TranscriptionLanguageCatalog.All;
+
+    public string PreferredTranscriptionLanguageId { get; set; } = TranscriptionLanguageCatalog.DefaultId;
+
     public string LastSavedAtText { get; private set; } = "";
 
     public ICommand BrowseModelPathCommand => new RelayCommand(BrowseModelPath);
@@ -71,7 +77,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             WhisperServerPort,
             TranscriptRetentionPolicy,
             StartModelOnAppStartup,
-            MinimizeToTrayOnClose), CancellationToken.None);
+            MinimizeToTrayOnClose,
+            PreferredTranscriptionLanguageId), CancellationToken.None);
         await _services.ApplyServerOptionsFromSettingsAsync();
         LastSavedAtText = $"上次保存：{DateTime.Now:HH:mm:ss}";
         OnPropertyChanged(nameof(LastSavedAtText));
@@ -101,6 +108,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         TranscriptRetentionPolicy = settings.TranscriptRetentionPolicy;
         StartModelOnAppStartup = settings.StartModelOnAppStartup;
         MinimizeToTrayOnClose = settings.MinimizeToTrayOnClose;
+        PreferredTranscriptionLanguageId = settings.PreferredTranscriptionLanguageId;
     }
 
     private void BrowseModelPath()

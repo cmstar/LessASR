@@ -26,7 +26,6 @@ public sealed class TestModeTests
             new LocalAsrClient.Core.Asr.AsrRequest(
                 new LocalAsrClient.Core.Asr.InMemoryAudioInput([1, 2, 3], "wav", 16000, 1),
                 "zh",
-                null,
                 new Dictionary<string, string>()),
             CancellationToken.None);
 

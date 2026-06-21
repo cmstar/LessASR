@@ -1,4 +1,5 @@
 using LocalAsrClient.Core.Persistence;
+using LocalAsrClient.Core.Asr;
 
 namespace LocalAsrClient.Core.Tests.Persistence;
 
@@ -16,7 +17,8 @@ public sealed class SqliteRepositoryTests
             WhisperServerPort: 8081,
             TranscriptRetentionPolicy: TranscriptRetentionPolicy.OneMonth,
             StartModelOnAppStartup: true,
-            MinimizeToTrayOnClose: false);
+            MinimizeToTrayOnClose: false,
+            PreferredTranscriptionLanguageId: "zh-Hans");
 
         await store.SaveAsync(settings, CancellationToken.None);
         var loaded = await store.LoadAsync(CancellationToken.None);
@@ -44,6 +46,17 @@ public sealed class SqliteRepositoryTests
         var loaded = await store.LoadAsync(CancellationToken.None);
 
         Assert.Equal(AppSettings.DefaultWhisperServerPort, loaded.WhisperServerPort);
+    }
+
+    [Fact]
+    public async Task SettingsStore_DefaultsPreferredTranscriptionLanguageWhenMissing()
+    {
+        await using var database = await SqliteDatabase.CreateInMemoryAsync();
+        var store = new SqliteSettingsStore(database);
+
+        var loaded = await store.LoadAsync(CancellationToken.None);
+
+        Assert.Equal(TranscriptionLanguageCatalog.DefaultId, loaded.PreferredTranscriptionLanguageId);
     }
 
     [Fact]

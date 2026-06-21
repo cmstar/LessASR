@@ -14,7 +14,8 @@ whisper.cpp `whisper-server` 默认转写端点（可通过 `--inference-path` �
 - 字段：
   - `file`：WAV 音频（`audio/wav`）
   - `response_format`：`json`
-  - `language`：可选，推荐 `zh`
+  - `language`：可选；LessASR 在「首选语言」非自动时发送 Whisper 语言代码（如 `zh`、`en`）
+  - LessASR 不向 whisper-server 发送 `prompt`；简体中文 / 繁体中文的简繁转换在客户端通过 OpenCC 后处理完成
 
 **响应**
 

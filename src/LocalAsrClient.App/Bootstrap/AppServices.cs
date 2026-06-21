@@ -225,7 +225,9 @@ public sealed class AppServices : IAsyncDisposable
 
             settingsStore,
 
-            new SystemClock());
+            new SystemClock(),
+
+            new TranscriptionScriptPostProcessor(settingsStore));
 
         var transcribeAttempt = 0;
         orchestrator.StatusChanged += status =>

@@ -162,10 +162,12 @@ public sealed class DictationOrchestrator
                 return;
             }
 
+            var settings = await _settingsStore.LoadAsync(cancellationToken);
+            var language = TranscriptionLanguageCatalog.ResolveLanguage(settings.PreferredTranscriptionLanguageId);
+
             var asrResult = await _asrBackend.TranscribeAsync(new AsrRequest(
                 new InMemoryAudioInput(recording.WavData, "wav", recording.SampleRate, recording.Channels),
-                Language: "zh",
-                Prompt: null,
+                Language: language,
                 Options: new Dictionary<string, string>()), cancellationToken);
 
             var finalText = await _postProcessor.ProcessAsync(asrResult.Text, cancellationToken);

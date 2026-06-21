@@ -40,7 +40,7 @@ whisper-server (外部进程)
 1. 用户按下 F10 → 捕获输入焦点 → `IHotkeyListener` 通知 `DictationOrchestrator`。
 2. 再次按下或超时 → 停止 `IAudioRecorder`，获得 WAV 数据。
 3. `IAsrBackend` 确保 whisper-server 就绪后发送 HTTP 转写请求。
-4. 识别文本经 `NoOpTextPostProcessor`（MVP 空处理）后由 `ITextInjector` 注入。
+4. 识别文本经 `TranscriptionScriptPostProcessor`（简中 / 繁中偏好时 OpenCC 转换）后由 `ITextInjector` 注入。
 5. 注入失败时进入 `ResultNeedsAction`，浮窗展示结果供复制。
 6. 成功或失败后写入 `IStatsRepository`；若启用则写入 `ITextHistoryRepository`。
 
@@ -53,5 +53,5 @@ whisper-server (外部进程)
 
 - Core/App 分离以支持无头测试与后续替换 UI 层。
 - 文本注入优先使用 Win32 控件直写；现代应用或未知控件无法直写时，使用“保存剪贴板 → 写入识别文本 → Ctrl+V → 恢复剪贴板”的兼容回退。
-- LLM 后处理保留接口，MVP 使用 `NoOpTextPostProcessor`。
+- 简繁后处理：`TranscriptionScriptPostProcessor` + OpenCC（`t2s` / `s2t`）；LLM 后处理接口仍保留。
 - 用户数据目录固定为 `%USERPROFILE%\.lessasr\`（`LessAsrPaths`），设置项仅存于该目录下的 SQLite，避免「路径配置与数据库位置」循环依赖。

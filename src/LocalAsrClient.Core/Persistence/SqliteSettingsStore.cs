@@ -1,4 +1,5 @@
 using LocalAsrClient.Core.Abstractions;
+using LocalAsrClient.Core.Asr;
 
 namespace LocalAsrClient.Core.Persistence;
 
@@ -34,7 +35,9 @@ public sealed class SqliteSettingsStore : ISettingsStore
                 values.GetValueOrDefault("TranscriptRetentionPolicy"),
                 out var policy) ? policy : defaults.TranscriptRetentionPolicy,
             StartModelOnAppStartup = bool.TryParse(values.GetValueOrDefault("StartModelOnAppStartup"), out var start) && start,
-            MinimizeToTrayOnClose = !bool.TryParse(values.GetValueOrDefault("MinimizeToTrayOnClose"), out var minimize) || minimize
+            MinimizeToTrayOnClose = !bool.TryParse(values.GetValueOrDefault("MinimizeToTrayOnClose"), out var minimize) || minimize,
+            PreferredTranscriptionLanguageId = TranscriptionLanguageCatalog.NormalizeId(
+                values.GetValueOrDefault("PreferredTranscriptionLanguageId"))
         };
     }
 
@@ -47,7 +50,8 @@ public sealed class SqliteSettingsStore : ISettingsStore
             ["WhisperServerPort"] = settings.WhisperServerPort.ToString(),
             ["TranscriptRetentionPolicy"] = settings.TranscriptRetentionPolicy.ToString(),
             ["StartModelOnAppStartup"] = settings.StartModelOnAppStartup.ToString(),
-            ["MinimizeToTrayOnClose"] = settings.MinimizeToTrayOnClose.ToString()
+            ["MinimizeToTrayOnClose"] = settings.MinimizeToTrayOnClose.ToString(),
+            ["PreferredTranscriptionLanguageId"] = settings.PreferredTranscriptionLanguageId
         };
 
         foreach (var pair in values)
