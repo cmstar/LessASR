@@ -126,7 +126,7 @@ public sealed class DictationOrchestrator
         if (_asrBackend.Status != AsrBackendStatus.Ready)
         {
             _state = DictationState.EnsuringModelReady;
-            Publish("模型加载中");
+            Publish("模型加载中...");
             try
             {
                 await _asrBackend.EnsureReadyAsync(cancellationToken);
@@ -137,14 +137,10 @@ public sealed class DictationOrchestrator
                 Publish("模型加载失败", ErrorMessage: ex.Message);
                 return;
             }
-
-            _state = DictationState.Ready;
-            Publish("可录音");
-            return;
         }
 
         _state = DictationState.Recording;
-        Publish("正在聆听");
+        Publish("聆听中");
         await _recorder.StartAsync(cancellationToken);
     }
 
@@ -181,7 +177,6 @@ public sealed class DictationOrchestrator
             }
 
             _state = DictationState.Injecting;
-            Publish("正在输入", finalText);
             var injection = await _textInjector.TryInjectAsync(finalText, cancellationToken);
 
             await PersistResultAsync(finalText, recording.Duration, asrResult.ProcessingDuration ?? TimeSpan.Zero, injection.Succeeded, cancellationToken);

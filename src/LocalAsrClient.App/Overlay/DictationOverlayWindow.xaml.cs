@@ -14,7 +14,7 @@ public partial class DictationOverlayWindow : Window
     private const int SwShownoactivate = 4;
     private const double BottomMargin = 20;
     private const double TopMargin = 16;
-    private const double ChromeHeightWithoutResult = 130;
+    private const double CopyLayoutChromeHeight = 148;
     private readonly IDiagnosticEventSink _diagnostics;
     private readonly OverlayViewModel _viewModel;
     private readonly WindowInteropHelper _interopHelper;
@@ -116,24 +116,19 @@ public partial class DictationOverlayWindow : Window
 
     private void ApplyHeightConstraints()
     {
+        if (!_viewModel.ShowCopyLayout)
+        {
+            return;
+        }
+
         var area = SystemParameters.WorkArea;
         var availableHeight = area.Height - BottomMargin - TopMargin;
-        var maxResultHeight = Math.Max(60, Math.Min(180, availableHeight - ChromeHeightWithoutResult));
-        _viewModel.ResultMaxHeight = maxResultHeight;
+        _viewModel.ResultMaxHeight = Math.Max(60, Math.Min(180, availableHeight - CopyLayoutChromeHeight));
     }
 
     private void PositionBottomCenterNoActivate()
     {
         var area = SystemParameters.WorkArea;
-        var availableHeight = area.Height - BottomMargin - TopMargin;
-
-        if (ActualHeight > availableHeight)
-        {
-            _viewModel.ResultMaxHeight = Math.Max(
-                60,
-                availableHeight - ChromeHeightWithoutResult - (ActualHeight - availableHeight));
-            UpdateLayout();
-        }
 
         Left = area.Left + (area.Width - Width) / 2;
         Top = area.Bottom - ActualHeight - BottomMargin;
@@ -141,9 +136,6 @@ public partial class DictationOverlayWindow : Window
         if (Top < area.Top + TopMargin)
         {
             Top = area.Top + TopMargin;
-            _viewModel.ResultMaxHeight = Math.Max(60, area.Bottom - BottomMargin - Top - ChromeHeightWithoutResult);
-            UpdateLayout();
-            Top = area.Bottom - ActualHeight - BottomMargin;
         }
 
         var handle = _interopHelper.Handle;

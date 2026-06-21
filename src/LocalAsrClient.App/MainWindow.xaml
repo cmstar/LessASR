@@ -152,7 +152,6 @@
                         <Button Content="待录音" Command="{Binding Debug.ShowReadyCommand}" Margin="0,0,8,8"/>
                         <Button Content="正在聆听" Command="{Binding Debug.ShowRecordingCommand}" Margin="0,0,8,8"/>
                         <Button Content="识别中" Command="{Binding Debug.ShowTranscribingCommand}" Margin="0,0,8,8"/>
-                        <Button Content="正在输入" Command="{Binding Debug.ShowInjectingCommand}" Margin="0,0,8,8"/>
                         <Button Content="已注入" Command="{Binding Debug.ShowInjectedCommand}" Margin="0,0,8,8"/>
                         <Button Content="识别结果" Command="{Binding Debug.ShowResultCommand}" Margin="0,0,8,8"/>
                         <Button Content="错误状态" Command="{Binding Debug.ShowErrorCommand}" Margin="0,0,8,8"/>

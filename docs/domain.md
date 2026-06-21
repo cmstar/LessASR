@@ -20,7 +20,7 @@
 
 ## 听写状态
 
-`Idle` → `EnsuringModelReady` → `Ready` → `Recording` → `Transcribing` → `Injecting` → `Idle`
+`Idle` → `EnsuringModelReady` → `Ready` → `Recording` → `Transcribing` → `Injecting`（内部，浮窗仍显示「识别中」）→ `Idle` / `ResultNeedsAction` / `Error`
 
 异常或需用户操作时进入 `ResultNeedsAction` 或 `Error`。
 

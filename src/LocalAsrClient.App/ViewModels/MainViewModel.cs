@@ -72,7 +72,7 @@ public sealed class MainViewModel
             DictationState.Ready => OverlayState.Ready,
             DictationState.Recording => OverlayState.Recording,
             DictationState.Transcribing => OverlayState.Transcribing,
-            DictationState.Injecting => OverlayState.Injecting,
+            DictationState.Injecting => OverlayState.Transcribing,
             DictationState.ResultNeedsAction => OverlayState.ResultNeedsAction,
             DictationState.Error => OverlayState.Error,
             _ => OverlayState.Injected

@@ -17,8 +17,9 @@ public sealed class DictationOrchestratorTests
         await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
 
         Assert.True(fixture.Backend.EnsureReadyCalled);
-        Assert.Equal(DictationState.Ready, fixture.LastStatus.State);
-        Assert.False(fixture.Recorder.Started);
+        Assert.Equal(DictationState.Recording, fixture.LastStatus.State);
+        Assert.Equal("聆听中", fixture.LastStatus.Message);
+        Assert.True(fixture.Recorder.Started);
     }
 
     [Fact]
@@ -30,6 +31,7 @@ public sealed class DictationOrchestratorTests
         await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
 
         Assert.Equal(DictationState.Recording, fixture.LastStatus.State);
+        Assert.Equal("聆听中", fixture.LastStatus.Message);
         Assert.True(fixture.Recorder.Started);
     }
 
@@ -91,7 +93,7 @@ public sealed class DictationOrchestratorTests
         await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
 
         Assert.Equal(DictationState.Recording, fixture.LastStatus.State);
-        Assert.Equal("正在聆听", fixture.LastStatus.Message);
+        Assert.Equal("聆听中", fixture.LastStatus.Message);
         Assert.True(fixture.Recorder.Started);
     }
 
