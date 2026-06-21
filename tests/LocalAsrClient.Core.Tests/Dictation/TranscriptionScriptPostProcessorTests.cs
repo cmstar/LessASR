@@ -17,6 +17,26 @@ public sealed class TranscriptionScriptPostProcessorTests
         Assert.Equal("汉字", result);
     }
 
+    [Fact]
+    public async Task ProcessAsync_NormalizesChinesePunctuation_WhenSettingsPreferZhHans()
+    {
+        var processor = new TranscriptionScriptPostProcessor(new StubSettingsStore("zh-Hans"));
+
+        var result = await processor.ProcessAsync("首先,然后", CancellationToken.None);
+
+        Assert.Equal("首先，然后", result);
+    }
+
+    [Fact]
+    public async Task ProcessAsync_SkipsChinesePunctuation_WhenSettingsPreferEnglish()
+    {
+        var processor = new TranscriptionScriptPostProcessor(new StubSettingsStore("en"));
+
+        var result = await processor.ProcessAsync("首先,然后", CancellationToken.None);
+
+        Assert.Equal("首先,然后", result);
+    }
+
     private sealed class StubSettingsStore(string languageId) : ISettingsStore
     {
         public Task<AppSettings> LoadAsync(CancellationToken cancellationToken)
