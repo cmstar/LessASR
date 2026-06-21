@@ -9,6 +9,7 @@ public sealed record AppSettings(
     TranscriptRetentionPolicy TranscriptRetentionPolicy,
     bool StartModelOnAppStartup,
     bool MinimizeToTrayOnClose = true,
+    int? WhisperServerThreadCount = null,
     string PreferredTranscriptionLanguageId = TranscriptionLanguageCatalog.DefaultId)
 {
     public const int DefaultWhisperServerPort = 8080;

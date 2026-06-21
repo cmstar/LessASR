@@ -4,7 +4,7 @@ public static class WhisperServerStartupArguments
 {
     public static string Build(WhisperServerOptions options)
     {
-        var threads = WhisperServerThreadCount.RecommendForCurrentMachine();
+        var threads = WhisperServerThreadCount.Resolve(options.ThreadCount);
         return $"--host {options.Host} --port {options.Port} --threads {threads} --max-context 0 -m \"{options.ModelPath}\"";
     }
 }

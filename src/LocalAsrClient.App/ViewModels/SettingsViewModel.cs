@@ -6,6 +6,7 @@ using LocalAsrClient.App.Infrastructure;
 using LocalAsrClient.Core;
 using LocalAsrClient.Core.Asr;
 using LocalAsrClient.Core.Persistence;
+using WhisperServerThreads = LocalAsrClient.Core.Asr.WhisperServerThreadCount;
 
 namespace LocalAsrClient.App.ViewModels;
 
@@ -16,6 +17,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     private string _modelPath = "";
     private string _whisperServerPath = "";
     private int _whisperServerPort = AppSettings.DefaultWhisperServerPort;
+    private int _whisperServerThreadCount = WhisperServerThreads.RecommendForCurrentMachine();
+    private bool _useAutoWhisperServerThreadCount = true;
 
     public SettingsViewModel(AppServices services, Func<Task>? onSettingsSaved = null)
     {
@@ -43,6 +46,20 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         set => SetField(ref _whisperServerPort, value);
     }
 
+    public int RecommendedWhisperServerThreadCount => WhisperServerThreads.RecommendForCurrentMachine();
+
+    public int WhisperServerThreadCount
+    {
+        get => _whisperServerThreadCount;
+        set
+        {
+            if (SetField(ref _whisperServerThreadCount, value))
+            {
+                _useAutoWhisperServerThreadCount = false;
+            }
+        }
+    }
+
     public string DataDirectoryPath => LessAsrPaths.DataDirectory;
 
     public string LogsDirectoryPath => LessAsrPaths.LogsDirectory;
@@ -64,11 +81,18 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     public ICommand BrowseWhisperServerPathCommand => new RelayCommand(BrowseWhisperServerPath);
 
+    public ICommand ResetWhisperServerThreadCountCommand => new RelayCommand(ResetWhisperServerThreadCount);
+
     public ICommand SaveCommand => new AsyncRelayCommand(async () =>
     {
         if (WhisperServerPort is < 1 or > 65535)
         {
             throw new InvalidOperationException("whisper-server 端口必须在 1 到 65535 之间。");
+        }
+
+        if (WhisperServerThreadCount is < 1)
+        {
+            throw new InvalidOperationException("whisper-server 线程数必须大于 0。");
         }
 
         await _services.SettingsStore.SaveAsync(new AppSettings(
@@ -78,6 +102,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             TranscriptRetentionPolicy,
             StartModelOnAppStartup,
             MinimizeToTrayOnClose,
+            _useAutoWhisperServerThreadCount ? null : WhisperServerThreadCount,
             PreferredTranscriptionLanguageId), CancellationToken.None);
         await _services.ApplyServerOptionsFromSettingsAsync();
         LastSavedAtText = $"上次保存：{DateTime.Now:HH:mm:ss}";
@@ -105,10 +130,28 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         ModelPath = settings.ModelPath;
         WhisperServerPath = settings.WhisperServerPath;
         WhisperServerPort = settings.WhisperServerPort;
+        _useAutoWhisperServerThreadCount = settings.WhisperServerThreadCount is null;
+        _whisperServerThreadCount = settings.WhisperServerThreadCount
+            ?? WhisperServerThreads.RecommendForCurrentMachine();
+        OnPropertyChanged(nameof(WhisperServerThreadCount));
+        OnPropertyChanged(nameof(RecommendedWhisperServerThreadCount));
         TranscriptRetentionPolicy = settings.TranscriptRetentionPolicy;
         StartModelOnAppStartup = settings.StartModelOnAppStartup;
         MinimizeToTrayOnClose = settings.MinimizeToTrayOnClose;
         PreferredTranscriptionLanguageId = settings.PreferredTranscriptionLanguageId;
+    }
+
+    private void ResetWhisperServerThreadCount()
+    {
+        _useAutoWhisperServerThreadCount = true;
+        if (_whisperServerThreadCount != RecommendedWhisperServerThreadCount)
+        {
+            WhisperServerThreadCount = RecommendedWhisperServerThreadCount;
+        }
+        else
+        {
+            OnPropertyChanged(nameof(WhisperServerThreadCount));
+        }
     }
 
     private void BrowseModelPath()

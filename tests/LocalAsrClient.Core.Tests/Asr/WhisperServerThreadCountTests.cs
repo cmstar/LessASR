@@ -4,6 +4,20 @@ namespace LocalAsrClient.Core.Tests.Asr;
 
 public sealed class WhisperServerThreadCountTests
 {
+    [Fact]
+    public void Resolve_UsesConfiguredValueWhenSet()
+    {
+        Assert.Equal(8, WhisperServerThreadCount.Resolve(8));
+    }
+
+    [Fact]
+    public void Resolve_UsesRecommendedValueWhenNull()
+    {
+        Assert.Equal(
+            WhisperServerThreadCount.RecommendForCurrentMachine(),
+            WhisperServerThreadCount.Resolve(null));
+    }
+
     [Theory]
     [InlineData(1, 4)]
     [InlineData(4, 4)]

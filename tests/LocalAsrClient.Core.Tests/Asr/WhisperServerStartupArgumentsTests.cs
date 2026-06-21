@@ -5,6 +5,21 @@ namespace LocalAsrClient.Core.Tests.Asr;
 public sealed class WhisperServerStartupArgumentsTests
 {
     [Fact]
+    public void Build_UsesConfiguredThreadCount()
+    {
+        var options = new WhisperServerOptions(
+            ServerExecutablePath: @"C:\tools\whisper-server.exe",
+            ModelPath: @"C:\models\ggml-base.bin",
+            Host: "127.0.0.1",
+            Port: 8080,
+            ThreadCount: 8);
+
+        var arguments = WhisperServerStartupArguments.Build(options);
+
+        Assert.Contains("--threads 8", arguments, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Build_IncludesHostPortAndModelPath()
     {
         var options = new WhisperServerOptions(

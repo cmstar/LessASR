@@ -18,6 +18,7 @@ public sealed class SqliteRepositoryTests
             TranscriptRetentionPolicy: TranscriptRetentionPolicy.OneMonth,
             StartModelOnAppStartup: true,
             MinimizeToTrayOnClose: false,
+            WhisperServerThreadCount: 8,
             PreferredTranscriptionLanguageId: "zh-Hans");
 
         await store.SaveAsync(settings, CancellationToken.None);
@@ -57,6 +58,17 @@ public sealed class SqliteRepositoryTests
         var loaded = await store.LoadAsync(CancellationToken.None);
 
         Assert.Equal(TranscriptionLanguageCatalog.DefaultId, loaded.PreferredTranscriptionLanguageId);
+    }
+
+    [Fact]
+    public async Task SettingsStore_DefaultsWhisperServerThreadCountWhenMissing()
+    {
+        await using var database = await SqliteDatabase.CreateInMemoryAsync();
+        var store = new SqliteSettingsStore(database);
+
+        var loaded = await store.LoadAsync(CancellationToken.None);
+
+        Assert.Null(loaded.WhisperServerThreadCount);
     }
 
     [Fact]

@@ -4,7 +4,8 @@ public sealed record WhisperServerOptions(
     string ServerExecutablePath,
     string ModelPath,
     string Host,
-    int Port)
+    int Port,
+    int? ThreadCount = null)
 {
     public Uri BaseUri => new($"http://{Host}:{Port}");
 }

@@ -133,7 +133,9 @@ public sealed class AppServices : IAsyncDisposable
 
             "127.0.0.1",
 
-            settings.WhisperServerPort);
+            settings.WhisperServerPort,
+
+            settings.WhisperServerThreadCount);
 
         ServerManager.UpdateOptions(options);
 
@@ -183,7 +185,9 @@ public sealed class AppServices : IAsyncDisposable
 
             "127.0.0.1",
 
-            settings.WhisperServerPort);
+            settings.WhisperServerPort,
+
+            settings.WhisperServerThreadCount);
 
         var serverManager = new WhisperServerProcessManager(options, new AppFileLog());
 

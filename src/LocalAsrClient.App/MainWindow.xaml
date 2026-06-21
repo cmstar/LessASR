@@ -1,6 +1,7 @@
 <Window x:Class="LocalAsrClient.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:infra="clr-namespace:LocalAsrClient.App.Infrastructure"
         Title="LessASR"
         Width="760"
         Height="520"
@@ -74,7 +75,10 @@
                 </StackPanel>
             </TabItem>
             <TabItem x:Name="SettingsTabItem" Header="设置">
-                <StackPanel Margin="16" Width="560" HorizontalAlignment="Left">
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              Padding="0,0,0,16">
+                    <StackPanel Margin="16" Width="560" HorizontalAlignment="Left">
                     <TextBlock Text="首选语言"/>
                     <ComboBox ItemsSource="{Binding Settings.TranscriptionLanguageOptions}"
                               DisplayMemberPath="DisplayName"
@@ -107,6 +111,24 @@
                     <TextBlock Text="whisper-server 端口"/>
                     <TextBox Text="{Binding Settings.WhisperServerPort, UpdateSourceTrigger=PropertyChanged}"
                              Margin="0,4,0,12" Width="120" HorizontalAlignment="Left"/>
+                    <TextBlock Text="whisper-server 线程数"/>
+                    <Grid Margin="0,4,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox Text="{Binding Settings.WhisperServerThreadCount, UpdateSourceTrigger=PropertyChanged}"
+                                 Width="120"
+                                 HorizontalAlignment="Left"
+                                 infra:IntegerTextBoxBehavior.IsEnabled="True"/>
+                        <Button Grid.Column="1" Content="重置" Margin="8,0,0,0" Padding="12,4"
+                                Command="{Binding Settings.ResetWhisperServerThreadCountCommand}"/>
+                    </Grid>
+                    <TextBlock Foreground="Gray" Margin="0,0,0,12">
+                        <Run Text="推荐值："/>
+                        <Run Text="{Binding Settings.RecommendedWhisperServerThreadCount, Mode=OneWay}"/>
+                        <Run Text="（根据本机 CPU 自动判断；重置后恢复为推荐值）"/>
+                    </TextBlock>
                     <TextBlock Text="{Binding Settings.DataDirectoryPath, StringFormat=数据目录：{0}}" Foreground="Gray" Margin="0,0,0,4"/>
                     <TextBlock Text="{Binding Settings.LogsDirectoryPath, StringFormat=日志目录：{0}}" Foreground="Gray" Margin="0,0,0,12"/>
                     <CheckBox Content="客户端启动时自动加载当前模型" IsChecked="{Binding Settings.StartModelOnAppStartup}" Margin="0,0,0,8"/>
@@ -119,7 +141,8 @@
                                    Margin="12,0,0,0"
                                    Foreground="Gray"/>
                     </StackPanel>
-                </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
             </TabItem>
             <TabItem Header="Debug">
                 <StackPanel Margin="16" Width="520" HorizontalAlignment="Left">

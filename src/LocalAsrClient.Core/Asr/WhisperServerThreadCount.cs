@@ -2,6 +2,11 @@ namespace LocalAsrClient.Core.Asr;
 
 public static class WhisperServerThreadCount
 {
+    public static int Resolve(int? configuredThreadCount)
+    {
+        return configuredThreadCount ?? RecommendForCurrentMachine();
+    }
+
     public static int RecommendForCurrentMachine()
     {
         return RecommendForLogicalProcessorCount(Environment.ProcessorCount);

@@ -36,6 +36,7 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
     {
         var restartRequired = _options.Host != options.Host
             || _options.Port != options.Port
+            || _options.ThreadCount != options.ThreadCount
             || !string.Equals(_options.ServerExecutablePath, options.ServerExecutablePath, StringComparison.OrdinalIgnoreCase)
             || !string.Equals(_options.ModelPath, options.ModelPath, StringComparison.OrdinalIgnoreCase);
 
