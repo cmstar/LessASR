@@ -50,6 +50,71 @@ public sealed class ContinuousDictationSession
         }
     }
 
+    public async Task CancelCurrentSegmentAsync(CancellationToken cancellationToken)
+    {
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            if (!_isRecordingActive)
+            {
+                return;
+            }
+
+            await _recorder.StopAsync(cancellationToken);
+            var waitingIndex = _segments.FindLastIndex(s => s.State == ContinuousSegmentState.WaitingInput);
+            if (waitingIndex >= 0)
+            {
+                _segments.RemoveAt(waitingIndex);
+            }
+
+            _isRecordingActive = false;
+            Publish();
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    public async Task TerminateAsync(CancellationToken cancellationToken)
+    {
+        _workerCts?.Cancel();
+        if (_isRecordingActive)
+        {
+            try
+            {
+                await _recorder.StopAsync(cancellationToken);
+            }
+            catch
+            {
+                // 忽略停止录音时的异常。
+            }
+        }
+
+        _segments.Clear();
+        lock (_queueLock)
+        {
+            _pendingTranscriptions.Clear();
+        }
+
+        _isRecordingActive = false;
+        _workerCts = null;
+        _workerTask = null;
+        Publish();
+    }
+
+    public void UpdateSegmentText(Guid segmentId, string text)
+    {
+        var index = _segments.FindIndex(s => s.Id == segmentId);
+        if (index >= 0 && _segments[index].State == ContinuousSegmentState.Completed)
+        {
+            _segments[index] = _segments[index] with { Text = text };
+            Publish();
+        }
+    }
+
+    public string BuildHistoryText() => ContinuousDictationTextMerge.MergeCompletedSegments(_segments);
+
     public async Task CommitSegmentBoundaryAsync(CancellationToken cancellationToken)
     {
         await _gate.WaitAsync(cancellationToken);

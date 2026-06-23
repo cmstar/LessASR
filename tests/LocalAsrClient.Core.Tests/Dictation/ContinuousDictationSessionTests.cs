@@ -80,6 +80,50 @@ public sealed class ContinuousDictationSessionTests
     }
 
     [Fact]
+    public async Task CancelCurrentSegmentAsync_RemovesWaitingInputWithoutQueueing()
+    {
+        var fixture = new SessionFixture();
+        fixture.Backend.Status = AsrBackendStatus.Ready;
+        await fixture.Session.ToggleRecordingAsync(CancellationToken.None);
+
+        await fixture.Session.CancelCurrentSegmentAsync(CancellationToken.None);
+
+        Assert.False(fixture.LastSnapshot.IsRecordingActive);
+        Assert.Empty(fixture.LastSnapshot.Segments);
+        Assert.Equal(0, fixture.Backend.TranscribeCallCount);
+    }
+
+    [Fact]
+    public async Task TerminateAsync_ClearsSegmentsAndCancelsWorker()
+    {
+        var fixture = new SessionFixture();
+        fixture.Backend.Status = AsrBackendStatus.Ready;
+        await fixture.Session.ToggleRecordingAsync(CancellationToken.None);
+        await fixture.Session.ToggleRecordingAsync(CancellationToken.None);
+
+        await fixture.Session.TerminateAsync(CancellationToken.None);
+
+        Assert.Empty(fixture.LastSnapshot.Segments);
+    }
+
+    [Fact]
+    public async Task BuildHistoryText_UsesCompletedSegments()
+    {
+        var fixture = new SessionFixture();
+        fixture.Backend.Status = AsrBackendStatus.Ready;
+        fixture.Backend.TranscribeText = "原始文本";
+        await fixture.Session.ToggleRecordingAsync(CancellationToken.None);
+        await fixture.Session.ToggleRecordingAsync(CancellationToken.None);
+        await fixture.WaitForQueueDrainAsync(TimeSpan.FromSeconds(2));
+
+        var segmentId = fixture.LastSnapshot.Segments[0].Id;
+        fixture.Session.UpdateSegmentText(segmentId, "用户改过的字");
+
+        var text = fixture.Session.BuildHistoryText();
+        Assert.Contains("用户改过的字", text);
+    }
+
+    [Fact]
     public async Task QueueWorker_OnFailure_MarksSegmentFailed()
     {
         var fixture = new SessionFixture();
