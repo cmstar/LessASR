@@ -97,7 +97,7 @@ dotnet run --project src/LocalAsrClient.App/LocalAsrClient.App.csproj -- --diagn
 dotnet run --project src/LocalAsrClient.App/LocalAsrClient.App.csproj -- --test-mode
 ```
 
-测试模式下 ASR 固定返回默认测试文本，不验证 whisper-server 识别准确率。仍使用双 F10 完整听写链路，仅替换录音与 ASR 后端。
+测试模式下 ASR 固定返回默认测试文本，不验证 whisper-server 识别准确率。仍使用双按右 Ctrl 完整听写链路，仅替换录音与 ASR 后端。
 
 ### 进程生命周期说明
 
@@ -122,7 +122,7 @@ dotnet run --project tests/LocalAsrClient.TestTarget/LocalAsrClient.TestTarget.c
 dotnet run --project src/LocalAsrClient.App/LocalAsrClient.App.csproj -- --test-mode
 ```
 
-在 TestTarget 中聚焦 Native 输入框，按两次 F10 完成一次听写，然后查看屏幕日志与 `%USERPROFILE%\.lessasr\diagnostics\` 下的 JSONL。
+在 TestTarget 中聚焦 Native 输入框，按两次右 Ctrl 完成一次听写，然后查看屏幕日志与 `%USERPROFILE%\.lessasr\diagnostics\` 下的 JSONL。
 
 ## 实现计划
 

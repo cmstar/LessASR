@@ -5,7 +5,7 @@
 ```text
 LocalAsrClient.App (WPF Shell)
   ├── 托盘、主窗口、听写浮窗
-  ├── F10 热键监听（Win32 低级钩子）
+  ├── 右 Ctrl 热键监听（Win32 低级钩子）
   ├── NAudio 音频采集
   └── 文本注入（Win32 直写 / SendInput / 剪贴板粘贴回退）
 
@@ -37,7 +37,7 @@ whisper-server (外部进程)
 
 ## 数据流
 
-1. 用户按下 F10 → 捕获输入焦点 → `IHotkeyListener` 通知 `DictationOrchestrator`。
+1. 用户按下右 Ctrl → 捕获输入焦点 → `IHotkeyListener` 通知 `DictationOrchestrator`。
 2. 再次按下或超时 → 停止 `IAudioRecorder`，获得 WAV 数据。
 3. `IAsrBackend` 确保 whisper-server 就绪后发送 HTTP 转写请求。
 4. 识别文本经 `TranscriptionScriptPostProcessor`（简繁 OpenCC；简中 / 繁中时规范化 CJK 标点）后由 `ITextInjector` 注入。

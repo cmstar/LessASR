@@ -44,7 +44,7 @@ Core 层平台抽象见 `src/LocalAsrClient.Core/Abstractions/`：
 | `IAsrBackend` | ASR 就绪检查与转写 |
 | `IAudioRecorder` | 录音开始/停止 |
 | `ITextInjector` | 文本注入 |
-| `IHotkeyListener` | F10 触发事件 |
+| `IHotkeyListener` | 右 Ctrl 触发事件 |
 | `ISettingsStore` | 应用设置读写 |
 | `IStatsRepository` | 每日统计 |
 | `ITextHistoryRepository` | 文本历史 |

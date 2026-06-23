@@ -5,14 +5,14 @@ namespace LocalAsrClient.App.Tests.E2E;
 
 public static class KeyboardInput
 {
-    private const ushort VirtualKeyF10 = 0x79;
+    private const ushort VirtualKeyRightControl = 0xA3;
 
-    public static void PressF10()
+    public static void PressRightControl()
     {
         var inputs = new[]
         {
-            Create(VirtualKeyF10, keyUp: false),
-            Create(VirtualKeyF10, keyUp: true)
+            Create(VirtualKeyRightControl, keyUp: false),
+            Create(VirtualKeyRightControl, keyUp: true)
         };
 
         var sent = Win32InputNative.SendInput(

@@ -9,7 +9,7 @@ public sealed class FocusDiagnosticsE2ETests
 
     [Fact]
     [Trait("Category", "UiE2E")]
-    public async Task F10DictationInjectsFakeAsrTextIntoNativeTarget()
+    public async Task RightControlDictationInjectsFakeAsrTextIntoNativeTarget()
     {
         await using var runner = new ProcessRunner();
         var repo = FindRepoRoot();
@@ -33,10 +33,10 @@ public sealed class FocusDiagnosticsE2ETests
         var focusButton = targetWindow.FindFirstDescendant(cf => cf.ByAutomationId("FocusNativeButton"))!.AsButton();
         focusButton.Invoke();
 
-        KeyboardInput.PressF10();
+        KeyboardInput.PressRightControl();
         await WaitForDiagnosticsEventAsync("Dictation.StateChanged", "Recording", TimeSpan.FromSeconds(5));
 
-        KeyboardInput.PressF10();
+        KeyboardInput.PressRightControl();
         await WaitForDiagnosticsEventAsync("TextInjection.After", null, TimeSpan.FromSeconds(10));
 
         await WaitUntilAsync(() =>
