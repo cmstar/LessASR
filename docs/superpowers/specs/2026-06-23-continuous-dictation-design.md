@@ -90,8 +90,8 @@ F9 是**录制状态的开关**；窗口可长期保持打开，内容跨多轮�
 | --- | --- | --- |
 | `WaitingInput` | 正在等待/录制本段 | Placeholder：「等待输入…」；实际录音进行中 |
 | `Transcribing` | 已入队，ASR 处理中 | Placeholder：「识别中…」 |
-| `Completed` | 识别成功 | 显示识别文本（可编辑）；Placeholder 消失 |
-| `Failed` | 识别失败 | Placeholder 或样式提示「识别失败」+ 简短错误信息 |
+| `Completed` | 识别成功 | 显示识别文本（**可编辑**）；Placeholder 消失 |
+| `Failed` | 识别失败 | Placeholder「识别失败」+ 简短错误信息（**不可编辑**） |
 
 ### 转移
 
@@ -159,14 +159,28 @@ Transcribing
 
 ## 窗口 UI
 
+### 界面语言
+
+**所有用户可见文案必须使用简体中文**，包括但不限于：顶栏标题、Placeholder、按钮标签、Toast/提示、错误摘要。代码内的枚举、状态名、日志字段等可保持英文。
+
+| 用途 | 中文文案（定稿） |
+| --- | --- |
+| 顶栏 | `连续听写模式 (x/y)` |
+| Placeholder · 等待 | `等待输入…` |
+| Placeholder · 识别中 | `识别中…` |
+| Placeholder · 失败 | `识别失败`（可追加错误摘要，如 `识别失败：超时`） |
+| 按钮 | `终止`、`结束录制`、`复制` |
+| 模型未就绪 | `模型加载中…` |
+| 队列已满 | `已达识别上限（50 段），已停止录制` |
+
 ### 布局（三段）
 
 ```text
 ┌─ 连续听写模式 (x/y) ─────────────────────┐
-│  [段 1 文本框 - Completed，可编辑]         │
-│  [段 2 文本框 - Transcribing，placeholder] │
-│  [段 3 文本框 - Failed，placeholder/样式]  │
-│  [段 4 文本框 - WaitingInput，placeholder] │
+│  [段 1 文本框 - 已完成，可编辑]            │
+│  [段 2 文本框 - 识别中，placeholder]       │
+│  [段 3 文本框 - 识别失败，placeholder]     │
+│  [段 4 文本框 - 等待输入，placeholder]     │
 ├─────────────────────────────────────────┤
 │ [终止]  [结束录制]  [复制]                │
 └─────────────────────────────────────────┘
@@ -176,21 +190,39 @@ Transcribing
 - **中间**：纵向滚动的段列表；**每一项为一个 div 式容器，内嵌单个 TextBox**（非 GroupBox 标题+正文结构）。
 - **底栏**：`终止`、`结束录制`（同 Esc）、`复制`（仅 Completed 块，换行拼接）。
 
+### 编辑与 Placeholder 冲突
+
+各段在 UI 上均为 TextBox，但**仅 `Completed` 状态允许用户编辑**；其余状态 `IsReadOnly = true`，`Text` 保持为空，状态仅通过 Placeholder（及失败时的样式）表达。
+
+**问题**：若 `Transcribing` 时用户仍能输入，识别完成后系统会用 ASR 结果写入该项，**覆盖并丢弃**用户手动输入的内容。
+
+**规则**：
+
+| 状态 | 可编辑 | Text 内容 | 识别完成时 |
+| --- | --- | --- | --- |
+| `WaitingInput` | 否 | 空 | — |
+| `Transcribing` | 否 | 空 | 写入 ASR 结果 → `Completed`，变为可编辑 |
+| `Failed` | 否 | 空 | — |
+| `Completed` | 是 | 识别结果（可被用户修改） | — |
+
+实现上：ViewModel 按段状态暴露 `IsEditable`；WPF 绑定 `TextBox.IsReadOnly = !IsEditable`。识别结果只通过绑定更新 `Text`，不在非 Completed 状态接受用户 keystroke。
+
 ### 窗口行为
 
 - **首次 F9**：窗口创建、**聚焦**、**置顶**（`Topmost`）。
 - 录制过程中用户切换至其他应用：**不**停止录音；窗口失焦仍接收段状态更新与文本回填。
 - 文本更新通过 ViewModel 绑定，**不依赖** TextBox 焦点或可见光标。
-- Placeholder 文案（等待输入 / 识别中 / 识别失败）**不是**控件 `Text` 的一部分，复制与历史合并时**不包含** placeholder。
+- Placeholder 文案**不是**控件 `Text` 的一部分，复制与历史合并时**不包含** placeholder。
+- 非 `Completed` 状态的 TextBox 为只读，避免识别回填与用户输入冲突。
 
 ### 样式要点
 
 | 状态 | Placeholder / 样式 |
 | --- | --- |
-| WaitingInput | 「等待输入…」（可选录制动效） |
-| Transcribing | 「识别中…」 |
-| Failed | 「识别失败」+ 错误摘要；区别于 Completed 的边框/颜色 |
-| Completed | 正常正文，可编辑 |
+| WaitingInput | 「等待输入…」（可选录制动效）；不可编辑 |
+| Transcribing | 「识别中…」；不可编辑 |
+| Failed | 「识别失败」+ 错误摘要；不可编辑；区别于 Completed 的边框/颜色 |
+| Completed | 正常正文；**可编辑** |
 
 ## 与单句模式的关系
 
@@ -222,6 +254,7 @@ Transcribing
 
 - 连续窗口开着时右 Ctrl 不分流到单句。
 - Placeholder 不参与复制。
+- `Transcribing` / `WaitingInput` / `Failed` 段 TextBox 只读，识别中无法键入。
 - 失焦后录音与 UI 更新正常。
 - 终止不写历史；关窗写历史（有 Completed 时）。
 
@@ -234,6 +267,7 @@ Transcribing
 5. 关窗后一条历史含所有 Completed 合并正文；终止清空且不写历史。
 6. 连续窗口开着时单句听写不可用。
 7. 列表项 Placeholder（等待输入 / 识别中 / 识别失败）不参与复制与历史合并。
+8. 界面文案均为简体中文；仅 `Completed` 段可编辑，识别中/等待/失败段为只读。
 
 ## 文档与领域更新
 
