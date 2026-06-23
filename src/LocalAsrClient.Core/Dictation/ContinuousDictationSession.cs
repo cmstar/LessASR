@@ -47,6 +47,35 @@ public sealed class ContinuousDictationSession
         }
     }
 
+    public async Task CommitSegmentBoundaryAsync(CancellationToken cancellationToken)
+    {
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            if (!_isRecordingActive)
+            {
+                return;
+            }
+
+            var hasNext = await CommitCurrentSegmentInternalAsync(startNext: true, cancellationToken);
+            if (!hasNext)
+            {
+                _isRecordingActive = false;
+                var banner = GetPendingTranscriptionCount() >= MaxQueueDepth
+                    ? "已达识别上限（50 段），已停止录制"
+                    : null;
+                Publish(banner);
+                return;
+            }
+
+            Publish();
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     private async Task StartRecordingInternalAsync(CancellationToken cancellationToken)
     {
         _segments.Add(new ContinuousDictationSegment(Guid.NewGuid(), ContinuousSegmentState.WaitingInput, "", null));
@@ -66,6 +95,13 @@ public sealed class ContinuousDictationSession
         if (recording.Duration < MinRecordingDuration)
         {
             _segments.RemoveAt(waitingIndex);
+            if (startNext)
+            {
+                await _recorder.StartAsync(cancellationToken);
+                _segments.Add(new ContinuousDictationSegment(Guid.NewGuid(), ContinuousSegmentState.WaitingInput, "", null));
+                return true;
+            }
+
             return false;
         }
 
@@ -73,8 +109,23 @@ public sealed class ContinuousDictationSession
         _segments[waitingIndex] = _segments[waitingIndex] with { State = ContinuousSegmentState.Transcribing };
         _pendingTranscriptions.Enqueue((segmentId, recording));
 
+        if (startNext)
+        {
+            if (GetPendingTranscriptionCount() >= MaxQueueDepth)
+            {
+                return false;
+            }
+
+            await _recorder.StartAsync(cancellationToken);
+            _segments.Add(new ContinuousDictationSegment(Guid.NewGuid(), ContinuousSegmentState.WaitingInput, "", null));
+            return true;
+        }
+
         return false;
     }
+
+    private int GetPendingTranscriptionCount() =>
+        _segments.Count(s => s.State == ContinuousSegmentState.Transcribing);
 
     private void Publish(string? banner = null)
     {

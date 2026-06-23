@@ -33,6 +33,35 @@ public sealed class ContinuousDictationSessionTests
         Assert.Equal(ContinuousSegmentState.Transcribing, fixture.LastSnapshot.Segments[0].State);
     }
 
+    [Fact]
+    public async Task CommitSegmentBoundaryAsync_EnqueuesAndStartsNextWaitingSegment()
+    {
+        var fixture = new SessionFixture();
+        fixture.Backend.Status = AsrBackendStatus.Ready;
+        await fixture.Session.ToggleRecordingAsync(CancellationToken.None);
+
+        await fixture.Session.CommitSegmentBoundaryAsync(CancellationToken.None);
+
+        Assert.True(fixture.LastSnapshot.IsRecordingActive);
+        Assert.Equal(2, fixture.LastSnapshot.Segments.Count);
+        Assert.Equal(ContinuousSegmentState.Transcribing, fixture.LastSnapshot.Segments[0].State);
+        Assert.Equal(ContinuousSegmentState.WaitingInput, fixture.LastSnapshot.Segments[1].State);
+    }
+
+    [Fact]
+    public async Task CommitSegmentBoundaryAsync_WhenTooShort_RemovesWaitingSegment()
+    {
+        var fixture = new SessionFixture();
+        fixture.Backend.Status = AsrBackendStatus.Ready;
+        fixture.Recorder.DurationOverride = TimeSpan.FromMilliseconds(100);
+        await fixture.Session.ToggleRecordingAsync(CancellationToken.None);
+
+        await fixture.Session.CommitSegmentBoundaryAsync(CancellationToken.None);
+
+        Assert.Single(fixture.LastSnapshot.Segments);
+        Assert.Equal(ContinuousSegmentState.WaitingInput, fixture.LastSnapshot.Segments[0].State);
+    }
+
     private sealed class SessionFixture
     {
         public SessionFixture()
