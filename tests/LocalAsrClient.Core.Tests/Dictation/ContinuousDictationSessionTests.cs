@@ -25,6 +25,7 @@ public sealed class ContinuousDictationSessionTests
     {
         var fixture = new SessionFixture();
         fixture.Backend.Status = AsrBackendStatus.Ready;
+        fixture.Backend.TranscribeDelay = TimeSpan.FromSeconds(10);
         await fixture.Session.ToggleRecordingAsync(CancellationToken.None);
 
         await fixture.Session.ToggleRecordingAsync(CancellationToken.None);
@@ -38,6 +39,7 @@ public sealed class ContinuousDictationSessionTests
     {
         var fixture = new SessionFixture();
         fixture.Backend.Status = AsrBackendStatus.Ready;
+        fixture.Backend.TranscribeDelay = TimeSpan.FromSeconds(10);
         await fixture.Session.ToggleRecordingAsync(CancellationToken.None);
 
         await fixture.Session.CommitSegmentBoundaryAsync(CancellationToken.None);
@@ -60,6 +62,36 @@ public sealed class ContinuousDictationSessionTests
 
         Assert.Single(fixture.LastSnapshot.Segments);
         Assert.Equal(ContinuousSegmentState.WaitingInput, fixture.LastSnapshot.Segments[0].State);
+    }
+
+    [Fact]
+    public async Task QueueWorker_OnSuccess_MarksSegmentCompleted()
+    {
+        var fixture = new SessionFixture();
+        fixture.Backend.Status = AsrBackendStatus.Ready;
+        fixture.Backend.TranscribeText = "段落一";
+        await fixture.Session.ToggleRecordingAsync(CancellationToken.None);
+        await fixture.Session.ToggleRecordingAsync(CancellationToken.None);
+
+        await fixture.WaitForQueueDrainAsync(TimeSpan.FromSeconds(2));
+
+        Assert.Equal(ContinuousSegmentState.Completed, fixture.LastSnapshot.Segments[0].State);
+        Assert.Equal("段落一", fixture.LastSnapshot.Segments[0].Text);
+    }
+
+    [Fact]
+    public async Task QueueWorker_OnFailure_MarksSegmentFailed()
+    {
+        var fixture = new SessionFixture();
+        fixture.Backend.Status = AsrBackendStatus.Ready;
+        fixture.Backend.TranscribeThrows = new InvalidOperationException("连接失败");
+        await fixture.Session.ToggleRecordingAsync(CancellationToken.None);
+        await fixture.Session.ToggleRecordingAsync(CancellationToken.None);
+
+        await fixture.WaitForQueueDrainAsync(TimeSpan.FromSeconds(2));
+
+        Assert.Equal(ContinuousSegmentState.Failed, fixture.LastSnapshot.Segments[0].State);
+        Assert.Contains("连接失败", fixture.LastSnapshot.Segments[0].ErrorMessage, StringComparison.Ordinal);
     }
 
     private sealed class SessionFixture
@@ -90,5 +122,19 @@ public sealed class ContinuousDictationSessionTests
         public ContinuousDictationSession Session { get; }
         public ContinuousDictationSnapshot LastSnapshot { get; private set; } =
             new(Array.Empty<ContinuousDictationSegment>(), false, 0, 0, null);
+
+        public async Task WaitForQueueDrainAsync(TimeSpan timeout)
+        {
+            var deadline = DateTime.UtcNow + timeout;
+            while (DateTime.UtcNow < deadline)
+            {
+                if (!LastSnapshot.Segments.Any(s => s.State == ContinuousSegmentState.Transcribing))
+                {
+                    return;
+                }
+
+                await Task.Delay(20);
+            }
+        }
     }
 }

@@ -11,7 +11,10 @@ public sealed class ContinuousDictationSession
     private readonly IAudioRecorder _recorder;
     private readonly TranscriptionPipeline _pipeline;
     private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly object _queueLock = new();
     private readonly Queue<(Guid SegmentId, RecordingResult Recording)> _pendingTranscriptions = new();
+    private CancellationTokenSource? _workerCts;
+    private Task? _workerTask;
     private bool _isRecordingActive;
 
     public event Action<ContinuousDictationSnapshot>? Changed;
@@ -107,7 +110,7 @@ public sealed class ContinuousDictationSession
 
         var segmentId = _segments[waitingIndex].Id;
         _segments[waitingIndex] = _segments[waitingIndex] with { State = ContinuousSegmentState.Transcribing };
-        _pendingTranscriptions.Enqueue((segmentId, recording));
+        EnqueueTranscription(segmentId, recording);
 
         if (startNext)
         {
@@ -126,6 +129,74 @@ public sealed class ContinuousDictationSession
 
     private int GetPendingTranscriptionCount() =>
         _segments.Count(s => s.State == ContinuousSegmentState.Transcribing);
+
+    private void EnqueueTranscription(Guid segmentId, RecordingResult recording)
+    {
+        lock (_queueLock)
+        {
+            _pendingTranscriptions.Enqueue((segmentId, recording));
+        }
+
+        EnsureWorkerRunning();
+    }
+
+    private void EnsureWorkerRunning()
+    {
+        _workerCts ??= new CancellationTokenSource();
+        _workerTask ??= Task.Run(() => ProcessQueueAsync(_workerCts.Token));
+    }
+
+    private async Task ProcessQueueAsync(CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            (Guid SegmentId, RecordingResult Recording)? job = null;
+            lock (_queueLock)
+            {
+                if (_pendingTranscriptions.Count > 0)
+                {
+                    job = _pendingTranscriptions.Dequeue();
+                }
+            }
+
+            if (job is null)
+            {
+                try
+                {
+                    await Task.Delay(20, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+
+                continue;
+            }
+
+            var result = await _pipeline.TranscribeAsync(job.Value.Recording, cancellationToken);
+            await _gate.WaitAsync(cancellationToken);
+            try
+            {
+                var index = _segments.FindIndex(s => s.Id == job.Value.SegmentId);
+                if (index >= 0)
+                {
+                    _segments[index] = result.Succeeded
+                        ? _segments[index] with { State = ContinuousSegmentState.Completed, Text = result.Text }
+                        : _segments[index] with
+                        {
+                            State = ContinuousSegmentState.Failed,
+                            ErrorMessage = result.ErrorMessage
+                        };
+                }
+
+                Publish();
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+    }
 
     private void Publish(string? banner = null)
     {
