@@ -1,8 +1,26 @@
 using LocalAsrClient.Core.Abstractions;
 using LocalAsrClient.Core.Asr;
+using LocalAsrClient.Core.Dictation;
 using LocalAsrClient.Core.Persistence;
 
 namespace LocalAsrClient.Core.Tests.Dictation;
+
+public sealed class StubRecorder : IAudioRecorder
+{
+    public bool Started { get; private set; }
+    public TimeSpan DurationOverride { get; set; } = TimeSpan.FromSeconds(2);
+
+    public Task StartAsync(CancellationToken cancellationToken)
+    {
+        Started = true;
+        return Task.CompletedTask;
+    }
+
+    public Task<RecordingResult> StopAsync(CancellationToken cancellationToken)
+    {
+        return Task.FromResult(new RecordingResult(new byte[1000], DurationOverride, 16000, 1));
+    }
+}
 
 public sealed class StubBackend : IAsrBackend
 {
