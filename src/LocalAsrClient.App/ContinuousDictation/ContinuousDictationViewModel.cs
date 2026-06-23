@@ -15,14 +15,16 @@ public sealed class ContinuousDictationViewModel : INotifyPropertyChanged
 
     public ContinuousDictationViewModel(
         ContinuousDictationSession session,
-        Action onTerminate,
+        Action onClose,
         Action onEndRecording)
     {
         _session = session;
-        TerminateCommand = new RelayCommand(onTerminate);
+        CloseCommand = new RelayCommand(onClose);
         EndRecordingCommand = new RelayCommand(onEndRecording);
         CopyCommand = new RelayCommand(OnCopy);
     }
+
+    public event Action? ScrollToBottomRequested;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -52,7 +54,7 @@ public sealed class ContinuousDictationViewModel : INotifyPropertyChanged
 
     public bool HasBanner => !string.IsNullOrWhiteSpace(BannerMessage);
 
-    public ICommand TerminateCommand { get; }
+    public ICommand CloseCommand { get; }
 
     public ICommand EndRecordingCommand { get; }
 
@@ -69,6 +71,7 @@ public sealed class ContinuousDictationViewModel : INotifyPropertyChanged
             BannerMessage = snapshot.BannerMessage;
         }
 
+        var previousCount = Segments.Count;
         var existingMap = Segments.ToDictionary(segment => segment.Id);
         Segments.Clear();
         foreach (var segment in snapshot.Segments)
@@ -82,6 +85,11 @@ public sealed class ContinuousDictationViewModel : INotifyPropertyChanged
             {
                 Segments.Add(new ContinuousSegmentViewModel(segment, OnSegmentTextChanged));
             }
+        }
+
+        if (snapshot.Segments.Count > previousCount)
+        {
+            ScrollToBottomRequested?.Invoke();
         }
     }
 

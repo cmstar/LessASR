@@ -1,6 +1,7 @@
 <Window x:Class="LocalAsrClient.App.ContinuousDictation.ContinuousDictationWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:infra="clr-namespace:LocalAsrClient.App.Infrastructure"
         Title="连续听写"
         Topmost="True"
         ShowInTaskbar="True"
@@ -23,56 +24,74 @@
                    Visibility="{Binding HasBanner, Converter={StaticResource BooleanToVisibilityConverter}}"/>
         <StackPanel DockPanel.Dock="Bottom"
                     Orientation="Horizontal"
-                    HorizontalAlignment="Right"
+                    HorizontalAlignment="Center"
                     Margin="0,8,0,0">
-            <Button Content="终止"
-                    Command="{Binding TerminateCommand}"
-                    MinWidth="72"
-                    Margin="0,0,8,0"/>
             <Button Content="结束录制"
                     Command="{Binding EndRecordingCommand}"
                     MinWidth="88"
                     Margin="0,0,8,0"/>
             <Button Content="复制"
                     Command="{Binding CopyCommand}"
+                    MinWidth="72"
+                    Margin="0,0,8,0"/>
+            <Button Content="关闭"
+                    Command="{Binding CloseCommand}"
                     MinWidth="72"/>
         </StackPanel>
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
-            <ItemsControl ItemsSource="{Binding Segments}">
+        <ScrollViewer x:Name="SegmentScrollViewer"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled"
+                      CanContentScroll="False"
+                      Padding="0,0,6,0">
+            <ItemsControl ItemsSource="{Binding Segments}"
+                          VerticalAlignment="Top">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemContainerStyle>
+                    <Style TargetType="ContentPresenter">
+                        <Setter Property="VerticalAlignment" Value="Top"/>
+                        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                    </Style>
+                </ItemsControl.ItemContainerStyle>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Border Margin="0,0,0,8"
-                                Padding="8"
-                                CornerRadius="6"
-                                BorderThickness="1">
-                            <Border.Style>
-                                <Style TargetType="Border">
-                                    <Setter Property="BorderBrush" Value="#CBD5E1"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsFailed}" Value="True">
-                                            <Setter Property="BorderBrush" Value="#FCA5A5"/>
-                                            <Setter Property="Background" Value="#FEF2F2"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Border.Style>
-                            <Grid MinHeight="72">
-                                <TextBox Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}"
-                                         TextWrapping="Wrap"
-                                         AcceptsReturn="True"
-                                         VerticalScrollBarVisibility="Auto"
-                                         MinHeight="72"
-                                         Padding="4"
-                                         IsReadOnly="{Binding IsEditable, Converter={StaticResource InverseBooleanConverter}}"/>
-                                <TextBlock Text="{Binding Placeholder}"
-                                           Foreground="#94A3B8"
-                                           TextWrapping="Wrap"
-                                           VerticalAlignment="Center"
-                                           Margin="8,4"
-                                           IsHitTestVisible="False"
-                                           Visibility="{Binding ShowPlaceholder, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                            </Grid>
-                        </Border>
+                        <Grid Margin="0,0,0,8"
+                              VerticalAlignment="Top">
+                            <TextBox Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}"
+                                     TextWrapping="Wrap"
+                                     AcceptsReturn="True"
+                                     VerticalAlignment="Top"
+                                     VerticalScrollBarVisibility="Disabled"
+                                     VerticalContentAlignment="Top"
+                                     MinHeight="28"
+                                     Padding="6,4"
+                                     BorderThickness="1"
+                                     BorderBrush="#CBD5E1"
+                                     infra:AutoGrowTextBox.Enable="True"
+                                     infra:ScrollViewerWheelForwarder.Enable="True"
+                                     IsReadOnly="{Binding IsEditable, Converter={StaticResource InverseBooleanConverter}}">
+                                <TextBox.Style>
+                                    <Style TargetType="TextBox">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsFailed}" Value="True">
+                                                <Setter Property="BorderBrush" Value="#FCA5A5"/>
+                                                <Setter Property="Background" Value="#FEF2F2"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBox.Style>
+                            </TextBox>
+                            <TextBlock Text="{Binding Placeholder}"
+                                       Foreground="#94A3B8"
+                                       TextWrapping="Wrap"
+                                       VerticalAlignment="Center"
+                                       Margin="10,4"
+                                       IsHitTestVisible="False"
+                                       Visibility="{Binding ShowPlaceholder, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                        </Grid>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>

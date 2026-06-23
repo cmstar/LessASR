@@ -21,6 +21,20 @@ public sealed class ContinuousDictationTextMergeTests
     }
 
     [Fact]
+    public void MergeCompletedSegments_WhenFirstSegmentEndsWithNewLine_DoesNotDoubleSeparate()
+    {
+        var segments = new[]
+        {
+            new ContinuousDictationSegment(Guid.NewGuid(), ContinuousSegmentState.Completed, "第一句\n", null),
+            new ContinuousDictationSegment(Guid.NewGuid(), ContinuousSegmentState.Completed, "第二句", null)
+        };
+
+        var merged = ContinuousDictationTextMerge.MergeCompletedSegments(segments);
+
+        Assert.Equal("第一句\n第二句", merged);
+    }
+
+    [Fact]
     public void MergeCompletedSegments_WhenNoneCompleted_ReturnsEmpty()
     {
         var segments = new[]

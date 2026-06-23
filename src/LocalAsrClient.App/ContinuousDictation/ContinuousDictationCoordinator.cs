@@ -35,11 +35,11 @@ public sealed class ContinuousDictationCoordinator : IDisposable
         _session.Changed += OnSessionChanged;
     }
 
-    public bool IsWindowOpen => _window is not null;
+    public bool IsWindowOpen => _window is { IsLoaded: true };
 
     public void HandleF9()
     {
-        System.Windows.Application.Current.Dispatcher.Invoke(OpenWindowIfNeeded);
+        System.Windows.Application.Current.Dispatcher.Invoke(EnsureWindowVisible);
         _ = RunF9Async();
     }
 
@@ -66,19 +66,24 @@ public sealed class ContinuousDictationCoordinator : IDisposable
     public void Dispose()
     {
         _session.Changed -= OnSessionChanged;
-        System.Windows.Application.Current?.Dispatcher.Invoke(DestroyWindow);
+        System.Windows.Application.Current?.Dispatcher.Invoke(DisposeWindow);
     }
 
-    private void OpenWindowIfNeeded()
+    private void EnsureWindowVisible()
     {
-        if (_window is not null)
+        if (_window is { IsLoaded: true })
         {
+            _window.Activate();
             return;
         }
 
+        _window = null;
+        _viewModel = null;
+        _isClosing = false;
+
         _viewModel = new ContinuousDictationViewModel(
             _session,
-            () => _ = OnTerminateAsync(),
+            RequestClose,
             () => _ = RunSessionAsync(session => session.CancelCurrentSegmentAsync(CancellationToken.None)));
 
         _window = new ContinuousDictationWindow(_viewModel);
@@ -86,6 +91,11 @@ public sealed class ContinuousDictationCoordinator : IDisposable
         _window.Closed += OnWindowClosed;
         _window.Show();
         _window.Activate();
+    }
+
+    private void RequestClose()
+    {
+        _window?.Close();
     }
 
     private async Task RunF9Async()
@@ -112,19 +122,6 @@ public sealed class ContinuousDictationCoordinator : IDisposable
         }
     }
 
-    private async Task OnTerminateAsync()
-    {
-        try
-        {
-            await _session.TerminateAsync(CancellationToken.None);
-            await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => _viewModel?.Clear());
-        }
-        catch (Exception ex)
-        {
-            AppExceptionLogger.Report(ex, "连续听写终止失败", showDialog: false);
-        }
-    }
-
     private void OnWindowClosing(object? sender, CancelEventArgs e)
     {
         if (_isClosing)
@@ -132,33 +129,25 @@ public sealed class ContinuousDictationCoordinator : IDisposable
             return;
         }
 
-        e.Cancel = true;
-        _ = CloseWindowAsync();
+        _isClosing = true;
+        var historyText = _session.BuildHistoryText();
+        _ = PersistHistoryAndTerminateAsync(historyText);
     }
 
-    private async Task CloseWindowAsync()
+    private void OnWindowClosed(object? sender, EventArgs e)
     {
-        try
+        if (_window is not null)
         {
-            var historyText = _session.BuildHistoryText();
-            if (!string.IsNullOrWhiteSpace(historyText))
-            {
-                await WriteHistoryAsync(historyText, CancellationToken.None);
-            }
+            _window.Closing -= OnWindowClosing;
+            _window.Closed -= OnWindowClosed;
+        }
 
-            await _session.TerminateAsync(CancellationToken.None);
-        }
-        catch (Exception ex)
-        {
-            AppExceptionLogger.Report(ex, "连续听写关窗处理失败", showDialog: false);
-        }
-        finally
-        {
-            System.Windows.Application.Current.Dispatcher.Invoke(DestroyWindow);
-        }
+        _window = null;
+        _viewModel = null;
+        _isClosing = false;
     }
 
-    private void DestroyWindow()
+    private void DisposeWindow()
     {
         if (_window is null)
         {
@@ -172,17 +161,33 @@ public sealed class ContinuousDictationCoordinator : IDisposable
         _window = null;
         _viewModel = null;
         _isClosing = false;
+        _ = _session.TerminateAsync(CancellationToken.None);
     }
 
-    private void OnWindowClosed(object? sender, EventArgs e)
+    private async Task PersistHistoryAndTerminateAsync(string historyText)
     {
-        _window = null;
-        _viewModel = null;
-        _isClosing = false;
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(historyText))
+            {
+                await WriteHistoryAsync(historyText, CancellationToken.None);
+            }
+
+            await _session.TerminateAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            AppExceptionLogger.Report(ex, "连续听写关窗处理失败", showDialog: false);
+        }
     }
 
     private void OnSessionChanged(ContinuousDictationSnapshot snapshot)
     {
+        if (_window is null || _isClosing)
+        {
+            return;
+        }
+
         System.Windows.Application.Current?.Dispatcher.InvokeAsync(() => _viewModel?.ApplySnapshot(snapshot));
     }
 
