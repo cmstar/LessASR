@@ -6,11 +6,16 @@
 LocalAsrClient.App (WPF Shell)
   ├── 托盘、主窗口、听写浮窗
   ├── 右 Ctrl 热键监听（Win32 低级钩子）
-  ├── NAudio 音频采集
+  ├── F9 热键监听 → ContinuousDictationCoordinator
+  ├── ContinuousDictationWindow（连续听写专用窗口）
+  ├── ContinuousDictationCoordinator（窗口生命周期、热键路由、关窗历史）
+  ├── NAudio 音频采集（单句与连续各一路 IAudioRecorder）
   └── 文本注入（Win32 直写 / SendInput / 剪贴板粘贴回退）
 
 LocalAsrClient.Core (Dictation Core)
-  ├── DictationOrchestrator（听写状态机与编排）
+  ├── DictationOrchestrator（单句听写状态机与编排）
+  ├── ContinuousDictationSession（连续听写：段列表 + 单路录音 + FIFO 转写队列）
+  ├── TranscriptionPipeline（单段 WAV → ASR → 后处理 → 统计，单句与连续共用）
   ├── ManagedWhisperServerBackend（ASR 后端）
   └── SQLite 持久化（设置、统计、文本历史）
 
@@ -37,12 +42,23 @@ whisper-server (外部进程)
 
 ## 数据流
 
-1. 用户按下右 Ctrl → 捕获输入焦点 → `IHotkeyListener` 通知 `DictationOrchestrator`。
+### 单句听写
+
+1. 用户按下右 Ctrl（连续窗口未开）→ 捕获输入焦点 → `IHotkeyListener` 通知 `DictationOrchestrator`。
 2. 再次按下或超时 → 停止 `IAudioRecorder`，获得 WAV 数据。
 3. `IAsrBackend` 确保 whisper-server 就绪后发送 HTTP 转写请求。
 4. 识别文本经 `TranscriptionScriptPostProcessor`（简繁 OpenCC；简中 / 繁中时规范化 CJK 标点）后由 `ITextInjector` 注入。
 5. 注入失败时进入 `ResultNeedsAction`，浮窗展示结果供复制。
 6. 成功或失败后写入 `IStatsRepository`；若启用则写入 `ITextHistoryRepository`。
+
+### 连续听写
+
+1. 用户按下 F9 → `ContinuousDictationCoordinator` 创建或激活 `ContinuousDictationWindow`，启动 `ContinuousDictationSession` 录制状态。
+2. 右 Ctrl（连续窗口已开）→ Coordinator 通知 Session 分段：当前段入 FIFO 转写队列，新建 WaitingInput，录音不中断。
+3. Session 串行消费队列（最大 50 段）→ 每段经 `TranscriptionPipeline`（ASR + 后处理）→ 段状态更新为 Completed / Failed，并写入 `IStatsRepository`。
+4. 识别结果通过 ViewModel 绑定回填至 `ContinuousDictationWindow` 对应段 TextBox；Completed 段可编辑。
+5. 关窗时 Coordinator 合并所有 Completed 段（`\n` 拼接，含用户编辑）写入一条 `ITextHistoryRepository`；「终止」清空会话且不写历史。
+6. 连续窗口已开时，右 Ctrl 与 Esc 由 Coordinator 路由，单句 `DictationOrchestrator` 与听写浮窗不参与。
 
 ## 外部集成
 
