@@ -4,6 +4,8 @@ using LocalAsrClient.App.Audio;
 
 using LocalAsrClient.App.Asr;
 
+using LocalAsrClient.App.ContinuousDictation;
+
 using LocalAsrClient.App.Diagnostics;
 
 using LocalAsrClient.App.Infrastructure;
@@ -51,9 +53,13 @@ public sealed class AppServices : IAsyncDisposable
 
         IHotkeyListener hotkeyListener,
 
+        GlobalHotkeyListener continuousDictationHotkeyListener,
+
         EscapeCancelListener escapeCancelListener,
 
         DictationOrchestrator orchestrator,
+
+        ContinuousDictationCoordinator continuousDictationCoordinator,
 
         InjectionTargetCapture injectionTargetCapture,
 
@@ -77,9 +83,13 @@ public sealed class AppServices : IAsyncDisposable
 
         HotkeyListener = hotkeyListener;
 
+        ContinuousDictationHotkeyListener = continuousDictationHotkeyListener;
+
         EscapeCancelListener = escapeCancelListener;
 
         Orchestrator = orchestrator;
+
+        ContinuousDictationCoordinator = continuousDictationCoordinator;
 
         InjectionTargetCapture = injectionTargetCapture;
 
@@ -105,9 +115,13 @@ public sealed class AppServices : IAsyncDisposable
 
     public IHotkeyListener HotkeyListener { get; }
 
+    public GlobalHotkeyListener ContinuousDictationHotkeyListener { get; }
+
     public EscapeCancelListener EscapeCancelListener { get; }
 
     public DictationOrchestrator Orchestrator { get; }
+
+    public ContinuousDictationCoordinator ContinuousDictationCoordinator { get; }
 
     public InjectionTargetCapture InjectionTargetCapture { get; }
 
@@ -203,9 +217,31 @@ public sealed class AppServices : IAsyncDisposable
 
         var historyRepository = new SqliteTextHistoryRepository(database);
 
-        IAudioRecorder recorder = testMode.Enabled
+        IAudioRecorder singleRecorder = testMode.Enabled
             ? new SimulatedAudioRecorder()
             : new NAudioMemoryRecorder();
+
+        IAudioRecorder continuousRecorder = testMode.Enabled
+            ? new SimulatedAudioRecorder()
+            : new NAudioMemoryRecorder();
+
+        var clock = new SystemClock();
+
+        var transcriptionPipeline = new TranscriptionPipeline(
+            backend,
+            settingsStore,
+            new TranscriptionScriptPostProcessor(settingsStore),
+            statsRepository,
+            clock);
+
+        var continuousSession = new ContinuousDictationSession(continuousRecorder, transcriptionPipeline);
+
+        var continuousCoordinator = new ContinuousDictationCoordinator(
+            continuousSession,
+            historyRepository,
+            settingsStore,
+            clock,
+            backend);
 
         var injectionTargetCapture = new InjectionTargetCapture(diagnosticSink);
 
@@ -215,9 +251,11 @@ public sealed class AppServices : IAsyncDisposable
 
         var hotkeyListener = new GlobalHotkeyListener(DictationHotkey.ToggleVirtualKey, diagnosticSink);
 
+        var f9Listener = new GlobalHotkeyListener(ContinuousDictationHotkey.ToggleVirtualKey, diagnosticSink);
+
         var orchestrator = new DictationOrchestrator(
 
-            recorder,
+            singleRecorder,
 
             backend,
 
@@ -229,7 +267,7 @@ public sealed class AppServices : IAsyncDisposable
 
             settingsStore,
 
-            new SystemClock(),
+            clock,
 
             new TranscriptionScriptPostProcessor(settingsStore));
 
@@ -257,7 +295,9 @@ public sealed class AppServices : IAsyncDisposable
                 data));
         };
 
-        var escapeCancelListener = new EscapeCancelListener(() => orchestrator.State == DictationState.Recording);
+        var escapeCancelListener = new EscapeCancelListener(() =>
+            continuousCoordinator.IsWindowOpen && continuousSession.IsRecordingActive
+                || orchestrator.State == DictationState.Recording);
 
 
 
@@ -305,6 +345,12 @@ public sealed class AppServices : IAsyncDisposable
 
         hotkeyListener.Triggered += () =>
         {
+            if (continuousCoordinator.IsWindowOpen)
+            {
+                continuousCoordinator.HandleRightControl();
+                return;
+            }
+
             if (orchestrator.State is DictationState.Idle
                 or DictationState.Ready
                 or DictationState.Error
@@ -326,11 +372,19 @@ public sealed class AppServices : IAsyncDisposable
             });
         };
 
+        f9Listener.Triggered += () => continuousCoordinator.HandleF9();
+
 
 
         escapeCancelListener.CancelRequested += () =>
 
         {
+
+            if (continuousCoordinator.IsWindowOpen && continuousSession.IsRecordingActive)
+            {
+                continuousCoordinator.HandleEscape();
+                return;
+            }
 
             _ = Task.Run(async () =>
 
@@ -382,9 +436,13 @@ public sealed class AppServices : IAsyncDisposable
 
             hotkeyListener,
 
+            f9Listener,
+
             escapeCancelListener,
 
             orchestrator,
+
+            continuousCoordinator,
 
             injectionTargetCapture,
 
@@ -404,7 +462,11 @@ public sealed class AppServices : IAsyncDisposable
 
         HotkeyListener.Dispose();
 
+        ContinuousDictationHotkeyListener.Dispose();
+
         EscapeCancelListener.Dispose();
+
+        ContinuousDictationCoordinator.Dispose();
 
         TranscribeClient.Dispose();
 
@@ -417,5 +479,4 @@ public sealed class AppServices : IAsyncDisposable
     }
 
 }
-
 

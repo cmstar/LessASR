@@ -28,6 +28,7 @@ public partial class App : System.Windows.Application
             _trayIconService = new TrayIconService(_mainWindow);
             _mainWindow.Show();
             _services.HotkeyListener.Start();
+            _services.ContinuousDictationHotkeyListener.Start();
             _services.EscapeCancelListener.Start();
         }
         catch (Exception ex)
