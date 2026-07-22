@@ -1,164 +1,514 @@
-<Window x:Class="LocalAsrClient.App.MainWindow"
+<ui:FluentWindow x:Class="LocalAsrClient.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        xmlns:vm="clr-namespace:LocalAsrClient.App.ViewModels"
         xmlns:infra="clr-namespace:LocalAsrClient.App.Infrastructure"
+        xmlns:persistence="clr-namespace:LocalAsrClient.Core.Persistence;assembly=LocalAsrClient.Core"
         Title="LessASR"
-        Width="760"
-        Height="520"
-        MinWidth="640"
-        MinHeight="420"
-        WindowStartupLocation="CenterScreen">
-    <Grid Margin="12">
-        <TabControl SelectionChanged="TabControl_SelectionChanged">
-            <TabItem Header="状态">
-                <StackPanel Margin="16" Width="420" HorizontalAlignment="Left">
-                    <TextBlock Text="当前状态" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
-                    <TextBlock Text="{Binding Status.CurrentState}" Margin="0,0,0,8"/>
-                    <TextBlock Text="{Binding Status.CurrentModel}" Margin="0,0,0,8"/>
-                    <TextBlock Text="{Binding Status.ServiceState}" Margin="0,0,0,8"/>
-                    <TextBlock Text="{Binding Status.Hotkey}" Margin="0,0,0,8"/>
-                    <TextBlock Text="{Binding Status.LastResult}" TextWrapping="Wrap"/>
-                </StackPanel>
-            </TabItem>
-            <TabItem Header="历史">
-                <DataGrid ItemsSource="{Binding History.Items}" AutoGenerateColumns="False" Margin="12">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="时间" Binding="{Binding CreatedAt}" Width="160"/>
-                        <DataGridTextColumn Header="文本" Binding="{Binding Text}" Width="*"/>
-                        <DataGridTextColumn Header="字数" Binding="{Binding CharacterCount}" Width="70"/>
-                        <DataGridTemplateColumn Header="操作" Width="90">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <Button Content="复制"
-                                            Command="{Binding DataContext.History.CopyCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                            CommandParameter="{Binding}"/>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                    </DataGrid.Columns>
-                </DataGrid>
-            </TabItem>
-            <TabItem Header="统计">
-                <DataGrid ItemsSource="{Binding Stats.Days}" AutoGenerateColumns="False" Margin="12">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="日期" Binding="{Binding Date}" Width="120"/>
-                        <DataGridTextColumn Header="次数" Binding="{Binding InputCount}" Width="80"/>
-                        <DataGridTextColumn Header="成功" Binding="{Binding SuccessCount}" Width="80"/>
-                        <DataGridTextColumn Header="失败" Binding="{Binding FailedCount}" Width="80"/>
-                        <DataGridTextColumn Header="录音秒数" Binding="{Binding RecordingSeconds}" Width="100"/>
-                        <DataGridTextColumn Header="识别秒数" Binding="{Binding ProcessingSeconds}" Width="100"/>
-                        <DataGridTextColumn Header="字数" Binding="{Binding CharacterCount}" Width="80"/>
-                        <DataGridTextColumn Header="词数" Binding="{Binding WordCount}" Width="80"/>
-                    </DataGrid.Columns>
-                </DataGrid>
-            </TabItem>
-            <TabItem Header="模型">
-                <StackPanel Margin="16" Width="520" HorizontalAlignment="Left">
-                    <TextBlock Text="模型名称" FontWeight="SemiBold"/>
-                    <TextBlock Text="{Binding Model.ModelName}" Margin="0,4,0,8"/>
-                    <TextBlock Text="模型路径" FontWeight="SemiBold"/>
-                    <TextBlock Text="{Binding Model.ModelPath}" TextWrapping="Wrap" Margin="0,4,0,8"/>
-                    <TextBlock Text="服务状态" FontWeight="SemiBold"/>
-                    <TextBlock Text="{Binding Model.ServiceState}" Margin="0,4,0,8"/>
-                    <TextBlock Text="服务地址" FontWeight="SemiBold"/>
-                    <TextBlock Text="{Binding Model.ServiceAddress}" Margin="0,4,0,8"/>
-                    <TextBlock Text="最近操作" FontWeight="SemiBold"/>
-                    <TextBlock Text="{Binding Model.LastMessage}" TextWrapping="Wrap" Margin="0,4,0,8"/>
-                    <TextBlock Text="最近错误" FontWeight="SemiBold" Foreground="DarkRed"/>
-                    <TextBlock Text="{Binding Model.LastError}" TextWrapping="Wrap" Foreground="DarkRed" Margin="0,4,0,12"/>
-                    <WrapPanel>
-                        <Button Content="启动服务" Command="{Binding Model.StartCommand}" Margin="0,0,8,8"/>
-                        <Button Content="停止服务" Command="{Binding Model.StopCommand}" Margin="0,0,8,8"/>
-                        <Button Content="重启服务" Command="{Binding Model.RestartCommand}" Margin="0,0,8,8"/>
-                        <Button Content="健康检查" Command="{Binding Model.HealthCheckCommand}" Margin="0,0,8,8"/>
-                    </WrapPanel>
-                </StackPanel>
-            </TabItem>
-            <TabItem x:Name="SettingsTabItem" Header="设置">
+        Width="1040"
+        Height="760"
+        MinWidth="800"
+        MinHeight="560"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource LessAsr.Brush.AppBackground}">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="48"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="LessASR"/>
+
+        <Grid Grid.Row="1" Margin="12,0,12,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="216"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0"
+                    Style="{StaticResource LessAsr.Card}"
+                    Background="{StaticResource LessAsr.Brush.SidebarBackground}"
+                    Padding="12">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="20"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid Margin="6,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Width="34" Height="34" CornerRadius="17" Background="{StaticResource LessAsr.Brush.Accent}">
+                            <ui:SymbolIcon Symbol="Mic24" Foreground="White"/>
+                        </Border>
+                        <TextBlock Grid.Column="1" Text="LessASR" Margin="10,0,0,0" VerticalAlignment="Center" FontSize="18" FontWeight="SemiBold"/>
+                        <Border Grid.Column="2" Background="{StaticResource LessAsr.Brush.CardBackground}" CornerRadius="10" Padding="7,3" VerticalAlignment="Center">
+                            <TextBlock Text="本地" Style="{StaticResource LessAsr.Text.Caption}"/>
+                        </Border>
+                    </Grid>
+
+                    <StackPanel Grid.Row="2">
+                        <Button Style="{StaticResource LessAsr.NavButton}"
+                                Tag="{Binding Navigation.IsHomeSelected}"
+                                Command="{Binding Navigation.NavigateCommand}"
+                                CommandParameter="{x:Static vm:MainSection.Home}"
+                                AutomationProperties.Name="首页">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="Home24" Width="20"/>
+                                <TextBlock Text="首页" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource LessAsr.NavButton}"
+                                Tag="{Binding Navigation.IsHistorySelected}"
+                                Command="{Binding Navigation.NavigateCommand}"
+                                CommandParameter="{x:Static vm:MainSection.History}"
+                                AutomationProperties.Name="历史记录">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="History24" Width="20"/>
+                                <TextBlock Text="历史记录" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource LessAsr.NavButton}"
+                                Tag="{Binding Navigation.IsStatsSelected}"
+                                Command="{Binding Navigation.NavigateCommand}"
+                                CommandParameter="{x:Static vm:MainSection.Stats}"
+                                AutomationProperties.Name="使用统计">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="DataTrending24" Width="20"/>
+                                <TextBlock Text="使用统计" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="4">
+                        <Border Style="{StaticResource LessAsr.Divider}" Margin="4,0,4,10"/>
+                        <Button Style="{StaticResource LessAsr.NavButton}"
+                                Tag="{Binding Navigation.IsModelSelected}"
+                                Command="{Binding Navigation.NavigateCommand}"
+                                CommandParameter="{x:Static vm:MainSection.Model}"
+                                AutomationProperties.Name="模型">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="BrainCircuit24" Width="20"/>
+                                <TextBlock Text="模型" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource LessAsr.NavButton}"
+                                Tag="{Binding Navigation.IsSettingsSelected}"
+                                Command="{Binding Navigation.NavigateCommand}"
+                                CommandParameter="{x:Static vm:MainSection.Settings}"
+                                AutomationProperties.Name="设置">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="Settings24" Width="20"/>
+                                <TextBlock Text="设置" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource LessAsr.NavButton}"
+                                Tag="{Binding Navigation.IsDiagnosticsSelected}"
+                                Command="{Binding Navigation.NavigateCommand}"
+                                CommandParameter="{x:Static vm:MainSection.Diagnostics}"
+                                AutomationProperties.Name="诊断">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="WindowWrench24" Width="20"/>
+                                <TextBlock Text="诊断" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Column="2">
+                <!-- 首页 -->
                 <ScrollViewer VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled"
-                              Padding="0,0,0,16">
-                    <StackPanel Margin="16" Width="560" HorizontalAlignment="Left">
-                    <TextBlock Text="首选语言"/>
-                    <ComboBox ItemsSource="{Binding Settings.TranscriptionLanguageOptions}"
-                              DisplayMemberPath="DisplayName"
-                              SelectedValuePath="Id"
-                              SelectedValue="{Binding Settings.PreferredTranscriptionLanguageId}"
-                              Margin="0,4,0,4"
-                              Width="280"
-                              HorizontalAlignment="Left"/>
-                    <TextBlock Text="保存后下次听写生效。" Foreground="Gray" Margin="0,0,0,12"/>
-                    <TextBlock Text="模型文件路径"/>
-                    <Grid Margin="0,4,0,12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBox Text="{Binding Settings.ModelPath, UpdateSourceTrigger=PropertyChanged}"/>
-                        <Button Grid.Column="1" Content="浏览…" Margin="8,0,0,0" Padding="12,4"
-                                Command="{Binding Settings.BrowseModelPathCommand}"/>
-                    </Grid>
-                    <TextBlock Text="whisper-server 路径"/>
-                    <Grid Margin="0,4,0,12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBox Text="{Binding Settings.WhisperServerPath, UpdateSourceTrigger=PropertyChanged}"/>
-                        <Button Grid.Column="1" Content="浏览…" Margin="8,0,0,0" Padding="12,4"
-                                Command="{Binding Settings.BrowseWhisperServerPathCommand}"/>
-                    </Grid>
-                    <TextBlock Text="whisper-server 端口"/>
-                    <TextBox Text="{Binding Settings.WhisperServerPort, UpdateSourceTrigger=PropertyChanged}"
-                             Margin="0,4,0,12" Width="120" HorizontalAlignment="Left"/>
-                    <TextBlock Text="whisper-server 线程数"/>
-                    <Grid Margin="0,4,0,4">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBox Text="{Binding Settings.WhisperServerThreadCount, UpdateSourceTrigger=PropertyChanged}"
-                                 Width="120"
-                                 HorizontalAlignment="Left"
-                                 infra:IntegerTextBoxBehavior.IsEnabled="True"/>
-                        <Button Grid.Column="1" Content="重置" Margin="8,0,0,0" Padding="12,4"
-                                Command="{Binding Settings.ResetWhisperServerThreadCountCommand}"/>
-                    </Grid>
-                    <TextBlock Foreground="Gray" Margin="0,0,0,12">
-                        <Run Text="推荐值："/>
-                        <Run Text="{Binding Settings.RecommendedWhisperServerThreadCount, Mode=OneWay}"/>
-                        <Run Text="（根据本机 CPU 自动判断；重置后恢复为推荐值）"/>
-                    </TextBlock>
-                    <TextBlock Text="{Binding Settings.DataDirectoryPath, StringFormat=数据目录：{0}}" Foreground="Gray" Margin="0,0,0,4"/>
-                    <TextBlock Text="{Binding Settings.LogsDirectoryPath, StringFormat=日志目录：{0}}" Foreground="Gray" Margin="0,0,0,12"/>
-                    <CheckBox Content="客户端启动时自动加载当前模型" IsChecked="{Binding Settings.StartModelOnAppStartup}" Margin="0,0,0,8"/>
-                    <CheckBox Content="关闭窗口时最小化到系统托盘" IsChecked="{Binding Settings.MinimizeToTrayOnClose}" Margin="0,0,0,4"/>
-                    <TextBlock Text="取消勾选后，点击窗口关闭按钮将直接退出程序。" Foreground="Gray" Margin="20,0,0,12"/>
-                    <StackPanel Orientation="Horizontal">
-                        <Button Content="保存设置" Command="{Binding Settings.SaveCommand}" Width="100"/>
-                        <TextBlock Text="{Binding Settings.LastSavedAtText}"
-                                   VerticalAlignment="Center"
-                                   Margin="12,0,0,0"
-                                   Foreground="Gray"/>
-                    </StackPanel>
+                              Visibility="{Binding Navigation.IsHomeSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel Margin="20,12,20,24">
+                        <Grid Margin="0,0,0,20">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="开口即写" Style="{StaticResource LessAsr.Text.PageTitle}"/>
+                                <TextBlock Text="通过全局热键随时开始本地语音输入。" Style="{StaticResource LessAsr.Text.Secondary}" Margin="0,5,0,0"/>
+                            </StackPanel>
+                            <Border Grid.Column="1" Style="{StaticResource LessAsr.StatusBadge}" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Width="8" Height="8" Fill="{StaticResource LessAsr.Brush.Accent}" Margin="0,0,8,0"/>
+                                    <TextBlock Text="{Binding Model.ServiceState, StringFormat=本地服务：{0}}" Foreground="{StaticResource LessAsr.Brush.Accent}"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <Border Style="{StaticResource LessAsr.Card}" Margin="0,0,0,14">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <Border Background="{StaticResource LessAsr.Brush.AccentSoft}" CornerRadius="10" Padding="9,4" HorizontalAlignment="Left">
+                                        <StackPanel Orientation="Horizontal">
+                                            <ui:SymbolIcon Symbol="ShieldCheckmark24" Width="16" Foreground="{StaticResource LessAsr.Brush.Accent}"/>
+                                            <TextBlock Text="语音完全在本机处理" Foreground="{StaticResource LessAsr.Brush.Accent}" Margin="6,0,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <TextBlock Text="按右 Ctrl 开始听写" FontSize="24" FontWeight="SemiBold" Margin="0,16,0,6"/>
+                                    <TextBlock Text="再按一次结束录音，识别文字会自动写入当前输入框。" Style="{StaticResource LessAsr.Text.Secondary}"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
+                                        <Border Style="{StaticResource LessAsr.Keycap}"><TextBlock Text="Right Ctrl" FontWeight="SemiBold"/></Border>
+                                        <TextBlock Text="单句听写" Style="{StaticResource LessAsr.Text.Secondary}" Margin="8,0,16,0" VerticalAlignment="Center"/>
+                                        <Border Style="{StaticResource LessAsr.Keycap}"><TextBlock Text="F9" FontWeight="SemiBold"/></Border>
+                                        <TextBlock Text="连续听写" Style="{StaticResource LessAsr.Text.Secondary}" Margin="8,0,16,0" VerticalAlignment="Center"/>
+                                        <Border Style="{StaticResource LessAsr.Keycap}"><TextBlock Text="Esc" FontWeight="SemiBold"/></Border>
+                                        <TextBlock Text="取消录音" Style="{StaticResource LessAsr.Text.Secondary}" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1"
+                                            Orientation="Horizontal"
+                                            VerticalAlignment="Center"
+                                            Margin="28,0,8,0"
+                                            Opacity="0.42"
+                                            IsHitTestVisible="False">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
+                                        <Border Width="4" Height="12" CornerRadius="2" Background="{StaticResource LessAsr.Brush.Accent}" Margin="0,0,5,0"/>
+                                        <Border Width="4" Height="24" CornerRadius="2" Background="{StaticResource LessAsr.Brush.Accent}" Margin="0,0,5,0"/>
+                                        <Border Width="4" Height="36" CornerRadius="2" Background="{StaticResource LessAsr.Brush.Accent}"/>
+                                    </StackPanel>
+                                    <ui:SymbolIcon Symbol="Mic24" FontSize="38" Foreground="{StaticResource LessAsr.Brush.Accent}"/>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                                        <Border Width="4" Height="36" CornerRadius="2" Background="{StaticResource LessAsr.Brush.Accent}" Margin="0,0,5,0"/>
+                                        <Border Width="4" Height="24" CornerRadius="2" Background="{StaticResource LessAsr.Brush.Accent}" Margin="0,0,5,0"/>
+                                        <Border Width="4" Height="12" CornerRadius="2" Background="{StaticResource LessAsr.Brush.Accent}"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <UniformGrid Columns="3" Margin="0,0,0,14">
+                            <Border Style="{StaticResource LessAsr.Card}" Margin="0,0,8,0">
+                                <StackPanel>
+                                    <TextBlock Text="今日听写" Style="{StaticResource LessAsr.Text.Secondary}"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,9,0,2">
+                                        <TextBlock Text="{Binding Stats.TodayInputCount}" Style="{StaticResource LessAsr.Text.Metric}"/>
+                                        <TextBlock Text="次" Style="{StaticResource LessAsr.Text.Secondary}" Margin="6,0,0,3" VerticalAlignment="Bottom"/>
+                                    </StackPanel>
+                                    <TextBlock Text="每次成功或失败都会计入" Style="{StaticResource LessAsr.Text.Caption}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource LessAsr.Card}" Margin="4,0">
+                                <StackPanel>
+                                    <TextBlock Text="输入文字" Style="{StaticResource LessAsr.Text.Secondary}"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,9,0,2">
+                                        <TextBlock Text="{Binding Stats.TodayCharacterCount, StringFormat={}{0:N0}}" Style="{StaticResource LessAsr.Text.Metric}"/>
+                                        <TextBlock Text="字" Style="{StaticResource LessAsr.Text.Secondary}" Margin="6,0,0,3" VerticalAlignment="Bottom"/>
+                                    </StackPanel>
+                                    <TextBlock Text="今日累计识别字符" Style="{StaticResource LessAsr.Text.Caption}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource LessAsr.Card}" Margin="8,0,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="录音时长" Style="{StaticResource LessAsr.Text.Secondary}"/>
+                                    <TextBlock Text="{Binding Stats.TodayRecordingDurationText}" Style="{StaticResource LessAsr.Text.Metric}" Margin="0,9,0,2"/>
+                                    <TextBlock Text="仅统计时长，不保存音频" Style="{StaticResource LessAsr.Text.Caption}"/>
+                                </StackPanel>
+                            </Border>
+                        </UniformGrid>
+
+                        <Border Style="{StaticResource LessAsr.Card}">
+                            <StackPanel>
+                                <Grid>
+                                    <TextBlock Text="最近 7 天" Style="{StaticResource LessAsr.Text.SectionTitle}"/>
+                                    <TextBlock Text="{Binding Stats.SevenDayCharacterCount, StringFormat=本周 {0:N0} 字}" Style="{StaticResource LessAsr.Text.Caption}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                </Grid>
+                                <ItemsControl ItemsSource="{Binding Stats.LastSevenDays}" Margin="0,18,0,0">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><UniformGrid Rows="1"/></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Height="122" Margin="4,0">
+                                                <Grid.RowDefinitions><RowDefinition Height="96"/><RowDefinition Height="26"/></Grid.RowDefinitions>
+                                                <Border Width="18" Height="{Binding BarHeight}" Background="{StaticResource LessAsr.Brush.Accent}" CornerRadius="6,6,2,2" VerticalAlignment="Bottom" Opacity="0.85"/>
+                                                <TextBlock Grid.Row="1" Text="{Binding Label}" Style="{StaticResource LessAsr.Text.Caption}" HorizontalAlignment="Center" VerticalAlignment="Bottom"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </ScrollViewer>
-            </TabItem>
-            <TabItem Header="Debug">
-                <StackPanel Margin="16" Width="520" HorizontalAlignment="Left">
-                    <TextBlock Text="覆盖状态模拟" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
-                    <WrapPanel>
-                        <Button Content="模型加载中" Command="{Binding Debug.ShowLoadingCommand}" Margin="0,0,8,8"/>
-                        <Button Content="待录音" Command="{Binding Debug.ShowReadyCommand}" Margin="0,0,8,8"/>
-                        <Button Content="正在聆听" Command="{Binding Debug.ShowRecordingCommand}" Margin="0,0,8,8"/>
-                        <Button Content="识别中" Command="{Binding Debug.ShowTranscribingCommand}" Margin="0,0,8,8"/>
-                        <Button Content="已注入" Command="{Binding Debug.ShowInjectedCommand}" Margin="0,0,8,8"/>
-                        <Button Content="识别结果" Command="{Binding Debug.ShowResultCommand}" Margin="0,0,8,8"/>
-                        <Button Content="错误状态" Command="{Binding Debug.ShowErrorCommand}" Margin="0,0,8,8"/>
-                        <Button Content="隐藏覆盖" Command="{Binding Debug.HideCommand}" Margin="0,0,8,8"/>
-                    </WrapPanel>
-                </StackPanel>
-            </TabItem>
-        </TabControl>
+
+                <!-- 历史记录 -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              Visibility="{Binding Navigation.IsHistorySelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel Margin="20,12,20,24">
+                        <TextBlock Text="历史记录" Style="{StaticResource LessAsr.Text.PageTitle}"/>
+                        <TextBlock Text="最近保存的听写文本，仅存储在这台设备上。" Style="{StaticResource LessAsr.Text.Secondary}" Margin="0,5,0,20"/>
+                        <ItemsControl ItemsSource="{Binding History.Groups}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Style="{StaticResource LessAsr.Card}" Margin="0,0,0,12">
+                                        <StackPanel>
+                                            <Grid Margin="0,0,0,8">
+                                                <TextBlock Text="{Binding Title}" Style="{StaticResource LessAsr.Text.SectionTitle}"/>
+                                                <TextBlock Text="{Binding Items.Count, StringFormat={}{0} 条}" Style="{StaticResource LessAsr.Text.Caption}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                            </Grid>
+                                            <ItemsControl ItemsSource="{Binding Items}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="0,12">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="64"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Text="{Binding CreatedAt, StringFormat={}{0:HH:mm}}" Style="{StaticResource LessAsr.Text.Caption}" Margin="0,2,10,0"/>
+                                                            <TextBlock Grid.Column="1" Text="{Binding Text}" Style="{StaticResource LessAsr.Text.Body}" Margin="0,0,12,0"/>
+                                                            <Button Grid.Column="2" Content="复制" Style="{StaticResource LessAsr.SecondaryButton}"
+                                                                    Command="{Binding DataContext.History.CopyCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    CommandParameter="{Binding}"/>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Border Style="{StaticResource LessAsr.Card}" Visibility="{Binding History.HasNoGroups, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <TextBlock Text="还没有保存的听写记录。" Style="{StaticResource LessAsr.Text.Secondary}" HorizontalAlignment="Center"/>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- 使用统计 -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              Visibility="{Binding Navigation.IsStatsSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel Margin="20,12,20,24">
+                        <TextBlock Text="使用统计" Style="{StaticResource LessAsr.Text.PageTitle}"/>
+                        <TextBlock Text="统计不包含听写原文，最多保留两个月。" Style="{StaticResource LessAsr.Text.Secondary}" Margin="0,5,0,20"/>
+                        <UniformGrid Columns="4" Margin="0,0,0,14">
+                            <Border Style="{StaticResource LessAsr.Card}" Margin="0,0,6,0">
+                                <StackPanel><TextBlock Text="听写次数" Style="{StaticResource LessAsr.Text.Secondary}"/><TextBlock Text="{Binding Stats.ThirtyDayInputCount}" Style="{StaticResource LessAsr.Text.Metric}" Margin="0,8,0,0"/><TextBlock Text="最近 30 天" Style="{StaticResource LessAsr.Text.Caption}"/></StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource LessAsr.Card}" Margin="2,0,4,0">
+                                <StackPanel><TextBlock Text="输入文字" Style="{StaticResource LessAsr.Text.Secondary}"/><TextBlock Text="{Binding Stats.ThirtyDayCharacterCount, StringFormat={}{0:N0}}" Style="{StaticResource LessAsr.Text.Metric}" Margin="0,8,0,0"/><TextBlock Text="最近 30 天字符总数" Style="{StaticResource LessAsr.Text.Caption}"/></StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource LessAsr.Card}" Margin="4,0,2,0">
+                                <StackPanel><TextBlock Text="平均输入速度" Style="{StaticResource LessAsr.Text.Secondary}"/><TextBlock Text="{Binding Stats.ThirtyDayCharactersPerMinuteText}" Style="{StaticResource LessAsr.Text.Metric}" Margin="0,8,0,0"/><TextBlock Text="字 / 分钟 · 最近 30 天" Style="{StaticResource LessAsr.Text.Caption}"/></StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource LessAsr.Card}" Margin="6,0,0,0">
+                                <StackPanel><TextBlock Text="输入时长" Style="{StaticResource LessAsr.Text.Secondary}"/><TextBlock Text="{Binding Stats.ThirtyDayRecordingDurationText}" Style="{StaticResource LessAsr.Text.Metric}" FontSize="28" Margin="0,8,0,0"/><TextBlock Text="最近 30 天录音总时长" Style="{StaticResource LessAsr.Text.Caption}"/></StackPanel>
+                            </Border>
+                        </UniformGrid>
+                        <Border Style="{StaticResource LessAsr.Card}" Margin="0,0,0,14">
+                            <StackPanel>
+                                <TextBlock Text="最近 7 天输入趋势" Style="{StaticResource LessAsr.Text.SectionTitle}"/>
+                                <ItemsControl ItemsSource="{Binding Stats.LastSevenDays}" Margin="0,18,0,0">
+                                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Height="150" Margin="8,0">
+                                                <Grid.RowDefinitions><RowDefinition Height="112"/><RowDefinition Height="38"/></Grid.RowDefinitions>
+                                                <StackPanel VerticalAlignment="Bottom">
+                                                    <TextBlock Text="{Binding CharacterCount, StringFormat={}{0:N0}}" Style="{StaticResource LessAsr.Text.Caption}" HorizontalAlignment="Center" Margin="0,0,0,5"/>
+                                                    <Border Width="28" Height="{Binding BarHeight}" Background="{StaticResource LessAsr.Brush.Accent}" CornerRadius="8,8,3,3" HorizontalAlignment="Center"/>
+                                                </StackPanel>
+                                                <TextBlock Grid.Row="1" Text="{Binding Label}" Style="{StaticResource LessAsr.Text.Secondary}" HorizontalAlignment="Center" VerticalAlignment="Bottom"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource LessAsr.Card}">
+                            <StackPanel>
+                                <TextBlock Text="每日明细" Style="{StaticResource LessAsr.Text.SectionTitle}" Margin="0,0,0,8"/>
+                                <ItemsControl ItemsSource="{Binding Stats.Days}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,9">
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="110"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding Date}"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding InputCount, StringFormat=听写 {0} 次}" Style="{StaticResource LessAsr.Text.Secondary}"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding CharacterCount, StringFormat={}{0:N0} 字}" Style="{StaticResource LessAsr.Text.Secondary}"/>
+                                                <TextBlock Grid.Column="3" Text="{Binding RecordingSeconds, StringFormat={}{0:0} 秒录音}" Style="{StaticResource LessAsr.Text.Secondary}" HorizontalAlignment="Right"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- 模型 -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              Visibility="{Binding Navigation.IsModelSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel Margin="20,12,20,24">
+                        <TextBlock Text="模型" Style="{StaticResource LessAsr.Text.PageTitle}"/>
+                        <TextBlock Text="管理本地 Whisper 模型和识别服务。" Style="{StaticResource LessAsr.Text.Secondary}" Margin="0,5,0,20"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="3*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="2*"/></Grid.ColumnDefinitions>
+                            <Border Style="{StaticResource LessAsr.Card}">
+                                <StackPanel>
+                                    <TextBlock Text="当前模型" Style="{StaticResource LessAsr.Text.SectionTitle}" Margin="0,0,0,12"/>
+                                    <Grid Margin="0,8"><TextBlock Text="名称" Style="{StaticResource LessAsr.Text.Secondary}"/><TextBlock Text="{Binding Model.ModelName}" HorizontalAlignment="Right"/></Grid>
+                                    <Border Style="{StaticResource LessAsr.Divider}"/>
+                                    <Grid Margin="0,8"><TextBlock Text="服务状态" Style="{StaticResource LessAsr.Text.Secondary}"/><TextBlock Text="{Binding Model.ServiceState}" HorizontalAlignment="Right"/></Grid>
+                                    <Border Style="{StaticResource LessAsr.Divider}"/>
+                                    <Grid Margin="0,8"><TextBlock Text="服务地址" Style="{StaticResource LessAsr.Text.Secondary}"/><TextBlock Text="{Binding Model.ServiceAddress}" HorizontalAlignment="Right"/></Grid>
+                                    <Border Style="{StaticResource LessAsr.Divider}"/>
+                                    <TextBlock Text="模型路径" Style="{StaticResource LessAsr.Text.Secondary}" Margin="0,8,0,4"/>
+                                    <TextBlock Text="{Binding Model.ModelPath}" Style="{StaticResource LessAsr.Text.Body}"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="2" Style="{StaticResource LessAsr.Card}">
+                                <StackPanel Width="120" HorizontalAlignment="Left">
+                                    <TextBlock Text="服务操作" Style="{StaticResource LessAsr.Text.SectionTitle}" Margin="0,0,0,16"/>
+                                    <Button Content="启动服务" Command="{Binding Model.StartCommand}" Style="{StaticResource LessAsr.PrimaryButton}" Margin="0,0,0,8"/>
+                                    <Button Content="重启服务" Command="{Binding Model.RestartCommand}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="0,0,0,8"/>
+                                    <Button Content="健康检查" Command="{Binding Model.HealthCheckCommand}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="0,0,0,8"/>
+                                    <Button Content="停止服务" Command="{Binding Model.StopCommand}" Style="{StaticResource LessAsr.SecondaryButton}"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                        <Border Style="{StaticResource LessAsr.Card}" Margin="0,14,0,0" Visibility="{Binding Model.LastMessage, Converter={StaticResource StringNotEmptyToVisibilityConverter}}">
+                            <StackPanel><TextBlock Text="最近操作" Style="{StaticResource LessAsr.Text.CardTitle}"/><TextBlock Text="{Binding Model.LastMessage}" Style="{StaticResource LessAsr.Text.Secondary}" Margin="0,6,0,0"/></StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource LessAsr.Card}" Background="{StaticResource LessAsr.Brush.ErrorSoft}" Margin="0,14,0,0" Visibility="{Binding Model.LastError, Converter={StaticResource StringNotEmptyToVisibilityConverter}}">
+                            <StackPanel><TextBlock Text="操作失败" Foreground="{StaticResource LessAsr.Brush.Error}" FontWeight="SemiBold"/><TextBlock Text="{Binding Model.LastError}" Foreground="{StaticResource LessAsr.Brush.Error}" TextWrapping="Wrap" Margin="0,6,0,0"/></StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- 设置 -->
+                <Grid Visibility="{Binding Navigation.IsSettingsSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid Margin="20,12,20,20">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="设置" Style="{StaticResource LessAsr.Text.PageTitle}"/>
+                            <TextBlock Text="调整识别、模型、数据和应用行为。" Style="{StaticResource LessAsr.Text.Secondary}" Margin="0,5,0,0"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Settings.LastSavedAtText}" Style="{StaticResource LessAsr.Text.Secondary}" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                            <Button Content="{Binding Settings.SaveButtonText}"
+                                    Command="{Binding Settings.SaveCommand}"
+                                    IsEnabled="{Binding Settings.CanSave}"
+                                    Style="{StaticResource LessAsr.PrimaryButton}"
+                                    MinWidth="96"
+                                    AutomationProperties.Name="保存设置"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <ScrollViewer Grid.Row="1"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="20,0,20,24">
+
+                        <Border Style="{StaticResource LessAsr.Card}" Margin="0,0,0,12">
+                            <StackPanel>
+                                <TextBlock Text="识别" Style="{StaticResource LessAsr.Text.SectionTitle}" Margin="0,0,0,14"/>
+                                <TextBlock Text="首选语言" Style="{StaticResource LessAsr.FieldLabel}"/>
+                                <ComboBox ItemsSource="{Binding Settings.TranscriptionLanguageOptions}" DisplayMemberPath="DisplayName" SelectedValuePath="Id" SelectedValue="{Binding Settings.PreferredTranscriptionLanguageId}" Style="{StaticResource LessAsr.ComboBox}" Width="260" HorizontalAlignment="Left"/>
+                                <TextBlock Text="保存后下次听写生效。" Style="{StaticResource LessAsr.Text.Caption}" Margin="0,6,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource LessAsr.Card}" Margin="0,0,0,12">
+                            <StackPanel>
+                                <TextBlock Text="模型服务" Style="{StaticResource LessAsr.Text.SectionTitle}" Margin="0,0,0,14"/>
+                                <TextBlock Text="模型文件路径" Style="{StaticResource LessAsr.FieldLabel}"/>
+                                <Grid Margin="0,0,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBox Text="{Binding Settings.ModelPath, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource LessAsr.TextBox}"/><Button Grid.Column="1" Content="浏览…" Command="{Binding Settings.BrowseModelPathCommand}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="8,0,0,0"/></Grid>
+                                <TextBlock Text="whisper-server 路径" Style="{StaticResource LessAsr.FieldLabel}"/>
+                                <Grid Margin="0,0,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBox Text="{Binding Settings.WhisperServerPath, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource LessAsr.TextBox}"/><Button Grid.Column="1" Content="浏览…" Command="{Binding Settings.BrowseWhisperServerPathCommand}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="8,0,0,0"/></Grid>
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="24"/><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <StackPanel><TextBlock Text="服务端口" Style="{StaticResource LessAsr.FieldLabel}"/><TextBox Text="{Binding Settings.WhisperServerPort, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource LessAsr.TextBox}"/></StackPanel>
+                                    <StackPanel Grid.Column="2"><TextBlock Text="线程数" Style="{StaticResource LessAsr.FieldLabel}"/><TextBox Text="{Binding Settings.WhisperServerThreadCount, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource LessAsr.TextBox}" infra:IntegerTextBoxBehavior.IsEnabled="True"/></StackPanel>
+                                    <Button Grid.Column="3" Content="恢复推荐值" Command="{Binding Settings.ResetWhisperServerThreadCountCommand}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="8,24,0,0" HorizontalAlignment="Left"/>
+                                </Grid>
+                                <TextBlock Text="{Binding Settings.RecommendedWhisperServerThreadCount, StringFormat=系统推荐线程数：{0}}" Style="{StaticResource LessAsr.Text.Caption}" Margin="184,6,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <Border Style="{StaticResource LessAsr.Card}">
+                                <StackPanel>
+                                    <TextBlock Text="数据与隐私" Style="{StaticResource LessAsr.Text.SectionTitle}" Margin="0,0,0,14"/>
+                                    <TextBlock Text="历史保留时间" Style="{StaticResource LessAsr.FieldLabel}"/>
+                                    <ComboBox SelectedValue="{Binding Settings.TranscriptRetentionPolicy}" SelectedValuePath="Tag" Style="{StaticResource LessAsr.ComboBox}" Margin="0,0,0,12">
+                                        <ComboBoxItem Content="关闭" Tag="{x:Static persistence:TranscriptRetentionPolicy.Disabled}"/>
+                                        <ComboBoxItem Content="1 天" Tag="{x:Static persistence:TranscriptRetentionPolicy.OneDay}"/>
+                                        <ComboBoxItem Content="7 天" Tag="{x:Static persistence:TranscriptRetentionPolicy.SevenDays}"/>
+                                        <ComboBoxItem Content="1 个月" Tag="{x:Static persistence:TranscriptRetentionPolicy.OneMonth}"/>
+                                    </ComboBox>
+                                    <TextBlock Text="音频不会上传或保存。" Style="{StaticResource LessAsr.Text.Secondary}"/>
+                                    <TextBlock Text="{Binding Settings.DataDirectoryPath, StringFormat=数据目录：{0}}" Style="{StaticResource LessAsr.Text.Caption}" Margin="0,8,0,0"/>
+                                    <TextBlock Text="{Binding Settings.LogsDirectoryPath, StringFormat=日志目录：{0}}" Style="{StaticResource LessAsr.Text.Caption}" Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="2" Style="{StaticResource LessAsr.Card}">
+                                <StackPanel>
+                                    <TextBlock Text="应用行为" Style="{StaticResource LessAsr.Text.SectionTitle}" Margin="0,0,0,14"/>
+                                    <CheckBox Content="客户端启动时自动加载当前模型" IsChecked="{Binding Settings.StartModelOnAppStartup}" Margin="0,0,0,12"/>
+                                    <CheckBox Content="关闭窗口时最小化到系统托盘" IsChecked="{Binding Settings.MinimizeToTrayOnClose}"/>
+                                    <TextBlock Text="取消后，关闭主窗口将直接退出程序。" Style="{StaticResource LessAsr.Text.Caption}" Margin="24,6,0,0"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                    </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+
+                <!-- 诊断 -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              Visibility="{Binding Navigation.IsDiagnosticsSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel Margin="20,12,20,24">
+                        <TextBlock Text="诊断" Style="{StaticResource LessAsr.Text.PageTitle}"/>
+                        <TextBlock Text="检查听写浮窗、热键和输入状态。" Style="{StaticResource LessAsr.Text.Secondary}" Margin="0,5,0,20"/>
+                        <Border Style="{StaticResource LessAsr.Card}">
+                            <StackPanel>
+                                <TextBlock Text="浮窗状态模拟" Style="{StaticResource LessAsr.Text.SectionTitle}" Margin="0,0,0,14"/>
+                                <UniformGrid Columns="4" HorizontalAlignment="Left" Margin="0,0,-8,-8">
+                                    <Button Content="模型加载中" Command="{Binding Debug.ShowLoadingCommand}" Style="{StaticResource LessAsr.DiagnosticButton}"/>
+                                    <Button Content="待录音" Command="{Binding Debug.ShowReadyCommand}" Style="{StaticResource LessAsr.DiagnosticButton}"/>
+                                    <Button Content="正在聆听" Command="{Binding Debug.ShowRecordingCommand}" Style="{StaticResource LessAsr.DiagnosticButton}"/>
+                                    <Button Content="识别中" Command="{Binding Debug.ShowTranscribingCommand}" Style="{StaticResource LessAsr.DiagnosticButton}"/>
+                                    <Button Content="已注入" Command="{Binding Debug.ShowInjectedCommand}" Style="{StaticResource LessAsr.DiagnosticButton}"/>
+                                    <Button Content="识别结果" Command="{Binding Debug.ShowResultCommand}" Style="{StaticResource LessAsr.DiagnosticButton}"/>
+                                    <Button Content="错误状态" Command="{Binding Debug.ShowErrorCommand}" Style="{StaticResource LessAsr.DiagnosticButton}"/>
+                                    <Button Content="隐藏浮窗" Command="{Binding Debug.HideCommand}" Style="{StaticResource LessAsr.DiagnosticButton}"/>
+                                </UniformGrid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
     </Grid>
-</Window>
+</ui:FluentWindow>

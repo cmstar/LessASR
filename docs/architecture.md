@@ -27,7 +27,7 @@ whisper-server (外部进程)
 
 | 层级 | 技术 |
 | --- | --- |
-| UI | WPF (.NET 8) |
+| UI | WPF (.NET 8) + WPF UI（Fluent 控件与窗口能力） |
 | 托盘 | System.Windows.Forms.NotifyIcon |
 | 音频 | NAudio |
 | 存储 | Microsoft.Data.Sqlite |
@@ -38,6 +38,7 @@ whisper-server (外部进程)
 
 - `LocalAsrClient.Core` 定义平台抽象（`IHotkeyListener`、`IAudioRecorder`、`ITextInjector` 等），不引用 WPF 或 WinForms。
 - `LocalAsrClient.App` 实现上述抽象并负责 DI 引导（`AppServices`）。
+- `LocalAsrClient.App/Themes` 集中维护颜色、排版与通用控件样式；业务页面仅组合设计令牌与 WPF UI 控件。
 - Core 测试可在无桌面会话环境运行。
 
 ## 数据流
@@ -60,9 +61,12 @@ whisper-server (外部进程)
 5. 关窗时 Coordinator 合并所有 Completed 段（`\n` 拼接，含用户编辑）写入一条 `ITextHistoryRepository`；「终止」清空会话且不写历史。
 6. 连续窗口已开时，右 Ctrl 与 Esc 由 Coordinator 路由，单句 `DictationOrchestrator` 与听写浮窗不参与。
 
+单句或连续听写完成“写入 + 保留期清理”后，`NotifyingTextHistoryRepository` 发布变更通知；主窗口重新查询完整的最近历史并更新分组。进入历史页时还会主动刷新一次，避免展示启动时缓存。
+
 ## 外部集成
 
 - **whisper-server**：客户端按设置路径启动子进程，通过 `HttpClient` 调用 `/inference` 等端点。
+- **服务状态同步**：`WhisperServerProcessManager` 发布启动、就绪、停止与失败状态变化；WPF ViewModel 在 UI Dispatcher 上接收并刷新首页及模型页，包含热键触发的后台启动路径。
 - **Win32/WPF Clipboard**：热键钩子、前台窗口恢复、`SendInput` 与剪贴板粘贴回退。
 
 ## 关键架构决策
@@ -71,3 +75,4 @@ whisper-server (外部进程)
 - 文本注入优先使用 Win32 控件直写；现代应用或未知控件无法直写时，使用“保存剪贴板 → 写入识别文本 → Ctrl+V → 恢复剪贴板”的兼容回退。
 - 简繁后处理：`TranscriptionScriptPostProcessor` + OpenCC（`t2s` / `s2t`）；简中 / 繁中偏好时经 `ITranscriptionPunctuationPolicy` 判定后由 `CjkPunctuationNormalizer` 规范化标点；LLM 后处理接口仍保留。
 - 用户数据目录固定为 `%USERPROFILE%\.lessasr\`（`LessAsrPaths`），设置项仅存于该目录下的 SQLite，避免「路径配置与数据库位置」循环依赖。
+- `--test-mode` 使用内存 SQLite，桌面验收与 UI 自动化不得接触用户的生产数据库。

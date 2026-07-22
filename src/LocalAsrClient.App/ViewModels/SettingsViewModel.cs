@@ -19,6 +19,13 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     private int _whisperServerPort = AppSettings.DefaultWhisperServerPort;
     private int _whisperServerThreadCount = WhisperServerThreads.RecommendForCurrentMachine();
     private bool _useAutoWhisperServerThreadCount = true;
+    private TranscriptRetentionPolicy _transcriptRetentionPolicy = TranscriptRetentionPolicy.SevenDays;
+    private bool _startModelOnAppStartup;
+    private bool _minimizeToTrayOnClose = true;
+    private string _preferredTranscriptionLanguageId = TranscriptionLanguageCatalog.DefaultId;
+    private bool _isLoading;
+    private bool _hasUnsavedChanges;
+    private bool _isSaving;
 
     public SettingsViewModel(AppServices services, Func<Task>? onSettingsSaved = null)
     {
@@ -64,18 +71,66 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     public string LogsDirectoryPath => LessAsrPaths.LogsDirectory;
 
-    public TranscriptRetentionPolicy TranscriptRetentionPolicy { get; set; } = TranscriptRetentionPolicy.SevenDays;
+    public TranscriptRetentionPolicy TranscriptRetentionPolicy
+    {
+        get => _transcriptRetentionPolicy;
+        set => SetField(ref _transcriptRetentionPolicy, value);
+    }
 
-    public bool StartModelOnAppStartup { get; set; }
+    public bool StartModelOnAppStartup
+    {
+        get => _startModelOnAppStartup;
+        set => SetField(ref _startModelOnAppStartup, value);
+    }
 
-    public bool MinimizeToTrayOnClose { get; set; } = true;
+    public bool MinimizeToTrayOnClose
+    {
+        get => _minimizeToTrayOnClose;
+        set => SetField(ref _minimizeToTrayOnClose, value);
+    }
 
     public IReadOnlyList<TranscriptionLanguageOption> TranscriptionLanguageOptions { get; } =
         TranscriptionLanguageCatalog.All;
 
-    public string PreferredTranscriptionLanguageId { get; set; } = TranscriptionLanguageCatalog.DefaultId;
+    public string PreferredTranscriptionLanguageId
+    {
+        get => _preferredTranscriptionLanguageId;
+        set => SetField(ref _preferredTranscriptionLanguageId, value);
+    }
 
     public string LastSavedAtText { get; private set; } = "";
+
+    public bool HasUnsavedChanges
+    {
+        get => _hasUnsavedChanges;
+        private set
+        {
+            if (SetStateField(ref _hasUnsavedChanges, value))
+            {
+                OnPropertyChanged(nameof(CanSave));
+                OnPropertyChanged(nameof(SaveButtonText));
+            }
+        }
+    }
+
+    public bool IsSaving
+    {
+        get => _isSaving;
+        private set
+        {
+            if (SetStateField(ref _isSaving, value))
+            {
+                OnPropertyChanged(nameof(CanSave));
+                OnPropertyChanged(nameof(SaveButtonText));
+            }
+        }
+    }
+
+    public bool CanSave => HasUnsavedChanges && !IsSaving;
+
+    public string SaveButtonText => IsSaving
+        ? "正在保存…"
+        : HasUnsavedChanges ? "保存设置" : "已保存";
 
     public ICommand BrowseModelPathCommand => new RelayCommand(BrowseModelPath);
 
@@ -85,6 +140,15 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     public ICommand SaveCommand => new AsyncRelayCommand(async () =>
     {
+        if (!CanSave)
+        {
+            return;
+        }
+
+        IsSaving = true;
+
+        try
+        {
         if (WhisperServerPort is < 1 or > 65535)
         {
             throw new InvalidOperationException("whisper-server 端口必须在 1 到 65535 之间。");
@@ -107,9 +171,15 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         await _services.ApplyServerOptionsFromSettingsAsync();
         LastSavedAtText = $"上次保存：{DateTime.Now:HH:mm:ss}";
         OnPropertyChanged(nameof(LastSavedAtText));
+        HasUnsavedChanges = false;
         if (_onSettingsSaved is not null)
         {
             await _onSettingsSaved();
+        }
+        }
+        finally
+        {
+            IsSaving = false;
         }
     }, "保存设置失败");
 
@@ -126,19 +196,28 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     public async Task LoadAsync()
     {
-        var settings = await _services.SettingsStore.LoadAsync(CancellationToken.None);
-        ModelPath = settings.ModelPath;
-        WhisperServerPath = settings.WhisperServerPath;
-        WhisperServerPort = settings.WhisperServerPort;
-        _useAutoWhisperServerThreadCount = settings.WhisperServerThreadCount is null;
-        _whisperServerThreadCount = settings.WhisperServerThreadCount
-            ?? WhisperServerThreads.RecommendForCurrentMachine();
-        OnPropertyChanged(nameof(WhisperServerThreadCount));
-        OnPropertyChanged(nameof(RecommendedWhisperServerThreadCount));
-        TranscriptRetentionPolicy = settings.TranscriptRetentionPolicy;
-        StartModelOnAppStartup = settings.StartModelOnAppStartup;
-        MinimizeToTrayOnClose = settings.MinimizeToTrayOnClose;
-        PreferredTranscriptionLanguageId = settings.PreferredTranscriptionLanguageId;
+        _isLoading = true;
+        try
+        {
+            var settings = await _services.SettingsStore.LoadAsync(CancellationToken.None);
+            ModelPath = settings.ModelPath;
+            WhisperServerPath = settings.WhisperServerPath;
+            WhisperServerPort = settings.WhisperServerPort;
+            _useAutoWhisperServerThreadCount = settings.WhisperServerThreadCount is null;
+            _whisperServerThreadCount = settings.WhisperServerThreadCount
+                ?? WhisperServerThreads.RecommendForCurrentMachine();
+            OnPropertyChanged(nameof(WhisperServerThreadCount));
+            OnPropertyChanged(nameof(RecommendedWhisperServerThreadCount));
+            TranscriptRetentionPolicy = settings.TranscriptRetentionPolicy;
+            StartModelOnAppStartup = settings.StartModelOnAppStartup;
+            MinimizeToTrayOnClose = settings.MinimizeToTrayOnClose;
+            PreferredTranscriptionLanguageId = settings.PreferredTranscriptionLanguageId;
+        }
+        finally
+        {
+            _isLoading = false;
+            HasUnsavedChanges = false;
+        }
     }
 
     private void ResetWhisperServerThreadCount()
@@ -195,7 +274,35 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
         field = value;
         OnPropertyChanged(propertyName);
+        MarkDirty();
         return true;
+    }
+
+    private bool SetStateField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value))
+        {
+            return false;
+        }
+
+        field = value;
+        OnPropertyChanged(propertyName);
+        return true;
+    }
+
+    private void MarkDirty()
+    {
+        if (_isLoading)
+        {
+            return;
+        }
+
+        HasUnsavedChanges = true;
+        if (!string.IsNullOrEmpty(LastSavedAtText))
+        {
+            LastSavedAtText = "";
+            OnPropertyChanged(nameof(LastSavedAtText));
+        }
     }
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)

@@ -1,4 +1,5 @@
 using LocalAsrClient.App.Bootstrap;
+using LocalAsrClient.App.Infrastructure;
 using LocalAsrClient.App.Overlay;
 using LocalAsrClient.Core.Dictation;
 
@@ -7,10 +8,12 @@ namespace LocalAsrClient.App.ViewModels;
 public sealed class MainViewModel
 {
     private readonly AppServices _services;
+    private readonly SemaphoreSlim _historyRefreshLock = new(1, 1);
 
     public MainViewModel(AppServices services)
     {
         _services = services;
+        Navigation = new MainNavigationViewModel();
         Status = new StatusViewModel();
         History = new HistoryViewModel();
         Stats = new StatsViewModel();
@@ -18,10 +21,20 @@ public sealed class MainViewModel
         Settings = new SettingsViewModel(services, Model.RefreshFromSettingsAsync);
         Debug = new DebugViewModel(services);
         _services.Orchestrator.StatusChanged += OnDictationStatusChanged;
+        _services.HistoryRepository.Changed += OnHistoryChanged;
+        Navigation.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(MainNavigationViewModel.SelectedSection)
+                && Navigation.SelectedSection == MainSection.History)
+            {
+                OnHistoryChanged();
+            }
+        };
         _ = LoadAsync();
     }
 
     public StatusViewModel Status { get; }
+    public MainNavigationViewModel Navigation { get; }
     public HistoryViewModel History { get; }
     public StatsViewModel Stats { get; }
     public ModelViewModel Model { get; }
@@ -79,12 +92,42 @@ public sealed class MainViewModel
         };
     }
 
+    private void OnHistoryChanged()
+    {
+        _ = RefreshHistoryAsync();
+    }
+
+    private async Task RefreshHistoryAsync()
+    {
+        await _historyRefreshLock.WaitAsync();
+        try
+        {
+            var history = await _services.HistoryRepository.GetRecentAsync(50, CancellationToken.None);
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (dispatcher is null || dispatcher.CheckAccess())
+            {
+                History.Load(history);
+            }
+            else
+            {
+                await dispatcher.InvokeAsync(() => History.Load(history));
+            }
+        }
+        catch (Exception ex)
+        {
+            AppExceptionLogger.Report(ex, "刷新历史记录失败", showDialog: false);
+        }
+        finally
+        {
+            _historyRefreshLock.Release();
+        }
+    }
+
     private async Task LoadAsync()
     {
         await Settings.LoadAsync();
         await Model.InitializeAsync();
-        var history = await _services.HistoryRepository.GetRecentAsync(50, CancellationToken.None);
-        History.Load(history);
+        await RefreshHistoryAsync();
         var end = DateOnly.FromDateTime(DateTime.Now);
         var start = end.AddDays(-30);
         var stats = await _services.StatsRepository.GetRangeAsync(start, end, CancellationToken.None);

@@ -145,4 +145,27 @@ public sealed class SqliteRepositoryTests
         await repository.PruneAsync(now, TranscriptRetentionPolicy.Disabled, CancellationToken.None);
         Assert.Empty(await repository.GetRecentAsync(10, CancellationToken.None));
     }
+
+    [Fact]
+    public async Task TextHistoryRepository_OneMonthPolicy_KeepsRecordsFromLastSevenDays()
+    {
+        await using var database = await SqliteDatabase.CreateInMemoryAsync();
+        var repository = new SqliteTextHistoryRepository(database);
+        var now = new DateTimeOffset(2026, 7, 22, 12, 0, 0, TimeSpan.Zero);
+        var entry = new TextHistoryEntry(
+            Guid.NewGuid(),
+            now.AddDays(-7),
+            "七天前记录",
+            6,
+            0,
+            TimeSpan.Zero,
+            TimeSpan.Zero,
+            "whisper-server",
+            "test-model");
+
+        await repository.AddAsync(entry, CancellationToken.None);
+        await repository.PruneAsync(now, TranscriptRetentionPolicy.OneMonth, CancellationToken.None);
+
+        Assert.Equal(entry, Assert.Single(await repository.GetRecentAsync(10, CancellationToken.None)));
+    }
 }

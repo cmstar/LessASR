@@ -104,6 +104,7 @@ public sealed class WhisperServerBackendTests
 
     private sealed class StubWhisperServerManager : IWhisperServerManager
     {
+        public event Action<WhisperServerStatus>? StatusChanged;
         public bool Started { get; private set; }
         public WhisperServerStatus Status { get; private set; } = WhisperServerStatus.Stopped;
         public Uri BaseUri => new("http://127.0.0.1:8080");
@@ -116,12 +117,14 @@ public sealed class WhisperServerBackendTests
         {
             Started = true;
             Status = WhisperServerStatus.Ready;
+            StatusChanged?.Invoke(Status);
             return Task.CompletedTask;
         }
 
         public Task StopAsync(CancellationToken cancellationToken)
         {
             Status = WhisperServerStatus.Stopped;
+            StatusChanged?.Invoke(Status);
             return Task.CompletedTask;
         }
 

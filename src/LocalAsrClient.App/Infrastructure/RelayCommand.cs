@@ -17,3 +17,25 @@ public sealed class RelayCommand : ICommand
 
     public void Execute(object? parameter) => _execute();
 }
+
+public sealed class RelayCommand<T> : ICommand
+{
+    private readonly Action<T> _execute;
+
+    public RelayCommand(Action<T> execute)
+    {
+        _execute = execute;
+    }
+
+    public event EventHandler? CanExecuteChanged;
+
+    public bool CanExecute(object? parameter) => parameter is T;
+
+    public void Execute(object? parameter)
+    {
+        if (parameter is T value)
+        {
+            _execute(value);
+        }
+    }
+}

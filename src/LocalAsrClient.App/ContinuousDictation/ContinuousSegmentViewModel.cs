@@ -40,6 +40,7 @@ public sealed class ContinuousSegmentViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(IsFailed));
             OnPropertyChanged(nameof(Placeholder));
             OnPropertyChanged(nameof(Text));
+            OnPropertyChanged(nameof(StateLabel));
         }
     }
 
@@ -67,6 +68,15 @@ public sealed class ContinuousSegmentViewModel : INotifyPropertyChanged
     public bool ShowPlaceholder => !IsEditable;
 
     public bool IsFailed => State == ContinuousSegmentState.Failed;
+
+    public string StateLabel => State switch
+    {
+        ContinuousSegmentState.WaitingInput => "等待输入",
+        ContinuousSegmentState.Transcribing => "识别中",
+        ContinuousSegmentState.Completed => "已完成",
+        ContinuousSegmentState.Failed => "识别失败",
+        _ => string.Empty
+    };
 
     public string Placeholder => State switch
     {

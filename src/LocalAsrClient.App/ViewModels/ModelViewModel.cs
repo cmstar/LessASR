@@ -21,6 +21,7 @@ public sealed class ModelViewModel : INotifyPropertyChanged
     public ModelViewModel(AppServices services)
     {
         _services = services;
+        _services.ServerManager.StatusChanged += OnServiceStatusChanged;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -201,7 +202,24 @@ public sealed class ModelViewModel : INotifyPropertyChanged
 
     private void RefreshServiceState()
     {
-        ServiceState = ToChineseStatus(_services.ServerManager.Status);
+        ApplyServiceState(_services.ServerManager.Status);
+    }
+
+    private void OnServiceStatusChanged(WhisperServerStatus status)
+    {
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher is not null && !dispatcher.CheckAccess())
+        {
+            _ = dispatcher.BeginInvoke(() => ApplyServiceState(status));
+            return;
+        }
+
+        ApplyServiceState(status);
+    }
+
+    private void ApplyServiceState(WhisperServerStatus status)
+    {
+        ServiceState = ToChineseStatus(status);
         ServiceAddress = _services.ServerManager.BaseUri.ToString();
     }
 

@@ -1,12 +1,12 @@
 using System.ComponentModel;
 using System.Windows;
-using System.Windows.Controls;
 using LocalAsrClient.App.Bootstrap;
 using LocalAsrClient.App.ViewModels;
+using Wpf.Ui.Controls;
 
 namespace LocalAsrClient.App;
 
-public partial class MainWindow : Window
+public partial class MainWindow : FluentWindow
 {
     private readonly AppServices _services;
     private bool _allowClose;
@@ -59,13 +59,4 @@ public partial class MainWindow : Window
         }
     }
 
-    private void TabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (!SettingsTabItem.IsSelected || DataContext is not MainViewModel viewModel)
-        {
-            return;
-        }
-
-        viewModel.Settings.ResetSaveFeedback();
-    }
 }

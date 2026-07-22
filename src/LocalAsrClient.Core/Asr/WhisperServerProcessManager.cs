@@ -6,6 +6,7 @@ namespace LocalAsrClient.Core.Asr;
 
 public interface IWhisperServerManager
 {
+    event Action<WhisperServerStatus>? StatusChanged;
     WhisperServerStatus Status { get; }
     Uri BaseUri { get; }
     void UpdateOptions(WhisperServerOptions options);
@@ -28,6 +29,8 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
         _options = options;
         _log = log;
     }
+
+    public event Action<WhisperServerStatus>? StatusChanged;
 
     public WhisperServerStatus Status { get; private set; } = WhisperServerStatus.Stopped;
     public Uri BaseUri => _options.BaseUri;
@@ -61,7 +64,7 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
             if (_process is { HasExited: false } && Status == WhisperServerStatus.Starting)
             {
                 await WaitUntilReadyAsync(cancellationToken);
-                Status = WhisperServerStatus.Ready;
+                SetStatus(WhisperServerStatus.Ready);
                 return;
             }
 
@@ -69,12 +72,12 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
 
             if (await TryProbeAsync(cancellationToken))
             {
-                Status = WhisperServerStatus.Ready;
+                SetStatus(WhisperServerStatus.Ready);
                 return;
             }
 
             StopManagedProcess();
-            Status = WhisperServerStatus.Starting;
+            SetStatus(WhisperServerStatus.Starting);
             var arguments = WhisperServerStartupArguments.Build(_options);
             ResetProcessOutput();
             _log?.Write("whisper-server 启动", WhisperServerLaunchDetails.FormatLaunch(arguments));
@@ -95,10 +98,17 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
             _process = Process.Start(startInfo)
                 ?? throw new InvalidOperationException("无法启动 whisper-server。");
 
+            _process.EnableRaisingEvents = true;
+            _process.Exited += OnManagedProcessExited;
             AttachProcessOutputHandlers(_process);
 
             await WaitUntilReadyAsync(cancellationToken);
-            Status = WhisperServerStatus.Ready;
+            SetStatus(WhisperServerStatus.Ready);
+        }
+        catch
+        {
+            SetStatus(WhisperServerStatus.Failed);
+            throw;
         }
         finally
         {
@@ -116,27 +126,30 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
     {
         if (string.IsNullOrWhiteSpace(_options.ServerExecutablePath) || !File.Exists(_options.ServerExecutablePath))
         {
-            Status = WhisperServerStatus.Failed;
+            SetStatus(WhisperServerStatus.Failed);
             throw new FileNotFoundException("未找到 whisper-server 可执行文件。", _options.ServerExecutablePath);
         }
 
         if (string.IsNullOrWhiteSpace(_options.ModelPath) || !File.Exists(_options.ModelPath))
         {
-            Status = WhisperServerStatus.Failed;
+            SetStatus(WhisperServerStatus.Failed);
             throw new FileNotFoundException("未找到 Whisper 模型文件。", _options.ModelPath);
         }
     }
 
     private void StopManagedProcess()
     {
-        if (_process is { HasExited: false })
+        var process = _process;
+        _process = null;
+
+        if (process is { HasExited: false })
         {
-            _process.Kill(entireProcessTree: true);
-            _process.Dispose();
+            process.EnableRaisingEvents = false;
+            process.Kill(entireProcessTree: true);
         }
 
-        _process = null;
-        Status = WhisperServerStatus.Stopped;
+        process?.Dispose();
+        SetStatus(WhisperServerStatus.Stopped);
     }
 
     public async Task HealthCheckAsync(CancellationToken cancellationToken)
@@ -145,13 +158,13 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
         {
             if (_process is null or { HasExited: true })
             {
-                Status = WhisperServerStatus.Stopped;
+                SetStatus(WhisperServerStatus.Stopped);
             }
 
             throw new InvalidOperationException($"无法连接到 whisper-server：{_options.BaseUri}");
         }
 
-        Status = WhisperServerStatus.Ready;
+        SetStatus(WhisperServerStatus.Ready);
     }
 
     private async Task WaitUntilReadyAsync(CancellationToken cancellationToken)
@@ -163,7 +176,7 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
             cancellationToken.ThrowIfCancellationRequested();
             if (_process is { HasExited: true })
             {
-                Status = WhisperServerStatus.Failed;
+                SetStatus(WhisperServerStatus.Failed);
                 throw CreateStartupFailureException(exitCode: _process.ExitCode);
             }
 
@@ -175,7 +188,7 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
             await Task.Delay(500, cancellationToken);
         }
 
-        Status = WhisperServerStatus.Failed;
+        SetStatus(WhisperServerStatus.Failed);
         throw CreateStartupFailureException(exitCode: null, timedOut: true);
     }
 
@@ -235,6 +248,25 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
         };
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
+    }
+
+    private void OnManagedProcessExited(object? sender, EventArgs e)
+    {
+        if (ReferenceEquals(_process, sender))
+        {
+            SetStatus(WhisperServerStatus.Failed);
+        }
+    }
+
+    private void SetStatus(WhisperServerStatus status)
+    {
+        if (Status == status)
+        {
+            return;
+        }
+
+        Status = status;
+        StatusChanged?.Invoke(status);
     }
 
     private void AppendProcessOutput(string line)

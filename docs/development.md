@@ -98,6 +98,7 @@ dotnet run --project src/LocalAsrClient.App/LocalAsrClient.App.csproj -- --test-
 ```
 
 测试模式下 ASR 固定返回默认测试文本，不验证 whisper-server 识别准确率。仍使用双按右 Ctrl 完整听写链路，仅替换录音与 ASR 后端。
+测试模式使用内存 SQLite，不读取或修改用户正式的 `%USERPROFILE%\.lessasr\data\client.db`。
 
 ### 进程生命周期说明
 

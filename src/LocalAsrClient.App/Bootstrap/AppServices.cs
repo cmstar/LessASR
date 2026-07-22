@@ -14,6 +14,8 @@ using LocalAsrClient.App.Hotkeys;
 
 using LocalAsrClient.App.Overlay;
 
+using LocalAsrClient.App.Persistence;
+
 using LocalAsrClient.App.TestMode;
 
 using LocalAsrClient.App.TextInjection;
@@ -47,7 +49,7 @@ public sealed class AppServices : IAsyncDisposable
 
         SqliteStatsRepository statsRepository,
 
-        SqliteTextHistoryRepository historyRepository,
+        NotifyingTextHistoryRepository historyRepository,
 
         DictationOverlayWindow overlayWindow,
 
@@ -109,7 +111,7 @@ public sealed class AppServices : IAsyncDisposable
 
     public SqliteStatsRepository StatsRepository { get; }
 
-    public SqliteTextHistoryRepository HistoryRepository { get; }
+    public NotifyingTextHistoryRepository HistoryRepository { get; }
 
     public DictationOverlayWindow OverlayWindow { get; }
 
@@ -183,7 +185,9 @@ public sealed class AppServices : IAsyncDisposable
             ? JsonlDiagnosticEventSink.Create(LessAsrPaths.DiagnosticsDirectory)
             : NullDiagnosticEventSink.Instance;
 
-        var database = await SqliteDatabase.OpenAsync(LessAsrPaths.DatabasePath, cancellationToken);
+        var database = testMode.Enabled
+            ? await SqliteDatabase.CreateInMemoryAsync()
+            : await SqliteDatabase.OpenAsync(LessAsrPaths.DatabasePath, cancellationToken);
 
         var settingsStore = new SqliteSettingsStore(database);
 
@@ -215,7 +219,8 @@ public sealed class AppServices : IAsyncDisposable
 
         var statsRepository = new SqliteStatsRepository(database);
 
-        var historyRepository = new SqliteTextHistoryRepository(database);
+        var historyRepository = new NotifyingTextHistoryRepository(
+            new SqliteTextHistoryRepository(database));
 
         IAudioRecorder singleRecorder = testMode.Enabled
             ? new SimulatedAudioRecorder()
@@ -479,4 +484,3 @@ public sealed class AppServices : IAsyncDisposable
     }
 
 }
-

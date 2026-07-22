@@ -12,6 +12,7 @@ public sealed class ContinuousDictationViewModel : INotifyPropertyChanged
 {
     private readonly ContinuousDictationSession _session;
     private string _bannerMessage = string.Empty;
+    private bool _isRecordingActive;
 
     public ContinuousDictationViewModel(
         ContinuousDictationSession session,
@@ -35,6 +36,24 @@ public sealed class ContinuousDictationViewModel : INotifyPropertyChanged
     public int CompletedCount { get; private set; }
 
     public int TotalCount { get; private set; }
+
+    public bool IsRecordingActive
+    {
+        get => _isRecordingActive;
+        private set
+        {
+            if (_isRecordingActive == value)
+            {
+                return;
+            }
+
+            _isRecordingActive = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(RecordingStatusText));
+        }
+    }
+
+    public string RecordingStatusText => IsRecordingActive ? "正在录音" : "已暂停";
 
     public string BannerMessage
     {
@@ -64,6 +83,7 @@ public sealed class ContinuousDictationViewModel : INotifyPropertyChanged
     {
         CompletedCount = snapshot.CompletedCount;
         TotalCount = snapshot.TotalCount;
+        IsRecordingActive = snapshot.IsRecordingActive;
         OnPropertyChanged(nameof(HeaderText));
 
         if (snapshot.BannerMessage is not null)
@@ -103,6 +123,7 @@ public sealed class ContinuousDictationViewModel : INotifyPropertyChanged
         Segments.Clear();
         CompletedCount = 0;
         TotalCount = 0;
+        IsRecordingActive = false;
         BannerMessage = string.Empty;
         OnPropertyChanged(nameof(HeaderText));
     }
