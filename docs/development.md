@@ -20,6 +20,7 @@ src/LocalAsrClient.Core/
   Utilities/      # 时钟、文本度量等
 
 src/LocalAsrClient.App/
+  Assets/Brand/    # A2 品牌图标 SVG 源文件与应用 / 托盘 ICO
   Bootstrap/      # 服务组合根
   Audio/          # NAudio 录音实现
   Hotkeys/        # 全局热键钩子（键位见 DictationHotkey）
@@ -30,6 +31,14 @@ src/LocalAsrClient.App/
 
 tests/LocalAsrClient.Core.Tests/
 ```
+
+品牌图标由仓库内脚本从同一套 A2 几何参数生成，修改图标后执行：
+
+```powershell
+.\tools\Generate-LessAsrIcons.ps1
+```
+
+应用 ICO 包含 16–256 px 帧；托盘 ICO 包含 16–32 px 深浅两套线稿，由客户端按 Windows 任务栏主题选择。
 
 - Core 项目不得引用 WPF、WinForms 或 NAudio。
 - Win32 interop 仅存在于 `LocalAsrClient.App`。

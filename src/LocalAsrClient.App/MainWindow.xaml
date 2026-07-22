@@ -6,6 +6,7 @@
         xmlns:infra="clr-namespace:LocalAsrClient.App.Infrastructure"
         xmlns:persistence="clr-namespace:LocalAsrClient.Core.Persistence;assembly=LocalAsrClient.Core"
         Title="LessASR"
+        Icon="Assets/Brand/LessASR.ico"
         Width="1040"
         Height="760"
         MinWidth="800"

@@ -1,4 +1,5 @@
 using LocalAsrClient.Core;
+using Microsoft.Win32;
 using Forms = System.Windows.Forms;
 
 namespace LocalAsrClient.App.Tray;
@@ -7,6 +8,8 @@ public sealed class TrayIconService : IDisposable
 {
     private readonly MainWindow _window;
     private readonly Forms.NotifyIcon _notifyIcon;
+    private System.Drawing.Icon? _trayIcon;
+    private bool _disposed;
 
     public TrayIconService(MainWindow window)
     {
@@ -14,10 +17,12 @@ public sealed class TrayIconService : IDisposable
         _notifyIcon = new Forms.NotifyIcon
         {
             Text = LessAsrPaths.ProductName,
-            Icon = System.Drawing.SystemIcons.Application,
-            Visible = true,
+            Visible = false,
             ContextMenuStrip = BuildMenu()
         };
+        UpdateTrayIcon();
+        SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
+        _notifyIcon.Visible = true;
         _notifyIcon.MouseClick += OnMouseClick;
     }
 
@@ -49,9 +54,43 @@ public sealed class TrayIconService : IDisposable
         System.Windows.Application.Current.Shutdown();
     }
 
+    private void OnUserPreferenceChanged(object sender, UserPreferenceChangedEventArgs e)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _ = _window.Dispatcher.BeginInvoke(UpdateTrayIcon);
+    }
+
+    private void UpdateTrayIcon()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        var nextIcon = TrayIconResources.Load(TrayIconResources.SystemUsesLightTheme());
+        _notifyIcon.Icon = nextIcon;
+        var previousIcon = _trayIcon;
+        _trayIcon = nextIcon;
+        previousIcon?.Dispose();
+    }
+
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
         _notifyIcon.Visible = false;
+        _notifyIcon.Icon = null;
+        _trayIcon?.Dispose();
+        _trayIcon = null;
         _notifyIcon.Dispose();
     }
 }

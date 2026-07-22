@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">LessASR</title>
+  <desc id="desc">Three text lines with a symmetric voice waveform in the middle.</desc>
+  <rect x="7" y="7" width="114" height="114" rx="27" fill="#FAFAF8" stroke="#D9DADD" stroke-width="2"/>
+  <g fill="none" stroke="#202124" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M30 39H98"/>
+    <path d="M30 65H40L48 56L56 74L64 49L72 81L80 56L88 65H98"/>
+    <path d="M30 91H64"/>
+  </g>
+</svg>

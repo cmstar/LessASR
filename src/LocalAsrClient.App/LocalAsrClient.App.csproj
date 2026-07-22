@@ -6,10 +6,20 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationIcon>Assets\Brand\LessASR.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\LocalAsrClient.Core\LocalAsrClient.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Assets\Brand\*.ico" />
+    <Resource Include="Assets\Brand\LessASR.ico" />
+    <EmbeddedResource Include="Assets\Brand\LessASR.Tray.Dark.ico"
+                      LogicalName="LocalAsrClient.App.Assets.Brand.LessASR.Tray.Dark.ico" />
+    <EmbeddedResource Include="Assets\Brand\LessASR.Tray.Light.ico"
+                      LogicalName="LocalAsrClient.App.Assets.Brand.LessASR.Tray.Light.ico" />
   </ItemGroup>
 
   <ItemGroup>
