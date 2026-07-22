@@ -18,9 +18,6 @@
             Padding="14"
             MinWidth="{Binding OverlayMinWidth}"
             MinHeight="{Binding OverlayMinHeight}">
-        <Border.Effect>
-            <DropShadowEffect BlurRadius="22" ShadowDepth="4" Opacity="0.18" Color="#44000000"/>
-        </Border.Effect>
         <Border.Style>
             <Style TargetType="Border">
                 <Setter Property="Background" Value="{StaticResource LessAsr.Brush.CardBackground}"/>
