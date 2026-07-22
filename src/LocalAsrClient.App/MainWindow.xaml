@@ -447,12 +447,25 @@
                                 <TextBlock Text="whisper-server 路径" Style="{StaticResource LessAsr.FieldLabel}"/>
                                 <Grid Margin="0,0,0,12"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBox Text="{Binding Settings.WhisperServerPath, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource LessAsr.TextBox}"/><Button Grid.Column="1" Content="浏览…" Command="{Binding Settings.BrowseWhisperServerPathCommand}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="8,0,0,0"/></Grid>
                                 <Grid>
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="24"/><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                    <StackPanel><TextBlock Text="服务端口" Style="{StaticResource LessAsr.FieldLabel}"/><TextBox Text="{Binding Settings.WhisperServerPort, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource LessAsr.TextBox}"/></StackPanel>
-                                    <StackPanel Grid.Column="2"><TextBlock Text="线程数" Style="{StaticResource LessAsr.FieldLabel}"/><TextBox Text="{Binding Settings.WhisperServerThreadCount, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource LessAsr.TextBox}" infra:IntegerTextBoxBehavior.IsEnabled="True"/></StackPanel>
-                                    <Button Grid.Column="3" Content="恢复推荐值" Command="{Binding Settings.ResetWhisperServerThreadCountCommand}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="8,24,0,0" HorizontalAlignment="Left"/>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="160"/>
+                                        <ColumnDefinition Width="24"/>
+                                        <ColumnDefinition Width="160"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="服务端口" Style="{StaticResource LessAsr.FieldLabel}"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="2" Text="线程数" Style="{StaticResource LessAsr.FieldLabel}"/>
+                                    <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding Settings.WhisperServerPort, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource LessAsr.TextBox}"/>
+                                    <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding Settings.WhisperServerThreadCount, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource LessAsr.TextBox}" infra:IntegerTextBoxBehavior.IsEnabled="True"/>
+                                    <Button Grid.Row="1" Grid.Column="3" Content="恢复推荐值" Command="{Binding Settings.ResetWhisperServerThreadCountCommand}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="8,0,0,0" HorizontalAlignment="Left"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="2" Grid.ColumnSpan="2" Text="{Binding Settings.RecommendedWhisperServerThreadCount, StringFormat=系统推荐线程数：{0}}" Style="{StaticResource LessAsr.Text.Caption}" Margin="0,6,0,0"/>
                                 </Grid>
-                                <TextBlock Text="{Binding Settings.RecommendedWhisperServerThreadCount, StringFormat=系统推荐线程数：{0}}" Style="{StaticResource LessAsr.Text.Caption}" Margin="184,6,0,0"/>
                             </StackPanel>
                         </Border>
 
@@ -468,7 +481,7 @@
                                         <ComboBoxItem Content="7 天" Tag="{x:Static persistence:TranscriptRetentionPolicy.SevenDays}"/>
                                         <ComboBoxItem Content="1 个月" Tag="{x:Static persistence:TranscriptRetentionPolicy.OneMonth}"/>
                                     </ComboBox>
-                                    <TextBlock Text="音频不会上传或保存。" Style="{StaticResource LessAsr.Text.Secondary}"/>
+                                    <TextBlock Text="音频不会被保存。" Style="{StaticResource LessAsr.Text.Secondary}"/>
                                     <TextBlock Text="{Binding Settings.DataDirectoryPath, StringFormat=数据目录：{0}}" Style="{StaticResource LessAsr.Text.Caption}" Margin="0,8,0,0"/>
                                     <TextBlock Text="{Binding Settings.LogsDirectoryPath, StringFormat=日志目录：{0}}" Style="{StaticResource LessAsr.Text.Caption}" Margin="0,4,0,0"/>
                                 </StackPanel>
