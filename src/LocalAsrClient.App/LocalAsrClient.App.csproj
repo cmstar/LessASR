@@ -15,7 +15,9 @@
 
   <ItemGroup>
     <None Remove="Assets\Brand\*.ico" />
+    <None Remove="Assets\Brand\LessASR.Brand.png" />
     <Resource Include="Assets\Brand\LessASR.ico" />
+    <Resource Include="Assets\Brand\LessASR.Brand.png" />
     <EmbeddedResource Include="Assets\Brand\LessASR.Tray.Dark.ico"
                       LogicalName="LocalAsrClient.App.Assets.Brand.LessASR.Tray.Dark.ico" />
     <EmbeddedResource Include="Assets\Brand\LessASR.Tray.Light.ico"

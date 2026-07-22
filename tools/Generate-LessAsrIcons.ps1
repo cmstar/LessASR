@@ -226,5 +226,8 @@ $lightTrayImages = [byte[][]]@(
 Write-Ico -Path (Join-Path $resolvedOutput "LessASR.ico") -Sizes $appSizes -Images $appImages
 Write-Ico -Path (Join-Path $resolvedOutput "LessASR.Tray.Dark.ico") -Sizes $traySizes -Images $darkTrayImages
 Write-Ico -Path (Join-Path $resolvedOutput "LessASR.Tray.Light.ico") -Sizes $traySizes -Images $lightTrayImages
+[System.IO.File]::WriteAllBytes(
+    (Join-Path $resolvedOutput "LessASR.Brand.png"),
+    $appImages[$appSizes.IndexOf(256)])
 
 Write-Output "Generated LessASR icon resources in $resolvedOutput"

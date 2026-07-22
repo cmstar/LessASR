@@ -14,14 +14,12 @@
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource LessAsr.Brush.AppBackground}">
     <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="48"/>
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
+        <ui:TitleBar Height="48"
+                     VerticalAlignment="Top"
+                     Background="Transparent"
+                     Panel.ZIndex="10"/>
 
-        <ui:TitleBar Grid.Row="0" Title="LessASR"/>
-
-        <Grid Grid.Row="1" Margin="12,0,12,12">
+        <Grid Margin="12">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="216"/>
                 <ColumnDefinition Width="12"/>
@@ -47,9 +45,13 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <Border Width="34" Height="34" CornerRadius="17" Background="{StaticResource LessAsr.Brush.Accent}">
-                            <ui:SymbolIcon Symbol="Mic24" Foreground="White"/>
-                        </Border>
+                        <Image Width="34"
+                               Height="34"
+                               Source="Assets/Brand/LessASR.Brand.png"
+                               Stretch="Uniform"
+                               SnapsToDevicePixels="True"
+                               UseLayoutRounding="True"
+                               RenderOptions.BitmapScalingMode="HighQuality"/>
                         <TextBlock Grid.Column="1" Text="LessASR" Margin="10,0,0,0" VerticalAlignment="Center" FontSize="18" FontWeight="SemiBold"/>
                         <Border Grid.Column="2" Background="{StaticResource LessAsr.Brush.CardBackground}" CornerRadius="10" Padding="7,3" VerticalAlignment="Center">
                             <TextBlock Text="本地" Style="{StaticResource LessAsr.Text.Caption}"/>
@@ -125,12 +127,12 @@
                 </Grid>
             </Border>
 
-            <Grid Grid.Column="2">
+            <Grid Grid.Column="2" Margin="0,36,0,0">
                 <!-- 首页 -->
                 <ScrollViewer VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled"
                               Visibility="{Binding Navigation.IsHomeSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <StackPanel Margin="20,12,20,24">
+                    <StackPanel Margin="20,0,20,24">
                         <Grid Margin="0,0,0,20">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -252,7 +254,7 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled"
                               Visibility="{Binding Navigation.IsHistorySelected, Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <StackPanel Margin="20,12,20,24">
+                    <StackPanel Margin="20,0,20,24">
                         <TextBlock Text="历史记录" Style="{StaticResource LessAsr.Text.PageTitle}"/>
                         <TextBlock Text="最近保存的听写文本，仅存储在这台设备上。" Style="{StaticResource LessAsr.Text.Secondary}" Margin="0,5,0,20"/>
                         <ItemsControl ItemsSource="{Binding History.Groups}">
@@ -297,7 +299,7 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled"
                               Visibility="{Binding Navigation.IsStatsSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <StackPanel Margin="20,12,20,24">
+                    <StackPanel Margin="20,0,20,24">
                         <TextBlock Text="使用统计" Style="{StaticResource LessAsr.Text.PageTitle}"/>
                         <TextBlock Text="统计不包含听写原文，最多保留两个月。" Style="{StaticResource LessAsr.Text.Secondary}" Margin="0,5,0,20"/>
                         <UniformGrid Columns="4" Margin="0,0,0,14">
@@ -359,7 +361,7 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled"
                               Visibility="{Binding Navigation.IsModelSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <StackPanel Margin="20,12,20,24">
+                    <StackPanel Margin="20,0,20,24">
                         <TextBlock Text="模型" Style="{StaticResource LessAsr.Text.PageTitle}"/>
                         <TextBlock Text="管理本地 Whisper 模型和识别服务。" Style="{StaticResource LessAsr.Text.Secondary}" Margin="0,5,0,20"/>
                         <Grid>
@@ -489,7 +491,7 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled"
                               Visibility="{Binding Navigation.IsDiagnosticsSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <StackPanel Margin="20,12,20,24">
+                    <StackPanel Margin="20,0,20,24">
                         <TextBlock Text="诊断" Style="{StaticResource LessAsr.Text.PageTitle}"/>
                         <TextBlock Text="检查听写浮窗、热键和输入状态。" Style="{StaticResource LessAsr.Text.Secondary}" Margin="0,5,0,20"/>
                         <Border Style="{StaticResource LessAsr.Card}">
