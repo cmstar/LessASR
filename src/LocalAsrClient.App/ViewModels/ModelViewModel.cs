@@ -120,7 +120,7 @@ public sealed class ModelViewModel : INotifyPropertyChanged
         {
             LastError = ex.Message;
             LastMessage = "停止模型服务失败。";
-            AppExceptionLogger.Report(ex, "停止模型服务失败");
+            AppExceptionLogger.Report(ex, "停止模型服务失败", showDialog: false);
         }
         finally
         {
@@ -156,7 +156,7 @@ public sealed class ModelViewModel : INotifyPropertyChanged
         {
             LastError = ex.Message;
             LastMessage = "健康检查失败。";
-            AppExceptionLogger.Report(ex, "模型服务健康检查失败");
+            AppExceptionLogger.Report(ex, "模型服务健康检查失败", showDialog: false);
         }
         finally
         {
@@ -179,7 +179,7 @@ public sealed class ModelViewModel : INotifyPropertyChanged
         {
             LastError = ex.Message;
             LastMessage = "操作失败。";
-            AppExceptionLogger.Report(ex, inProgressMessage.TrimEnd('…'));
+            AppExceptionLogger.Report(ex, inProgressMessage.TrimEnd('…'), showDialog: false);
         }
         finally
         {
