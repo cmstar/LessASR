@@ -39,6 +39,7 @@ whisper-server (外部进程)
 - `LocalAsrClient.Core` 定义平台抽象（`IHotkeyListener`、`IAudioRecorder`、`ITextInjector` 等），不引用 WPF 或 WinForms。
 - `LocalAsrClient.App` 实现上述抽象并负责 DI 引导（`AppServices`）。
 - `LocalAsrClient.App/Themes` 集中维护颜色、排版与通用控件样式；业务页面仅组合设计令牌与 WPF UI 控件。
+- `LocalAsrClient.App/Dialogs` 提供配置驱动的通用确认窗口；业务调用方负责传入文案、可选摘要、按钮文字与普通 / 危险语义，不重复实现模态窗口。
 - Core 测试可在无桌面会话环境运行。
 
 ## 数据流

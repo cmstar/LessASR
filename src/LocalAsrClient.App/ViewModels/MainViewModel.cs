@@ -48,9 +48,17 @@ public sealed class MainViewModel
     public DebugViewModel Debug { get; }
 
     private static bool ConfirmHistoryDeletion(TextHistoryEntry entry) =>
-        DeleteHistoryConfirmationWindow.Confirm(
+        ConfirmationDialog.Confirm(
             System.Windows.Application.Current?.MainWindow,
-            entry);
+            new ConfirmationDialogOptions
+            {
+                Title = "删除历史记录",
+                Heading = "确定删除这条历史记录？",
+                Message = "删除后将无法恢复，使用统计不会受到影响。",
+                ConfirmText = "删除",
+                Preview = entry.Text,
+                Tone = ConfirmationDialogTone.Destructive
+            });
 
     private void OnDictationStatusChanged(DictationStatus status)
     {

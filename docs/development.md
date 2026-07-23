@@ -27,6 +27,7 @@ src/LocalAsrClient.App/
   TextInjection/  # SendInput 实现
   Tray/           # 托盘图标
   Overlay/        # 听写浮窗
+  Dialogs/        # 通用确认窗口及其配置模型
   ViewModels/     # 主窗口各 Tab
 
 tests/LocalAsrClient.Core.Tests/
