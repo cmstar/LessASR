@@ -25,6 +25,23 @@ public sealed class NotifyingTextHistoryRepositoryTests
         Assert.Equal(1, changedCount);
     }
 
+    [Fact]
+    public async Task DeleteAsync_RemovesEntryAndPublishesChanged()
+    {
+        var inner = new StubHistoryRepository();
+        var repository = new NotifyingTextHistoryRepository(inner);
+        var selected = Entry("待删除");
+        var retained = Entry("保留");
+        inner.Entries.AddRange([selected, retained]);
+        var changedCount = 0;
+        repository.Changed += () => changedCount++;
+
+        await repository.DeleteAsync(selected.Id, CancellationToken.None);
+
+        Assert.Equal([retained], inner.Entries);
+        Assert.Equal(1, changedCount);
+    }
+
     private static TextHistoryEntry Entry(string text) => new(
         Guid.NewGuid(),
         DateTimeOffset.Now,
@@ -48,6 +65,12 @@ public sealed class NotifyingTextHistoryRepositoryTests
 
         public Task<IReadOnlyList<TextHistoryEntry>> GetRecentAsync(int limit, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<TextHistoryEntry>>(Entries.Take(limit).ToArray());
+
+        public Task DeleteAsync(Guid id, CancellationToken cancellationToken)
+        {
+            Entries.RemoveAll(entry => entry.Id == id);
+            return Task.CompletedTask;
+        }
 
         public Task PruneAsync(
             DateTimeOffset now,

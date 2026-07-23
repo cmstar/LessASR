@@ -18,6 +18,8 @@
     <Color x:Key="LessAsr.Color.Warning">#B7791F</Color>
     <Color x:Key="LessAsr.Color.WarningSoft">#FFF7E8</Color>
     <Color x:Key="LessAsr.Color.Error">#C2413A</Color>
+    <Color x:Key="LessAsr.Color.ErrorHover">#A93630</Color>
+    <Color x:Key="LessAsr.Color.ErrorPressed">#8F2D29</Color>
     <Color x:Key="LessAsr.Color.ErrorSoft">#FFF0EF</Color>
 
     <SolidColorBrush x:Key="LessAsr.Brush.AppBackground" Color="{StaticResource LessAsr.Color.AppBackground}"/>
@@ -38,5 +40,7 @@
     <SolidColorBrush x:Key="LessAsr.Brush.Warning" Color="{StaticResource LessAsr.Color.Warning}"/>
     <SolidColorBrush x:Key="LessAsr.Brush.WarningSoft" Color="{StaticResource LessAsr.Color.WarningSoft}"/>
     <SolidColorBrush x:Key="LessAsr.Brush.Error" Color="{StaticResource LessAsr.Color.Error}"/>
+    <SolidColorBrush x:Key="LessAsr.Brush.ErrorHover" Color="{StaticResource LessAsr.Color.ErrorHover}"/>
+    <SolidColorBrush x:Key="LessAsr.Brush.ErrorPressed" Color="{StaticResource LessAsr.Color.ErrorPressed}"/>
     <SolidColorBrush x:Key="LessAsr.Brush.ErrorSoft" Color="{StaticResource LessAsr.Color.ErrorSoft}"/>
 </ResourceDictionary>

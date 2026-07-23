@@ -20,6 +20,12 @@ public sealed class NotifyingTextHistoryRepository : ITextHistoryRepository
     public Task<IReadOnlyList<TextHistoryEntry>> GetRecentAsync(int limit, CancellationToken cancellationToken) =>
         _inner.GetRecentAsync(limit, cancellationToken);
 
+    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
+    {
+        await _inner.DeleteAsync(id, cancellationToken);
+        PublishChanged();
+    }
+
     public async Task PruneAsync(
         DateTimeOffset now,
         TranscriptRetentionPolicy policy,

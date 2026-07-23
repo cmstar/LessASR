@@ -61,7 +61,7 @@ whisper-server (外部进程)
 5. 关窗时 Coordinator 合并所有 Completed 段（`\n` 拼接，含用户编辑）写入一条 `ITextHistoryRepository`；「终止」清空会话且不写历史。
 6. 连续窗口已开时，右 Ctrl 与 Esc 由 Coordinator 路由，单句 `DictationOrchestrator` 与听写浮窗不参与。
 
-单句或连续听写完成“写入 + 保留期清理”后，`NotifyingTextHistoryRepository` 发布变更通知；主窗口重新查询完整的最近历史并更新分组。进入历史页时还会主动刷新一次，避免展示启动时缓存。
+单句或连续听写完成“写入 + 保留期清理”后，`NotifyingTextHistoryRepository` 发布变更通知；用户确认删除单条历史后也由该包装器发布通知。主窗口收到通知后重新查询完整的最近历史并更新分组。进入历史页时还会主动刷新一次，避免展示启动时缓存。
 
 ## 外部集成
 

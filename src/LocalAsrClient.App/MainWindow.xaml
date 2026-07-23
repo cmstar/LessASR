@@ -287,9 +287,14 @@
                                                             </Grid.ColumnDefinitions>
                                                             <TextBlock Text="{Binding CreatedAt, StringFormat={}{0:HH:mm}}" Style="{StaticResource LessAsr.Text.Caption}" Margin="0,2,10,0"/>
                                                             <TextBlock Grid.Column="1" Text="{Binding Text}" Style="{StaticResource LessAsr.Text.Body}" Margin="0,0,12,0"/>
-                                                            <Button Grid.Column="2" Content="复制" Style="{StaticResource LessAsr.SecondaryButton}"
-                                                                    Command="{Binding DataContext.History.CopyCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                    CommandParameter="{Binding}"/>
+                                                            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                                                <Button Content="复制" Style="{StaticResource LessAsr.SecondaryButton}"
+                                                                        Command="{Binding DataContext.History.CopyCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                        CommandParameter="{Binding}"/>
+                                                                <Button Content="删除" Style="{StaticResource LessAsr.DestructiveButton}" Margin="8,0,0,0"
+                                                                        Command="{Binding DataContext.History.DeleteCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                        CommandParameter="{Binding}"/>
+                                                            </StackPanel>
                                                         </Grid>
                                                     </DataTemplate>
                                                 </ItemsControl.ItemTemplate>

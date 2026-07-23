@@ -108,6 +108,41 @@
         </Style.Triggers>
     </Style>
 
+    <Style x:Key="LessAsr.DestructiveButton" TargetType="Button" BasedOn="{StaticResource LessAsr.SecondaryButton}">
+        <Setter Property="Foreground" Value="{StaticResource LessAsr.Brush.Error}"/>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource LessAsr.Brush.ErrorSoft}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource LessAsr.Brush.Error}"/>
+                <Setter Property="Foreground" Value="{StaticResource LessAsr.Brush.Error}"/>
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{StaticResource LessAsr.Brush.ErrorSoft}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource LessAsr.Brush.Error}"/>
+                <Setter Property="Foreground" Value="{StaticResource LessAsr.Brush.Error}"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="LessAsr.DestructivePrimaryButton" TargetType="Button" BasedOn="{StaticResource LessAsr.ButtonBase}">
+        <Setter Property="Background" Value="{StaticResource LessAsr.Brush.Error}"/>
+        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="BorderBrush" Value="{StaticResource LessAsr.Brush.Error}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource LessAsr.Brush.ErrorHover}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource LessAsr.Brush.ErrorHover}"/>
+                <Setter Property="Foreground" Value="White"/>
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{StaticResource LessAsr.Brush.ErrorPressed}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource LessAsr.Brush.ErrorPressed}"/>
+                <Setter Property="Foreground" Value="White"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
     <Style x:Key="LessAsr.IconButton" TargetType="Button" BasedOn="{StaticResource LessAsr.SecondaryButton}">
         <Setter Property="MinWidth" Value="40"/>
         <Setter Property="Width" Value="40"/>

@@ -50,6 +50,42 @@ public sealed class HistoryViewModelTests
         Assert.Equal("今天", Assert.Single(viewModel.Groups).Title);
     }
 
+    [Fact]
+    public async Task DeleteAsync_WhenConfirmed_DeletesSelectedEntry()
+    {
+        var selected = Entry(DateTimeOffset.Now, "待删除");
+        Guid? deletedId = null;
+        var viewModel = new HistoryViewModel(
+            (id, _) =>
+            {
+                deletedId = id;
+                return Task.CompletedTask;
+            },
+            _ => true);
+
+        await viewModel.DeleteAsync(selected);
+
+        Assert.Equal(selected.Id, deletedId);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_WhenCancelled_DoesNotDeleteEntry()
+    {
+        var selected = Entry(DateTimeOffset.Now, "保留");
+        var deleteCalled = false;
+        var viewModel = new HistoryViewModel(
+            (_, _) =>
+            {
+                deleteCalled = true;
+                return Task.CompletedTask;
+            },
+            _ => false);
+
+        await viewModel.DeleteAsync(selected);
+
+        Assert.False(deleteCalled);
+    }
+
     private static TextHistoryEntry Entry(DateTimeOffset createdAt, string text)
     {
         return new TextHistoryEntry(

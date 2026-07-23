@@ -1,7 +1,9 @@
 using LocalAsrClient.App.Bootstrap;
+using LocalAsrClient.App.Dialogs;
 using LocalAsrClient.App.Infrastructure;
 using LocalAsrClient.App.Overlay;
 using LocalAsrClient.Core.Dictation;
+using LocalAsrClient.Core.Persistence;
 
 namespace LocalAsrClient.App.ViewModels;
 
@@ -15,7 +17,9 @@ public sealed class MainViewModel
         _services = services;
         Navigation = new MainNavigationViewModel();
         Status = new StatusViewModel();
-        History = new HistoryViewModel();
+        History = new HistoryViewModel(
+            services.HistoryRepository.DeleteAsync,
+            ConfirmHistoryDeletion);
         Stats = new StatsViewModel();
         Model = new ModelViewModel(services);
         Vocabulary = new VocabularyViewModel(services.SettingsStore);
@@ -42,6 +46,11 @@ public sealed class MainViewModel
     public VocabularyViewModel Vocabulary { get; }
     public SettingsViewModel Settings { get; }
     public DebugViewModel Debug { get; }
+
+    private static bool ConfirmHistoryDeletion(TextHistoryEntry entry) =>
+        DeleteHistoryConfirmationWindow.Confirm(
+            System.Windows.Application.Current?.MainWindow,
+            entry);
 
     private void OnDictationStatusChanged(DictationStatus status)
     {

@@ -2,12 +2,29 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
+using LocalAsrClient.App.Infrastructure;
 using LocalAsrClient.Core.Persistence;
 
 namespace LocalAsrClient.App.ViewModels;
 
 public sealed class HistoryViewModel : INotifyPropertyChanged
 {
+    private readonly Func<Guid, CancellationToken, Task> _deleteAsync;
+    private readonly Func<TextHistoryEntry, bool> _confirmDelete;
+
+    public HistoryViewModel(
+        Func<Guid, CancellationToken, Task>? deleteAsync = null,
+        Func<TextHistoryEntry, bool>? confirmDelete = null)
+    {
+        _deleteAsync = deleteAsync ?? ((_, _) => Task.CompletedTask);
+        _confirmDelete = confirmDelete ?? (_ => false);
+        CopyCommand = new RelayCommand<TextHistoryEntry>(entry =>
+            System.Windows.Clipboard.SetText(entry.Text));
+        DeleteCommand = new AsyncRelayCommand<TextHistoryEntry>(
+            DeleteAsync,
+            "删除历史记录失败");
+    }
+
     public ObservableCollection<TextHistoryEntry> Items { get; } = new();
 
     public ObservableCollection<HistoryGroupViewModel> Groups { get; } = new();
@@ -18,13 +35,19 @@ public sealed class HistoryViewModel : INotifyPropertyChanged
 
     public bool HasNoGroups => !HasGroups;
 
-    public ICommand CopyCommand => new RelayCommand<TextHistoryEntry>(entry =>
+    public ICommand CopyCommand { get; }
+
+    public ICommand DeleteCommand { get; }
+
+    public async Task DeleteAsync(TextHistoryEntry entry)
     {
-        if (entry is not null)
+        if (!_confirmDelete(entry))
         {
-            System.Windows.Clipboard.SetText(entry.Text);
+            return;
         }
-    });
+
+        await _deleteAsync(entry.Id, CancellationToken.None);
+    }
 
     public void Load(IEnumerable<TextHistoryEntry> entries)
     {
@@ -68,15 +91,6 @@ public sealed class HistoryViewModel : INotifyPropertyChanged
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-    }
-
-    private sealed class RelayCommand<T> : ICommand
-    {
-        private readonly Action<T?> _execute;
-        public RelayCommand(Action<T?> execute) => _execute = execute;
-        public event EventHandler? CanExecuteChanged;
-        public bool CanExecute(object? parameter) => true;
-        public void Execute(object? parameter) => _execute((T?)parameter);
     }
 }
 

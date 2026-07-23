@@ -180,4 +180,31 @@ public sealed class SqliteRepositoryTests
 
         Assert.Equal(entry, Assert.Single(await repository.GetRecentAsync(10, CancellationToken.None)));
     }
+
+    [Fact]
+    public async Task TextHistoryRepository_DeleteAsync_RemovesOnlySelectedEntry()
+    {
+        await using var database = await SqliteDatabase.CreateInMemoryAsync();
+        var repository = new SqliteTextHistoryRepository(database);
+        var now = new DateTimeOffset(2026, 7, 23, 12, 0, 0, TimeSpan.Zero);
+        var selected = HistoryEntry(now, "待删除");
+        var retained = HistoryEntry(now.AddMinutes(-1), "保留");
+        await repository.AddAsync(selected, CancellationToken.None);
+        await repository.AddAsync(retained, CancellationToken.None);
+
+        await repository.DeleteAsync(selected.Id, CancellationToken.None);
+
+        Assert.Equal(retained, Assert.Single(await repository.GetRecentAsync(10, CancellationToken.None)));
+    }
+
+    private static TextHistoryEntry HistoryEntry(DateTimeOffset createdAt, string text) => new(
+        Guid.NewGuid(),
+        createdAt,
+        text,
+        text.Length,
+        0,
+        TimeSpan.Zero,
+        TimeSpan.Zero,
+        "whisper-server",
+        "test-model");
 }

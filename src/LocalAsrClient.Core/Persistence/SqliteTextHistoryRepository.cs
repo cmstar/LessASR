@@ -63,6 +63,14 @@ public sealed class SqliteTextHistoryRepository : ITextHistoryRepository
         return result;
     }
 
+    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var command = _database.Connection.CreateCommand();
+        command.CommandText = "DELETE FROM transcript_history WHERE id = $id";
+        command.Parameters.AddWithValue("$id", id.ToString());
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
     public async Task PruneAsync(DateTimeOffset now, TranscriptRetentionPolicy policy, CancellationToken cancellationToken)
     {
         if (policy == TranscriptRetentionPolicy.Disabled)

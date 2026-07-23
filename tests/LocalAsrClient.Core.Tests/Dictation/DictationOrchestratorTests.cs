@@ -307,6 +307,12 @@ public sealed class DictationOrchestratorTests
             return Task.FromResult<IReadOnlyList<TextHistoryEntry>>(Entries);
         }
 
+        public Task DeleteAsync(Guid id, CancellationToken cancellationToken)
+        {
+            Entries.RemoveAll(entry => entry.Id == id);
+            return Task.CompletedTask;
+        }
+
         public Task PruneAsync(DateTimeOffset now, TranscriptRetentionPolicy policy, CancellationToken cancellationToken)
         {
             return Task.CompletedTask;
