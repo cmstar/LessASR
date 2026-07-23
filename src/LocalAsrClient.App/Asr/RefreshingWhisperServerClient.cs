@@ -30,7 +30,11 @@ public sealed class RefreshingWhisperServerClient : IWhisperServerClient, IDispo
         }
     }
 
-    public Task<AsrResult> TranscribeAsync(InMemoryAudioInput audio, string? language, CancellationToken cancellationToken)
+    public Task<AsrResult> TranscribeAsync(
+        InMemoryAudioInput audio,
+        string? language,
+        string? initialPrompt,
+        CancellationToken cancellationToken)
     {
         WhisperServerClient inner;
         lock (_sync)
@@ -38,7 +42,7 @@ public sealed class RefreshingWhisperServerClient : IWhisperServerClient, IDispo
             inner = _inner;
         }
 
-        return inner.TranscribeAsync(audio, language, cancellationToken);
+        return inner.TranscribeAsync(audio, language, initialPrompt, cancellationToken);
     }
 
     public void Dispose()

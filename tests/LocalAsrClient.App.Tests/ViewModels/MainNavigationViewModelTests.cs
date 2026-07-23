@@ -17,4 +17,17 @@ public sealed class MainNavigationViewModelTests
         Assert.True(viewModel.IsSettingsSelected);
         Assert.False(viewModel.IsHomeSelected);
     }
+
+    [Fact]
+    public void NavigatesToVocabularySection()
+    {
+        var viewModel = new MainNavigationViewModel();
+
+        viewModel.NavigateCommand.Execute(MainSection.Vocabulary);
+
+        Assert.Equal(MainSection.Vocabulary, viewModel.SelectedSection);
+        Assert.True(viewModel.IsVocabularySelected);
+        Assert.False(viewModel.IsModelSelected);
+        Assert.False(viewModel.IsSettingsSelected);
+    }
 }

@@ -18,6 +18,7 @@ public sealed class MainViewModel
         History = new HistoryViewModel();
         Stats = new StatsViewModel();
         Model = new ModelViewModel(services);
+        Vocabulary = new VocabularyViewModel(services.SettingsStore);
         Settings = new SettingsViewModel(services, Model.RefreshFromSettingsAsync);
         Debug = new DebugViewModel(services);
         _services.Orchestrator.StatusChanged += OnDictationStatusChanged;
@@ -38,6 +39,7 @@ public sealed class MainViewModel
     public HistoryViewModel History { get; }
     public StatsViewModel Stats { get; }
     public ModelViewModel Model { get; }
+    public VocabularyViewModel Vocabulary { get; }
     public SettingsViewModel Settings { get; }
     public DebugViewModel Debug { get; }
 
@@ -125,6 +127,7 @@ public sealed class MainViewModel
 
     private async Task LoadAsync()
     {
+        await Vocabulary.LoadAsync();
         await Settings.LoadAsync();
         await Model.InitializeAsync();
         await RefreshHistoryAsync();

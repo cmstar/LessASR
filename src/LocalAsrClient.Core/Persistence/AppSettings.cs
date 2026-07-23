@@ -10,7 +10,8 @@ public sealed record AppSettings(
     bool StartModelOnAppStartup,
     bool MinimizeToTrayOnClose = true,
     int? WhisperServerThreadCount = null,
-    string PreferredTranscriptionLanguageId = TranscriptionLanguageCatalog.DefaultId)
+    string PreferredTranscriptionLanguageId = TranscriptionLanguageCatalog.DefaultId,
+    string VocabularyText = "")
 {
     public const int DefaultWhisperServerPort = 8080;
 
@@ -21,5 +22,6 @@ public sealed record AppSettings(
         TranscriptRetentionPolicy: TranscriptRetentionPolicy.SevenDays,
         StartModelOnAppStartup: false,
         MinimizeToTrayOnClose: true,
-        PreferredTranscriptionLanguageId: TranscriptionLanguageCatalog.DefaultId);
+        PreferredTranscriptionLanguageId: TranscriptionLanguageCatalog.DefaultId,
+        VocabularyText: string.Empty);
 }

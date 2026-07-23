@@ -20,7 +20,7 @@ public sealed class WhisperServerBackendTests
             Data: Encoding.UTF8.GetBytes("fake wav"),
             Format: "wav",
             SampleRate: 16000,
-            Channels: 1), language: null, CancellationToken.None);
+            Channels: 1), language: null, initialPrompt: null, CancellationToken.None);
 
         Assert.Equal("你好，世界", result.Text);
         Assert.Equal("/inference", handler.LastRequestPath);
@@ -37,7 +37,7 @@ public sealed class WhisperServerBackendTests
         var client = new WhisperServerClient(httpClient);
 
         await client.TranscribeAsync(new InMemoryAudioInput(
-            Encoding.UTF8.GetBytes("fake"), "wav", 16000, 1), "zh", CancellationToken.None);
+            Encoding.UTF8.GetBytes("fake"), "wav", 16000, 1), "zh", initialPrompt: null, CancellationToken.None);
 
         Assert.Contains("language", handler.LastRequestBody, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("\r\nzh\r\n", handler.LastRequestBody, StringComparison.Ordinal);
@@ -54,9 +54,29 @@ public sealed class WhisperServerBackendTests
         var client = new WhisperServerClient(httpClient);
 
         await client.TranscribeAsync(new InMemoryAudioInput(
-            Encoding.UTF8.GetBytes("fake"), "wav", 16000, 1), "zh", CancellationToken.None);
+            Encoding.UTF8.GetBytes("fake"), "wav", 16000, 1), "zh", initialPrompt: null, CancellationToken.None);
 
         Assert.DoesNotContain("prompt", handler.LastRequestBody, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Client_SendsPromptField_WhenProvidedInRequest()
+    {
+        var handler = new StubHttpHandler("""{"text":"你好"}""");
+        var httpClient = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("http://127.0.0.1:8080")
+        };
+        var client = new WhisperServerClient(httpClient);
+
+        await client.TranscribeAsync(
+            new InMemoryAudioInput(Encoding.UTF8.GetBytes("fake"), "wav", 16000, 1),
+            "zh",
+            "初音ミク, Kubernetes, 大语言模型, LessASR",
+            CancellationToken.None);
+
+        Assert.Contains("name=prompt", handler.LastRequestBody, StringComparison.Ordinal);
+        Assert.Contains("初音ミク, Kubernetes, 大语言模型, LessASR", handler.LastRequestBody, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -69,10 +89,12 @@ public sealed class WhisperServerBackendTests
         var result = await backend.TranscribeAsync(new AsrRequest(
             new InMemoryAudioInput(Array.Empty<byte>(), "wav", 16000, 1),
             Language: "zh",
-            Options: new Dictionary<string, string>()), CancellationToken.None);
+            Options: new Dictionary<string, string>(),
+            InitialPrompt: "大语言模型, LessASR"), CancellationToken.None);
 
         Assert.True(manager.Started);
         Assert.Equal("测试文本", result.Text);
+        Assert.Equal("大语言模型, LessASR", client.LastInitialPrompt);
     }
 
     private sealed class StubHttpHandler : HttpMessageHandler
@@ -140,8 +162,15 @@ public sealed class WhisperServerBackendTests
             _text = text;
         }
 
-        public Task<AsrResult> TranscribeAsync(InMemoryAudioInput audio, string? language, CancellationToken cancellationToken)
+        public string? LastInitialPrompt { get; private set; }
+
+        public Task<AsrResult> TranscribeAsync(
+            InMemoryAudioInput audio,
+            string? language,
+            string? initialPrompt,
+            CancellationToken cancellationToken)
         {
+            LastInitialPrompt = initialPrompt;
             return Task.FromResult(new AsrResult(_text, null, TimeSpan.FromMilliseconds(50), null));
         }
     }

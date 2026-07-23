@@ -20,16 +20,20 @@ public sealed class ResilientWhisperServerClient : IWhisperServerClient, IDispos
         _client.Refresh(baseUri);
     }
 
-    public async Task<AsrResult> TranscribeAsync(InMemoryAudioInput audio, string? language, CancellationToken cancellationToken)
+    public async Task<AsrResult> TranscribeAsync(
+        InMemoryAudioInput audio,
+        string? language,
+        string? initialPrompt,
+        CancellationToken cancellationToken)
     {
         try
         {
-            return await _client.TranscribeAsync(audio, language, cancellationToken);
+            return await _client.TranscribeAsync(audio, language, initialPrompt, cancellationToken);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             await RecoverAfterTimeoutAsync(cancellationToken);
-            return await _client.TranscribeAsync(audio, language, cancellationToken);
+            return await _client.TranscribeAsync(audio, language, initialPrompt, cancellationToken);
         }
     }
 

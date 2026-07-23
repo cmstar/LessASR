@@ -159,15 +159,18 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             throw new InvalidOperationException("whisper-server 线程数必须大于 0。");
         }
 
-        await _services.SettingsStore.SaveAsync(new AppSettings(
-            ModelPath,
-            WhisperServerPath,
-            WhisperServerPort,
-            TranscriptRetentionPolicy,
-            StartModelOnAppStartup,
-            MinimizeToTrayOnClose,
-            _useAutoWhisperServerThreadCount ? null : WhisperServerThreadCount,
-            PreferredTranscriptionLanguageId), CancellationToken.None);
+        var latestSettings = await _services.SettingsStore.LoadAsync(CancellationToken.None);
+        await _services.SettingsStore.SaveAsync(latestSettings with
+        {
+            ModelPath = ModelPath,
+            WhisperServerPath = WhisperServerPath,
+            WhisperServerPort = WhisperServerPort,
+            TranscriptRetentionPolicy = TranscriptRetentionPolicy,
+            StartModelOnAppStartup = StartModelOnAppStartup,
+            MinimizeToTrayOnClose = MinimizeToTrayOnClose,
+            WhisperServerThreadCount = _useAutoWhisperServerThreadCount ? null : WhisperServerThreadCount,
+            PreferredTranscriptionLanguageId = PreferredTranscriptionLanguageId
+        }, CancellationToken.None);
         await _services.ApplyServerOptionsFromSettingsAsync();
         LastSavedAtText = $"上次保存：{DateTime.Now:HH:mm:ss}";
         OnPropertyChanged(nameof(LastSavedAtText));

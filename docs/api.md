@@ -15,7 +15,9 @@ whisper.cpp `whisper-server` 默认转写端点（可通过 `--inference-path` �
   - `file`：WAV 音频（`audio/wav`）
   - `response_format`：`json`
   - `language`：可选；LessASR 在「首选语言」非自动时发送 Whisper 语言代码（如 `zh`、`en`）
-  - LessASR 不向 whisper-server 发送 `prompt`；简体中文 / 繁体中文的简繁转换在客户端通过 OpenCC 后处理完成
+  - `prompt`：可选；「词汇表」非空时发送。词条允许混合语言，列表顶部优先级更高；客户端会调整发送顺序，使高优先级词条位于 prompt 尾部并优先避开 Whisper 的左侧截断
+
+`language` 仍决定本次请求的主要识别语言，`prompt` 仅作为软提示。简体中文 / 繁体中文的简繁转换继续在客户端通过 OpenCC 后处理完成。
 
 **响应**
 
@@ -29,7 +31,7 @@ whisper.cpp `whisper-server` 默认转写端点（可通过 `--inference-path` �
 
 - 转写前由 `WhisperServerProcessManager` 确保进程已启动并就绪。
 - 默认监听 `http://127.0.0.1:<端口>`，端口可在设置页配置（默认 8080）。
-- 启动参数：`--host 127.0.0.1 --port <端口> --threads <N> --max-context 0 -m "<模型路径>"`。`--threads` 默认按本机逻辑处理器数量推荐：&lt;8→4、8–11→6、12–15→8、16→10、≥17→12；可在设置页手动指定，重置后恢复为推荐值。`--max-context 0` 禁用跨请求上下文，规避 Windows 上 whisper-server 多次请求后的 handle 泄漏，见 [whisper.cpp#3358](https://github.com/ggml-org/whisper.cpp/issues/3358)
+- 启动参数：`--host 127.0.0.1 --port <端口> --threads <N> -m "<模型路径>"`。`--threads` 默认按本机逻辑处理器数量推荐：&lt;8→4、8–11→6、12–15→8、16→10、≥17→12；可在设置页手动指定，重置后恢复为推荐值。LessASR 面向已修复请求上下文隔离问题的新版 whisper-server，不再通过 `--max-context 0` 禁用 prompt 上下文。
 
 ### GET /
 

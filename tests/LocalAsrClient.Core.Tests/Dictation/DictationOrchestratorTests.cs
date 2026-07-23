@@ -221,6 +221,22 @@ public sealed class DictationOrchestratorTests
         Assert.Equal("zh", fixture.Backend.LastRequest?.Language);
     }
 
+    [Fact]
+    public async Task ToggleAsync_IncludesVocabularyPromptFromLatestSettings()
+    {
+        var fixture = new Fixture();
+        fixture.Backend.Status = AsrBackendStatus.Ready;
+        fixture.Settings.Settings = fixture.Settings.Settings with
+        {
+            VocabularyText = "LessASR\n大语言模型\n初音ミク"
+        };
+
+        await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+        await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+
+        Assert.Equal("初音ミク, 大语言模型, LessASR", fixture.Backend.LastRequest?.InitialPrompt);
+    }
+
     private sealed class Fixture
     {
         public Fixture()

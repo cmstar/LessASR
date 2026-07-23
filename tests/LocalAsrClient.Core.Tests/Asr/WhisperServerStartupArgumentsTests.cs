@@ -36,7 +36,7 @@ public sealed class WhisperServerStartupArgumentsTests
             $"--threads {WhisperServerThreadCount.RecommendForCurrentMachine()}",
             arguments,
             StringComparison.Ordinal);
-        Assert.Contains("--max-context 0", arguments, StringComparison.Ordinal);
+        Assert.DoesNotContain("--max-context", arguments, StringComparison.Ordinal);
         Assert.Contains("-m \"C:\\models\\ggml-base.bin\"", arguments, StringComparison.Ordinal);
         Assert.DoesNotContain("-nc", arguments, StringComparison.Ordinal);
     }

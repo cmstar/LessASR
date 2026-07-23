@@ -6,7 +6,11 @@ namespace LocalAsrClient.Core.Asr;
 
 public interface IWhisperServerClient
 {
-    Task<AsrResult> TranscribeAsync(InMemoryAudioInput audio, string? language, CancellationToken cancellationToken);
+    Task<AsrResult> TranscribeAsync(
+        InMemoryAudioInput audio,
+        string? language,
+        string? initialPrompt,
+        CancellationToken cancellationToken);
 }
 
 public sealed class WhisperServerClient : IWhisperServerClient
@@ -20,7 +24,11 @@ public sealed class WhisperServerClient : IWhisperServerClient
         _httpClient = httpClient;
     }
 
-    public async Task<AsrResult> TranscribeAsync(InMemoryAudioInput audio, string? language, CancellationToken cancellationToken)
+    public async Task<AsrResult> TranscribeAsync(
+        InMemoryAudioInput audio,
+        string? language,
+        string? initialPrompt,
+        CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
         using var content = new MultipartFormDataContent();
@@ -31,6 +39,10 @@ public sealed class WhisperServerClient : IWhisperServerClient
         if (!string.IsNullOrWhiteSpace(language))
         {
             content.Add(new StringContent(language), "language");
+        }
+        if (!string.IsNullOrWhiteSpace(initialPrompt))
+        {
+            content.Add(new StringContent(initialPrompt), "prompt");
         }
 
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);

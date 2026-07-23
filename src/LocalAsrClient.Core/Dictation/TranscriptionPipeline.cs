@@ -36,11 +36,13 @@ public sealed class TranscriptionPipeline
         {
             var settings = await _settingsStore.LoadAsync(cancellationToken);
             var language = TranscriptionLanguageCatalog.ResolveLanguage(settings.PreferredTranscriptionLanguageId);
+            var initialPrompt = WhisperVocabulary.CreateInitialPrompt(settings.VocabularyText);
             var asrResult = await _asrBackend.TranscribeAsync(
                 new AsrRequest(
                     new InMemoryAudioInput(recording.WavData, "wav", recording.SampleRate, recording.Channels),
                     Language: language,
-                    Options: new Dictionary<string, string>()),
+                    Options: new Dictionary<string, string>(),
+                    InitialPrompt: initialPrompt),
                 cancellationToken);
 
             var finalText = await _postProcessor.ProcessAsync(asrResult.Text, cancellationToken);

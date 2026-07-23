@@ -17,7 +17,8 @@ public sealed record FileAudioInput(
 public sealed record AsrRequest(
     AudioInput Audio,
     string? Language,
-    IReadOnlyDictionary<string, string> Options);
+    IReadOnlyDictionary<string, string> Options,
+    string? InitialPrompt = null);
 
 public sealed record AsrResult(
     string Text,

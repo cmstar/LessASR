@@ -15,7 +15,7 @@
 | DictationSession | 一次从按键到注入/展示的听写过程（单句听写） |
 | ContinuousDictationSession | 连续听写会话：段列表、单路录音、FIFO 识别队列（最大 50 段） |
 | ContinuousDictationSegment | 连续听写中的一段语音及其状态（WaitingInput / Transcribing / Completed / Failed） |
-| AppSettings | 模型路径、whisper-server 路径与端口、保留策略等（存于固定数据目录下的 SQLite） |
+| AppSettings | 模型路径、whisper-server 路径与端口、首选语言、词汇表、保留策略等（存于固定数据目录下的 SQLite） |
 | TextHistoryEntry | 可选保存的识别文本记录 |
 | DailyStatsSnapshot | 按日聚合的使用统计（不含识别原文） |
 | AsrResult | ASR 返回的文本与耗时指标 |
@@ -45,6 +45,7 @@
 - 使用统计的 30 天汇总展示听写次数、输入字符数、录音总时长和平均输入速度；平均输入速度按“30 天输入字符总数 ÷ 30 天录音总分钟数”计算，录音时长缺失或为零时显示为 0。
 - 窗口关闭行为可配置（默认最小化到托盘；也可设为直接退出）。托盘菜单「退出程序」始终可退出并释放资源。
 - MVP 不做 LLM 润色，ASR 原文直接注入（经空后处理器）。
+- 词汇表通过 Whisper `prompt` 提供识别软偏向：每行一个词或短语，最多 100 个去重后的非空词条，每项最多 30 个 Unicode 显示字符；支持混合语言，列表顶部优先级更高。保存后从下一次 ASR 请求生效，不覆盖首选语言。
 - 用户数据目录固定为 `%USERPROFILE%\.lessasr\`（`data/` 存 SQLite，`logs/` 存日志），不可配置。
 
 ### 连续听写
