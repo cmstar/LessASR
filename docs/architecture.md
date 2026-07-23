@@ -64,6 +64,8 @@ whisper-server (外部进程)
 
 单句或连续听写完成“写入 + 保留期清理”后，`NotifyingTextHistoryRepository` 发布变更通知；用户确认删除单条历史后也由该包装器发布通知。主窗口收到通知后重新查询完整的最近历史并更新分组。进入历史页时还会主动刷新一次，避免展示启动时缓存。
 
+设置页缩短文本历史保留期时，先通过 `ITextHistoryRepository.CountPrunableAsync` 计算超出新期限的记录数量；数量大于零时使用通用危险确认窗口提示用户。只有确认后才保存新策略并立即调用 `PruneAsync`，取消时设置与历史均保持不变；使用统计存储不参与该流程。
+
 ## 外部集成
 
 - **whisper-server**：客户端按设置路径启动子进程，通过 `HttpClient` 调用 `/inference` 等端点。

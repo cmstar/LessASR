@@ -4,6 +4,7 @@ using System.Windows.Input;
 using LocalAsrClient.App.Bootstrap;
 using LocalAsrClient.App.Infrastructure;
 using LocalAsrClient.Core;
+using LocalAsrClient.Core.Abstractions;
 using LocalAsrClient.Core.Asr;
 using LocalAsrClient.Core.Persistence;
 using WhisperServerThreads = LocalAsrClient.Core.Asr.WhisperServerThreadCount;
@@ -12,8 +13,11 @@ namespace LocalAsrClient.App.ViewModels;
 
 public sealed class SettingsViewModel : INotifyPropertyChanged
 {
-    private readonly AppServices _services;
+    private readonly ISettingsStore _settingsStore;
+    private readonly ITextHistoryRepository _historyRepository;
+    private readonly Func<Task> _applyServerOptionsFromSettings;
     private readonly Func<Task>? _onSettingsSaved;
+    private readonly Func<HistoryRetentionChange, bool> _confirmHistoryCleanup;
     private string _modelPath = "";
     private string _whisperServerPath = "";
     private int _whisperServerPort = AppSettings.DefaultWhisperServerPort;
@@ -27,10 +31,31 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     private bool _hasUnsavedChanges;
     private bool _isSaving;
 
-    public SettingsViewModel(AppServices services, Func<Task>? onSettingsSaved = null)
+    public SettingsViewModel(
+        AppServices services,
+        Func<Task>? onSettingsSaved = null,
+        Func<HistoryRetentionChange, bool>? confirmHistoryCleanup = null)
+        : this(
+            services.SettingsStore,
+            services.HistoryRepository,
+            () => services.ApplyServerOptionsFromSettingsAsync(),
+            onSettingsSaved,
+            confirmHistoryCleanup)
     {
-        _services = services;
+    }
+
+    public SettingsViewModel(
+        ISettingsStore settingsStore,
+        ITextHistoryRepository historyRepository,
+        Func<Task> applyServerOptionsFromSettings,
+        Func<Task>? onSettingsSaved = null,
+        Func<HistoryRetentionChange, bool>? confirmHistoryCleanup = null)
+    {
+        _settingsStore = settingsStore;
+        _historyRepository = historyRepository;
+        _applyServerOptionsFromSettings = applyServerOptionsFromSettings;
         _onSettingsSaved = onSettingsSaved;
+        _confirmHistoryCleanup = confirmHistoryCleanup ?? (_ => false);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -138,7 +163,9 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
     public ICommand ResetWhisperServerThreadCountCommand => new RelayCommand(ResetWhisperServerThreadCount);
 
-    public ICommand SaveCommand => new AsyncRelayCommand(async () =>
+    public ICommand SaveCommand => new AsyncRelayCommand(SaveAsync, "保存设置失败");
+
+    public async Task SaveAsync()
     {
         if (!CanSave)
         {
@@ -149,42 +176,56 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
 
         try
         {
-        if (WhisperServerPort is < 1 or > 65535)
-        {
-            throw new InvalidOperationException("whisper-server 端口必须在 1 到 65535 之间。");
-        }
+            if (WhisperServerPort is < 1 or > 65535)
+            {
+                throw new InvalidOperationException("whisper-server 端口必须在 1 到 65535 之间。");
+            }
 
-        if (WhisperServerThreadCount is < 1)
-        {
-            throw new InvalidOperationException("whisper-server 线程数必须大于 0。");
-        }
+            if (WhisperServerThreadCount is < 1)
+            {
+                throw new InvalidOperationException("whisper-server 线程数必须大于 0。");
+            }
 
-        var latestSettings = await _services.SettingsStore.LoadAsync(CancellationToken.None);
-        await _services.SettingsStore.SaveAsync(latestSettings with
-        {
-            ModelPath = ModelPath,
-            WhisperServerPath = WhisperServerPath,
-            WhisperServerPort = WhisperServerPort,
-            TranscriptRetentionPolicy = TranscriptRetentionPolicy,
-            StartModelOnAppStartup = StartModelOnAppStartup,
-            MinimizeToTrayOnClose = MinimizeToTrayOnClose,
-            WhisperServerThreadCount = _useAutoWhisperServerThreadCount ? null : WhisperServerThreadCount,
-            PreferredTranscriptionLanguageId = PreferredTranscriptionLanguageId
-        }, CancellationToken.None);
-        await _services.ApplyServerOptionsFromSettingsAsync();
-        LastSavedAtText = $"上次保存：{DateTime.Now:HH:mm:ss}";
-        OnPropertyChanged(nameof(LastSavedAtText));
-        HasUnsavedChanges = false;
-        if (_onSettingsSaved is not null)
-        {
-            await _onSettingsSaved();
-        }
+            var latestSettings = await _settingsStore.LoadAsync(CancellationToken.None);
+            var now = DateTimeOffset.Now;
+            var retentionChange = await GetHistoryRetentionChangeAsync(
+                latestSettings.TranscriptRetentionPolicy,
+                TranscriptRetentionPolicy,
+                now);
+            if (retentionChange is not null && !_confirmHistoryCleanup(retentionChange))
+            {
+                return;
+            }
+
+            await _settingsStore.SaveAsync(latestSettings with
+            {
+                ModelPath = ModelPath,
+                WhisperServerPath = WhisperServerPath,
+                WhisperServerPort = WhisperServerPort,
+                TranscriptRetentionPolicy = TranscriptRetentionPolicy,
+                StartModelOnAppStartup = StartModelOnAppStartup,
+                MinimizeToTrayOnClose = MinimizeToTrayOnClose,
+                WhisperServerThreadCount = _useAutoWhisperServerThreadCount ? null : WhisperServerThreadCount,
+                PreferredTranscriptionLanguageId = PreferredTranscriptionLanguageId
+            }, CancellationToken.None);
+            await _historyRepository.PruneAsync(
+                now,
+                TranscriptRetentionPolicy,
+                CancellationToken.None);
+            await _applyServerOptionsFromSettings();
+            LastSavedAtText = $"上次保存：{DateTime.Now:HH:mm:ss}";
+            OnPropertyChanged(nameof(LastSavedAtText));
+            HasUnsavedChanges = false;
+            if (_onSettingsSaved is not null)
+            {
+                await _onSettingsSaved();
+            }
         }
         finally
         {
             IsSaving = false;
         }
-    }, "保存设置失败");
+    }
 
     public void ResetSaveFeedback()
     {
@@ -202,7 +243,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         _isLoading = true;
         try
         {
-            var settings = await _services.SettingsStore.LoadAsync(CancellationToken.None);
+            var settings = await _settingsStore.LoadAsync(CancellationToken.None);
             ModelPath = settings.ModelPath;
             WhisperServerPath = settings.WhisperServerPath;
             WhisperServerPort = settings.WhisperServerPort;
@@ -279,6 +320,25 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         OnPropertyChanged(propertyName);
         MarkDirty();
         return true;
+    }
+
+    private async Task<HistoryRetentionChange?> GetHistoryRetentionChangeAsync(
+        TranscriptRetentionPolicy previousPolicy,
+        TranscriptRetentionPolicy newPolicy,
+        DateTimeOffset now)
+    {
+        if (!HistoryRetentionChange.IsShortening(previousPolicy, newPolicy))
+        {
+            return null;
+        }
+
+        var deleteCount = await _historyRepository.CountPrunableAsync(
+            now,
+            newPolicy,
+            CancellationToken.None);
+        return deleteCount > 0
+            ? new HistoryRetentionChange(previousPolicy, newPolicy, deleteCount)
+            : null;
     }
 
     private bool SetStateField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)

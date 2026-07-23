@@ -64,14 +64,14 @@
                             HorizontalAlignment="Right"
                             Margin="0,20,0,0">
                     <Button Content="{Binding CancelText}"
-                            Width="92"
+                            MinWidth="92"
                             Style="{StaticResource LessAsr.SecondaryButton}"
                             IsCancel="True"
                             IsDefault="{Binding IsCancelDefault}"
                             AutomationProperties.Name="{Binding CancelText}"/>
                     <Button x:Name="ConfirmButton"
                             Content="{Binding ConfirmText}"
-                            Width="92"
+                            MinWidth="92"
                             Margin="10,0,0,0"
                             IsDefault="{Binding IsConfirmDefault}"
                             Click="OnConfirmClicked"

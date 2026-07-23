@@ -72,6 +72,12 @@ public sealed class NotifyingTextHistoryRepositoryTests
             return Task.CompletedTask;
         }
 
+        public Task<int> CountPrunableAsync(
+            DateTimeOffset now,
+            TranscriptRetentionPolicy policy,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(0);
+
         public Task PruneAsync(
             DateTimeOffset now,
             TranscriptRetentionPolicy policy,

@@ -27,7 +27,10 @@ public sealed class MainViewModel
             RequestVocabularyName,
             ConfirmVocabularySaveBeforeChange,
             ConfirmVocabularyDeletion);
-        Settings = new SettingsViewModel(services, Model.RefreshFromSettingsAsync);
+        Settings = new SettingsViewModel(
+            services,
+            Model.RefreshFromSettingsAsync,
+            ConfirmHistoryRetentionCleanup);
         Debug = new DebugViewModel(services);
         _services.Orchestrator.StatusChanged += OnDictationStatusChanged;
         _services.HistoryRepository.Changed += OnHistoryChanged;
@@ -63,6 +66,28 @@ public sealed class MainViewModel
                 Preview = entry.Text,
                 Tone = ConfirmationDialogTone.Destructive
             });
+
+    private static bool ConfirmHistoryRetentionCleanup(HistoryRetentionChange change)
+    {
+        var disabling = change.NewPolicy == TranscriptRetentionPolicy.Disabled;
+        var heading = disabling
+            ? "关闭历史记录并删除现有内容？"
+            : "缩短保留时间并删除旧记录？";
+        var message = disabling
+            ? $"保存后将永久删除现有的 {change.DeleteCount} 条历史记录，并停止保存新的听写文本。使用统计不会受到影响。"
+            : $"保留时间将从“{change.PreviousPolicyDisplayName}”缩短为“{change.NewPolicyDisplayName}”，并永久删除 {change.DeleteCount} 条超出新期限的历史记录。使用统计不会受到影响。";
+
+        return ConfirmationDialog.Confirm(
+            System.Windows.Application.Current?.MainWindow,
+            new ConfirmationDialogOptions
+            {
+                Title = "清理历史记录",
+                Heading = heading,
+                Message = message,
+                ConfirmText = "删除并保存",
+                Tone = ConfirmationDialogTone.Destructive
+            });
+    }
 
     private static string? RequestVocabularyName(IReadOnlyList<string> existingNames) =>
         VocabularyNameDialog.Prompt(

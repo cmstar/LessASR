@@ -764,7 +764,8 @@
                                         <ComboBoxItem Content="7 天" Tag="{x:Static persistence:TranscriptRetentionPolicy.SevenDays}"/>
                                         <ComboBoxItem Content="1 个月" Tag="{x:Static persistence:TranscriptRetentionPolicy.OneMonth}"/>
                                     </ComboBox>
-                                    <TextBlock Text="音频不会被保存。" Style="{StaticResource LessAsr.Text.Secondary}"/>
+                                    <TextBlock Text="缩短保留时间时，会在保存前确认删除旧记录。" Style="{StaticResource LessAsr.Text.Secondary}"/>
+                                    <TextBlock Text="音频不会被保存。" Style="{StaticResource LessAsr.Text.Secondary}" Margin="0,4,0,0"/>
                                     <TextBlock Text="{Binding Settings.DataDirectoryPath, StringFormat=数据目录：{0}}" Style="{StaticResource LessAsr.Text.Caption}" Margin="0,8,0,0"/>
                                     <TextBlock Text="{Binding Settings.LogsDirectoryPath, StringFormat=日志目录：{0}}" Style="{StaticResource LessAsr.Text.Caption}" Margin="0,4,0,0"/>
                                 </StackPanel>

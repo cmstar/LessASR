@@ -71,6 +71,25 @@ public sealed class SqliteTextHistoryRepository : ITextHistoryRepository
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    public async Task<int> CountPrunableAsync(
+        DateTimeOffset now,
+        TranscriptRetentionPolicy policy,
+        CancellationToken cancellationToken)
+    {
+        var command = _database.Connection.CreateCommand();
+        if (policy == TranscriptRetentionPolicy.Disabled)
+        {
+            command.CommandText = "SELECT COUNT(*) FROM transcript_history";
+        }
+        else
+        {
+            command.CommandText = "SELECT COUNT(*) FROM transcript_history WHERE created_at < $cutoff";
+            command.Parameters.AddWithValue("$cutoff", GetCutoff(now, policy));
+        }
+
+        return Convert.ToInt32(await command.ExecuteScalarAsync(cancellationToken));
+    }
+
     public async Task PruneAsync(DateTimeOffset now, TranscriptRetentionPolicy policy, CancellationToken cancellationToken)
     {
         if (policy == TranscriptRetentionPolicy.Disabled)
@@ -81,11 +100,15 @@ public sealed class SqliteTextHistoryRepository : ITextHistoryRepository
             return;
         }
 
-        var retention = policy.ToTimeSpan() ?? TimeSpan.Zero;
-        var cutoff = now.Subtract(retention).ToUniversalTime().ToString("O");
         var command = _database.Connection.CreateCommand();
         command.CommandText = "DELETE FROM transcript_history WHERE created_at < $cutoff";
-        command.Parameters.AddWithValue("$cutoff", cutoff);
+        command.Parameters.AddWithValue("$cutoff", GetCutoff(now, policy));
         await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static string GetCutoff(DateTimeOffset now, TranscriptRetentionPolicy policy)
+    {
+        var retention = policy.ToTimeSpan() ?? TimeSpan.Zero;
+        return now.Subtract(retention).ToUniversalTime().ToString("O");
     }
 }

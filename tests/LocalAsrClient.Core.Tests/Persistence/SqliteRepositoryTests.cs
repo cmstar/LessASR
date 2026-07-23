@@ -185,6 +185,28 @@ public sealed class SqliteRepositoryTests
         Assert.Equal(retained, Assert.Single(await repository.GetRecentAsync(10, CancellationToken.None)));
     }
 
+    [Fact]
+    public async Task TextHistoryRepository_CountPrunableAsync_UsesNewRetentionPolicy()
+    {
+        await using var database = await SqliteDatabase.CreateInMemoryAsync();
+        var repository = new SqliteTextHistoryRepository(database);
+        var now = new DateTimeOffset(2026, 7, 24, 12, 0, 0, TimeSpan.Zero);
+        await repository.AddAsync(HistoryEntry(now.AddDays(-2), "两天前"), CancellationToken.None);
+        await repository.AddAsync(HistoryEntry(now.AddHours(-5), "五小时前"), CancellationToken.None);
+
+        var oneDayCount = await repository.CountPrunableAsync(
+            now,
+            TranscriptRetentionPolicy.OneDay,
+            CancellationToken.None);
+        var disabledCount = await repository.CountPrunableAsync(
+            now,
+            TranscriptRetentionPolicy.Disabled,
+            CancellationToken.None);
+
+        Assert.Equal(1, oneDayCount);
+        Assert.Equal(2, disabledCount);
+    }
+
     private static TextHistoryEntry HistoryEntry(DateTimeOffset createdAt, string text) => new(
         Guid.NewGuid(),
         createdAt,

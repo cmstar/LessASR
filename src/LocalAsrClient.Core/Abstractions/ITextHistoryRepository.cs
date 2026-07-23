@@ -7,5 +7,9 @@ public interface ITextHistoryRepository
     Task AddAsync(TextHistoryEntry entry, CancellationToken cancellationToken);
     Task<IReadOnlyList<TextHistoryEntry>> GetRecentAsync(int limit, CancellationToken cancellationToken);
     Task DeleteAsync(Guid id, CancellationToken cancellationToken);
+    Task<int> CountPrunableAsync(
+        DateTimeOffset now,
+        TranscriptRetentionPolicy policy,
+        CancellationToken cancellationToken);
     Task PruneAsync(DateTimeOffset now, TranscriptRetentionPolicy policy, CancellationToken cancellationToken);
 }

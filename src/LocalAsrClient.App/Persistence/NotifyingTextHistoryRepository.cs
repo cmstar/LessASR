@@ -26,6 +26,12 @@ public sealed class NotifyingTextHistoryRepository : ITextHistoryRepository
         PublishChanged();
     }
 
+    public Task<int> CountPrunableAsync(
+        DateTimeOffset now,
+        TranscriptRetentionPolicy policy,
+        CancellationToken cancellationToken) =>
+        _inner.CountPrunableAsync(now, policy, cancellationToken);
+
     public async Task PruneAsync(
         DateTimeOffset now,
         TranscriptRetentionPolicy policy,
