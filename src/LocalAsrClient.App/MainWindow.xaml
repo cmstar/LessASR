@@ -36,7 +36,6 @@
                         <RowDefinition Height="20"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
                     <Grid Margin="6,4">
@@ -89,10 +88,8 @@
                                 <TextBlock Text="使用统计" Margin="12,0,0,0" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
-                    </StackPanel>
 
-                    <StackPanel Grid.Row="4">
-                        <Border Style="{StaticResource LessAsr.Divider}" Margin="4,0,4,10"/>
+                        <Border Style="{StaticResource LessAsr.Divider}" Margin="4,10"/>
                         <Button Style="{StaticResource LessAsr.NavButton}"
                                 Tag="{Binding Navigation.IsModelSelected}"
                                 Command="{Binding Navigation.NavigateCommand}"
