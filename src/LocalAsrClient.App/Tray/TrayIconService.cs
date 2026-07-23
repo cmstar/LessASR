@@ -7,6 +7,7 @@ namespace LocalAsrClient.App.Tray;
 public sealed class TrayIconService : IDisposable
 {
     private readonly MainWindow _window;
+    private readonly TrayWindowActivator _windowActivator;
     private readonly Forms.NotifyIcon _notifyIcon;
     private System.Drawing.Icon? _trayIcon;
     private bool _disposed;
@@ -14,6 +15,9 @@ public sealed class TrayIconService : IDisposable
     public TrayIconService(MainWindow window)
     {
         _window = window;
+        _windowActivator = new TrayWindowActivator(
+            new WpfTrayWindow(window),
+            new Win32TrayForegroundService());
         _notifyIcon = new Forms.NotifyIcon
         {
             Text = LessAsrPaths.ProductName,
@@ -44,8 +48,7 @@ public sealed class TrayIconService : IDisposable
 
     private void ShowWindow()
     {
-        _window.Show();
-        _window.Activate();
+        _windowActivator.RestoreAndActivate();
     }
 
     private void ExitApplication()
