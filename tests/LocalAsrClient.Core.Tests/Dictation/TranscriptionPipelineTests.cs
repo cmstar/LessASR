@@ -13,7 +13,13 @@ public sealed class TranscriptionPipelineTests
         var backend = new StubBackend { Status = AsrBackendStatus.Ready, TranscribeText = "你好" };
         var stats = new StubStatsRepository();
         var settings = new StubSettingsStore();
-        var pipeline = new TranscriptionPipeline(backend, settings, new NoOpTextPostProcessor(), stats, new StubClock());
+        var pipeline = new TranscriptionPipeline(
+            backend,
+            settings,
+            new StubVocabularyRepository(),
+            new NoOpTextPostProcessor(),
+            stats,
+            new StubClock());
         var recording = new RecordingResult(new byte[16], TimeSpan.FromSeconds(1), 16000, 1);
 
         var result = await pipeline.TranscribeAsync(recording, CancellationToken.None);
@@ -29,7 +35,13 @@ public sealed class TranscriptionPipelineTests
     {
         var backend = new StubBackend { Status = AsrBackendStatus.Ready, TranscribeText = "  " };
         var stats = new StubStatsRepository();
-        var pipeline = new TranscriptionPipeline(backend, new StubSettingsStore(), new NoOpTextPostProcessor(), stats, new StubClock());
+        var pipeline = new TranscriptionPipeline(
+            backend,
+            new StubSettingsStore(),
+            new StubVocabularyRepository(),
+            new NoOpTextPostProcessor(),
+            stats,
+            new StubClock());
         var recording = new RecordingResult(new byte[16], TimeSpan.FromSeconds(1), 16000, 1);
 
         var result = await pipeline.TranscribeAsync(recording, CancellationToken.None);
@@ -40,19 +52,17 @@ public sealed class TranscriptionPipelineTests
     }
 
     [Fact]
-    public async Task TranscribeAsync_IncludesVocabularyPromptFromLatestSettings()
+    public async Task TranscribeAsync_IncludesPromptFromCurrentlyActiveVocabulary()
     {
         var backend = new StubBackend { Status = AsrBackendStatus.Ready, TranscribeText = "LessASR" };
-        var settings = new StubSettingsStore
-        {
-            Settings = AppSettings.CreateDefault() with
-            {
-                VocabularyText = "LessASR\n大语言模型\nKubernetes\n初音ミク"
-            }
-        };
+        var settings = new StubSettingsStore();
+        var vocabularies = new StubVocabularyRepository();
+        var first = Profile("编程", "LessASR\n大语言模型\nKubernetes\n初音ミク");
+        vocabularies.ActiveProfile = first;
         var pipeline = new TranscriptionPipeline(
             backend,
             settings,
+            vocabularies,
             new NoOpTextPostProcessor(),
             new StubStatsRepository(),
             new StubClock());
@@ -65,12 +75,37 @@ public sealed class TranscriptionPipelineTests
             "初音ミク, Kubernetes, 大语言模型, LessASR",
             backend.LastRequest?.InitialPrompt);
 
-        settings.Settings = settings.Settings with { VocabularyText = "新的词条" };
+        vocabularies.ActiveProfile = Profile("新场景", "新的词条");
 
         await pipeline.TranscribeAsync(
             new RecordingResult(new byte[16], TimeSpan.FromSeconds(1), 16000, 1),
             CancellationToken.None);
 
         Assert.Equal("新的词条", backend.LastRequest?.InitialPrompt);
+    }
+
+    [Fact]
+    public async Task TranscribeAsync_OmitsPromptWhenNoVocabularyIsActive()
+    {
+        var backend = new StubBackend { Status = AsrBackendStatus.Ready, TranscribeText = "你好" };
+        var pipeline = new TranscriptionPipeline(
+            backend,
+            new StubSettingsStore(),
+            new StubVocabularyRepository(),
+            new NoOpTextPostProcessor(),
+            new StubStatsRepository(),
+            new StubClock());
+
+        await pipeline.TranscribeAsync(
+            new RecordingResult(new byte[16], TimeSpan.FromSeconds(1), 16000, 1),
+            CancellationToken.None);
+
+        Assert.Null(backend.LastRequest?.InitialPrompt);
+    }
+
+    private static VocabularyProfile Profile(string name, string entriesText)
+    {
+        var now = new DateTimeOffset(2026, 7, 24, 9, 0, 0, TimeSpan.Zero);
+        return new VocabularyProfile(Guid.NewGuid(), name, entriesText, true, now, now);
     }
 }

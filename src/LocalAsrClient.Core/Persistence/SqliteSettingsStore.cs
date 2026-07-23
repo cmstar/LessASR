@@ -41,8 +41,7 @@ public sealed class SqliteSettingsStore : ISettingsStore
             StartModelOnAppStartup = bool.TryParse(values.GetValueOrDefault("StartModelOnAppStartup"), out var start) && start,
             MinimizeToTrayOnClose = !bool.TryParse(values.GetValueOrDefault("MinimizeToTrayOnClose"), out var minimize) || minimize,
             PreferredTranscriptionLanguageId = TranscriptionLanguageCatalog.NormalizeId(
-                values.GetValueOrDefault("PreferredTranscriptionLanguageId")),
-            VocabularyText = values.GetValueOrDefault("VocabularyText", defaults.VocabularyText)
+                values.GetValueOrDefault("PreferredTranscriptionLanguageId"))
         };
     }
 
@@ -57,8 +56,7 @@ public sealed class SqliteSettingsStore : ISettingsStore
             ["TranscriptRetentionPolicy"] = settings.TranscriptRetentionPolicy.ToString(),
             ["StartModelOnAppStartup"] = settings.StartModelOnAppStartup.ToString(),
             ["MinimizeToTrayOnClose"] = settings.MinimizeToTrayOnClose.ToString(),
-            ["PreferredTranscriptionLanguageId"] = settings.PreferredTranscriptionLanguageId,
-            ["VocabularyText"] = settings.VocabularyText
+            ["PreferredTranscriptionLanguageId"] = settings.PreferredTranscriptionLanguageId
         };
 
         foreach (var pair in values)

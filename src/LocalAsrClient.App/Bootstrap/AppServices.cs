@@ -47,6 +47,8 @@ public sealed class AppServices : IAsyncDisposable
 
         SqliteSettingsStore settingsStore,
 
+        SqliteVocabularyRepository vocabularyRepository,
+
         SqliteStatsRepository statsRepository,
 
         NotifyingTextHistoryRepository historyRepository,
@@ -76,6 +78,8 @@ public sealed class AppServices : IAsyncDisposable
         Database = database;
 
         SettingsStore = settingsStore;
+
+        VocabularyRepository = vocabularyRepository;
 
         StatsRepository = statsRepository;
 
@@ -108,6 +112,8 @@ public sealed class AppServices : IAsyncDisposable
     public SqliteDatabase Database { get; }
 
     public SqliteSettingsStore SettingsStore { get; }
+
+    public SqliteVocabularyRepository VocabularyRepository { get; }
 
     public SqliteStatsRepository StatsRepository { get; }
 
@@ -217,6 +223,10 @@ public sealed class AppServices : IAsyncDisposable
 
 
 
+        var clock = new SystemClock();
+
+        var vocabularyRepository = new SqliteVocabularyRepository(database, clock);
+
         var statsRepository = new SqliteStatsRepository(database);
 
         var historyRepository = new NotifyingTextHistoryRepository(
@@ -230,11 +240,10 @@ public sealed class AppServices : IAsyncDisposable
             ? new SimulatedAudioRecorder()
             : new NAudioMemoryRecorder();
 
-        var clock = new SystemClock();
-
         var transcriptionPipeline = new TranscriptionPipeline(
             backend,
             settingsStore,
+            vocabularyRepository,
             new TranscriptionScriptPostProcessor(settingsStore),
             statsRepository,
             clock);
@@ -271,6 +280,8 @@ public sealed class AppServices : IAsyncDisposable
             historyRepository,
 
             settingsStore,
+
+            vocabularyRepository,
 
             clock,
 
@@ -432,6 +443,8 @@ public sealed class AppServices : IAsyncDisposable
             database,
 
             settingsStore,
+
+            vocabularyRepository,
 
             statsRepository,
 

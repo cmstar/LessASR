@@ -222,14 +222,18 @@ public sealed class DictationOrchestratorTests
     }
 
     [Fact]
-    public async Task ToggleAsync_IncludesVocabularyPromptFromLatestSettings()
+    public async Task ToggleAsync_IncludesPromptFromActiveVocabulary()
     {
         var fixture = new Fixture();
         fixture.Backend.Status = AsrBackendStatus.Ready;
-        fixture.Settings.Settings = fixture.Settings.Settings with
-        {
-            VocabularyText = "LessASR\n大语言模型\n初音ミク"
-        };
+        var now = new DateTimeOffset(2026, 7, 24, 9, 0, 0, TimeSpan.Zero);
+        fixture.Vocabularies.ActiveProfile = new VocabularyProfile(
+            Guid.NewGuid(),
+            "编程",
+            "LessASR\n大语言模型\n初音ミク",
+            true,
+            now,
+            now);
 
         await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
         await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
@@ -247,8 +251,17 @@ public sealed class DictationOrchestratorTests
             Stats = new StubStatsRepository();
             History = new StubHistoryRepository();
             Settings = new StubSettingsStore();
+            Vocabularies = new StubVocabularyRepository();
             Clock = new StubClock();
-            Orchestrator = new DictationOrchestrator(Recorder, Backend, Injector, Stats, History, Settings, Clock);
+            Orchestrator = new DictationOrchestrator(
+                Recorder,
+                Backend,
+                Injector,
+                Stats,
+                History,
+                Settings,
+                Vocabularies,
+                Clock);
             Orchestrator.StatusChanged += status => LastStatus = status;
         }
 
@@ -258,6 +271,7 @@ public sealed class DictationOrchestratorTests
         public StubStatsRepository Stats { get; }
         public StubHistoryRepository History { get; }
         public StubSettingsStore Settings { get; }
+        public StubVocabularyRepository Vocabularies { get; }
         public StubClock Clock { get; }
         public DictationOrchestrator Orchestrator { get; }
         public DictationStatus LastStatus { get; private set; } = new(DictationState.Idle, "空闲");

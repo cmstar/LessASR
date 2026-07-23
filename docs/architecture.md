@@ -17,7 +17,7 @@ LocalAsrClient.Core (Dictation Core)
   ├── ContinuousDictationSession（连续听写：段列表 + 单路录音 + FIFO 转写队列）
   ├── TranscriptionPipeline（单段 WAV → ASR → 后处理 → 统计，单句与连续共用）
   ├── ManagedWhisperServerBackend（ASR 后端）
-  └── SQLite 持久化（设置、统计、文本历史）
+  └── SQLite 持久化（设置、词汇表、统计、文本历史）
 
 whisper-server (外部进程)
   └── HTTP 语音转文字服务，由客户端托管生命周期
@@ -48,7 +48,7 @@ whisper-server (外部进程)
 
 1. 用户按下右 Ctrl（连续窗口未开）→ 捕获输入焦点 → `IHotkeyListener` 通知 `DictationOrchestrator`。
 2. 再次按下或超时 → 停止 `IAudioRecorder`，获得 WAV 数据。
-3. Core 从最新设置构造语言参数和可选词汇表 prompt，`IAsrBackend` 确保 whisper-server 就绪后发送 HTTP 转写请求。
+3. Core 从最新设置取得语言，并通过 `IVocabularyRepository` 查询当前使用中的词汇表，构造可选 prompt；`IAsrBackend` 确保 whisper-server 就绪后发送 HTTP 转写请求。
 4. 识别文本经 `TranscriptionScriptPostProcessor`（简繁 OpenCC；简中 / 繁中时规范化 CJK 标点）后由 `ITextInjector` 注入。
 5. 注入失败时进入 `ResultNeedsAction`，浮窗展示结果供复制。
 6. 成功或失败后写入 `IStatsRepository`；若启用则写入 `ITextHistoryRepository`。
@@ -57,7 +57,7 @@ whisper-server (外部进程)
 
 1. 用户按下 F9 → `ContinuousDictationCoordinator` 创建或激活 `ContinuousDictationWindow`，启动 `ContinuousDictationSession` 录制状态。
 2. 右 Ctrl（连续窗口已开）→ Coordinator 通知 Session 分段：当前段入 FIFO 转写队列，新建 WaitingInput，录音不中断。
-3. Session 串行消费队列（最大 50 段）→ 每段经 `TranscriptionPipeline`（读取最新语言与词汇表设置 → ASR → 后处理）→ 段状态更新为 Completed / Failed，并写入 `IStatsRepository`。
+3. Session 串行消费队列（最大 50 段）→ 每段经 `TranscriptionPipeline`（读取最新语言和当前使用中的词汇表 → ASR → 后处理）→ 段状态更新为 Completed / Failed，并写入 `IStatsRepository`。
 4. 识别结果通过 ViewModel 绑定回填至 `ContinuousDictationWindow` 对应段 TextBox；Completed 段可编辑。
 5. 关窗时 Coordinator 合并所有 Completed 段（`\n` 拼接，含用户编辑）写入一条 `ITextHistoryRepository`；「终止」清空会话且不写历史。
 6. 连续窗口已开时，右 Ctrl 与 Esc 由 Coordinator 路由，单句 `DictationOrchestrator` 与听写浮窗不参与。
@@ -75,6 +75,6 @@ whisper-server (外部进程)
 - Core/App 分离以支持无头测试与后续替换 UI 层。
 - 文本注入优先使用 Win32 控件直写；现代应用或未知控件无法直写时，使用“保存剪贴板 → 写入识别文本 → Ctrl+V → 恢复剪贴板”的兼容回退。
 - 简繁后处理：`TranscriptionScriptPostProcessor` + OpenCC（`t2s` / `s2t`）；简中 / 繁中偏好时经 `ITranscriptionPunctuationPolicy` 判定后由 `CjkPunctuationNormalizer` 规范化标点；LLM 后处理接口仍保留。
-- Whisper 词汇表作为全局设置保存；单句与连续听写在每次 ASR 请求前读取最新值并构造 `prompt`。词汇表支持混合 Unicode 语言，只提供识别软偏向，不覆盖首选语言。
+- Whisper 词汇表是独立持久化实体，可创建多份但同一时间最多一份处于使用中；单句与连续听写在每次 ASR 请求前查询当前词汇表并构造 `prompt`。词汇表支持混合 Unicode 语言，只提供识别软偏向，不覆盖首选语言。
 - 用户数据目录固定为 `%USERPROFILE%\.lessasr\`（`LessAsrPaths`），设置项仅存于该目录下的 SQLite，避免「路径配置与数据库位置」循环依赖。
 - `--test-mode` 使用内存 SQLite，桌面验收与 UI 自动化不得接触用户的生产数据库。

@@ -150,6 +150,7 @@ public sealed class ContinuousDictationSessionTests
             Pipeline = new TranscriptionPipeline(
                 Backend,
                 Settings,
+                new StubVocabularyRepository(),
                 new NoOpTextPostProcessor(),
                 Stats,
                 Clock);

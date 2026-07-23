@@ -420,80 +420,264 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <Grid Margin="20,12,20,20">
+                    <Grid Margin="20,12,20,16">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel>
                             <TextBlock Text="词汇表" Style="{StaticResource LessAsr.Text.PageTitle}"/>
-                            <TextBlock Text="让 Whisper 优先参考常用名称、术语和专有词。" Style="{StaticResource LessAsr.Text.Secondary}" Margin="0,5,0,0"/>
+                            <TextBlock Text="管理不同工作场景使用的 Whisper 提示词。" Style="{StaticResource LessAsr.Text.Secondary}" Margin="0,5,0,0"/>
                         </StackPanel>
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding Vocabulary.LastSavedAtText}" Style="{StaticResource LessAsr.Text.Secondary}" Margin="0,0,12,0" VerticalAlignment="Center"/>
-                            <Button Content="{Binding Vocabulary.SaveButtonText}"
-                                    Command="{Binding Vocabulary.SaveCommand}"
-                                    IsEnabled="{Binding Vocabulary.CanSave}"
-                                    Style="{StaticResource LessAsr.PrimaryButton}"
-                                    MinWidth="108"
-                                    AutomationProperties.Name="保存词汇表"/>
-                        </StackPanel>
+                        <Button Grid.Column="1"
+                                Content="+  新建词汇表"
+                                Command="{Binding Vocabulary.NewCommand}"
+                                Style="{StaticResource LessAsr.PrimaryButton}"
+                                MinWidth="116"
+                                VerticalAlignment="Center"
+                                AutomationProperties.Name="新建词汇表"/>
                     </Grid>
 
                     <ScrollViewer Grid.Row="1"
                                   VerticalScrollBarVisibility="Auto"
                                   HorizontalScrollBarVisibility="Disabled">
-                        <StackPanel Margin="20,0,20,24">
-                            <Border Style="{StaticResource LessAsr.Card}">
-                                <StackPanel>
-                                    <Grid Margin="0,0,0,14">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="识别词汇" Style="{StaticResource LessAsr.Text.SectionTitle}"/>
-                                        <TextBlock Grid.Column="1"
-                                                   Text="{Binding Vocabulary.EntryCountText}"
+                        <Grid Margin="20,0,20,24" MinHeight="430">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="234"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Border Style="{StaticResource LessAsr.Card}" Padding="12">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock Text="我的词汇表"
+                                               Style="{StaticResource LessAsr.Text.SectionTitle}"
+                                               Margin="6,4,6,12"/>
+
+                                    <ScrollViewer Grid.Row="1"
+                                                  VerticalScrollBarVisibility="Auto"
+                                                  HorizontalScrollBarVisibility="Disabled"
+                                                  Visibility="{Binding Vocabulary.HasProfiles, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                        <ItemsControl ItemsSource="{Binding Vocabulary.Profiles}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Button Style="{StaticResource LessAsr.NavButton}"
+                                                            Tag="{Binding IsSelected}"
+                                                            Command="{Binding DataContext.Vocabulary.SelectCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                            CommandParameter="{Binding}"
+                                                            Margin="0,0,0,4"
+                                                            HorizontalContentAlignment="Stretch"
+                                                            AutomationProperties.Name="{Binding Name}">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Text="{Binding Name}"
+                                                                       Margin="6,0,8,0"
+                                                                       TextTrimming="CharacterEllipsis"
+                                                                       VerticalAlignment="Center"/>
+                                                            <Border Grid.Column="1"
+                                                                    Background="{StaticResource LessAsr.Brush.Accent}"
+                                                                    CornerRadius="8"
+                                                                    Padding="6,2"
+                                                                    Margin="0,0,8,0"
+                                                                    VerticalAlignment="Center"
+                                                                    Visibility="{Binding IsActive, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                                <TextBlock Text="使用中"
+                                                                           Foreground="White"
+                                                                           FontSize="11"
+                                                                           FontWeight="SemiBold"
+                                                                           TextAlignment="Center"/>
+                                                            </Border>
+                                                            <TextBlock Grid.Column="2"
+                                                                       Text="{Binding EntryCountText}"
+                                                                       Style="{StaticResource LessAsr.Text.Caption}"
+                                                                       VerticalAlignment="Center"/>
+                                                        </Grid>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+
+                                    <StackPanel Grid.Row="1"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                Margin="8">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Vocabulary.HasProfiles}" Value="False">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        <ui:SymbolIcon Symbol="BookOpen24" Width="28" Foreground="{StaticResource LessAsr.Brush.TextTertiary}"/>
+                                        <TextBlock Text="还没有词汇表"
                                                    Style="{StaticResource LessAsr.Text.Secondary}"
-                                                   VerticalAlignment="Center"/>
-                                    </Grid>
-
-                                    <TextBox Text="{Binding Vocabulary.VocabularyText, UpdateSourceTrigger=PropertyChanged}"
-                                             Style="{StaticResource LessAsr.TextBox}"
-                                             Height="300"
-                                             AcceptsReturn="True"
-                                             TextWrapping="Wrap"
-                                             VerticalContentAlignment="Top"
-                                             VerticalScrollBarVisibility="Auto"
-                                             HorizontalScrollBarVisibility="Disabled"
-                                             SpellCheck.IsEnabled="False"
-                                             AutomationProperties.Name="识别词汇，每行一个词或短语"/>
-
-                                    <TextBlock Text="{Binding Vocabulary.ValidationError}"
-                                               Foreground="{StaticResource LessAsr.Brush.Error}"
-                                               FontWeight="SemiBold"
-                                               TextWrapping="Wrap"
-                                               Margin="0,8,0,0"
-                                               Visibility="{Binding Vocabulary.ValidationError, Converter={StaticResource StringNotEmptyToVisibilityConverter}}"/>
-                                    <TextBlock Text="每行一个词或短语，最多 100 项，每项最多 30 个字符。保存时会忽略空行并合并完全相同的词条。"
-                                               Style="{StaticResource LessAsr.Text.Caption}"
-                                               TextWrapping="Wrap"
-                                               Margin="0,10,0,0"/>
-                                    <TextBlock Text="支持混合中文、英文、日文等语言；首选语言仍决定本次听写的主要识别语言。"
-                                               Style="{StaticResource LessAsr.Text.Caption}"
-                                               TextWrapping="Wrap"
-                                               Margin="0,5,0,0"/>
-                                    <TextBlock Text="请使用 Whisper 多语言模型；纯英文 .en 模型无法可靠识别中文或日文词条。"
-                                               Style="{StaticResource LessAsr.Text.Caption}"
-                                               TextWrapping="Wrap"
-                                               Margin="0,5,0,0"/>
-                                    <TextBlock Text="列表越靠上优先级越高。保存后从下一次听写开始生效，无需重启模型服务。"
-                                               Style="{StaticResource LessAsr.Text.Caption}"
-                                               TextWrapping="Wrap"
-                                               Margin="0,5,0,0"/>
-                                </StackPanel>
+                                                   TextAlignment="Center"
+                                                   Margin="0,10,0,0"/>
+                                    </StackPanel>
+                                </Grid>
                             </Border>
-                        </StackPanel>
+
+                            <Border Grid.Column="2" Style="{StaticResource LessAsr.Card}">
+                                <Grid>
+                                    <StackPanel HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                MaxWidth="280">
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Vocabulary.HasSelection}" Value="False">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
+                                        <ui:SymbolIcon Symbol="BookOpen24" Width="40" Foreground="{StaticResource LessAsr.Brush.TextTertiary}"/>
+                                        <TextBlock Text="创建第一份词汇表"
+                                                   Style="{StaticResource LessAsr.Text.SectionTitle}"
+                                                   TextAlignment="Center"
+                                                   Margin="0,14,0,0"/>
+                                        <TextBlock Text="为不同工作场景分别保存名称、术语和专有词。"
+                                                   Style="{StaticResource LessAsr.Text.Secondary}"
+                                                   TextAlignment="Center"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,6,0,16"/>
+                                        <Button Content="新建词汇表"
+                                                Command="{Binding Vocabulary.NewCommand}"
+                                                Style="{StaticResource LessAsr.PrimaryButton}"
+                                                HorizontalAlignment="Center"/>
+                                    </StackPanel>
+
+                                    <StackPanel Visibility="{Binding Vocabulary.HasSelection, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                        <Grid Margin="0,0,0,14">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="词汇表详情" Style="{StaticResource LessAsr.Text.SectionTitle}"/>
+                                                <TextBlock Text="{Binding Vocabulary.LastUpdatedText}"
+                                                           Style="{StaticResource LessAsr.Text.Caption}"
+                                                           Margin="0,4,0,0"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1"
+                                                        Orientation="Horizontal"
+                                                        VerticalAlignment="Center">
+                                                <Border Style="{StaticResource LessAsr.StatusBadge}"
+                                                        VerticalAlignment="Center"
+                                                        Margin="0,0,8,0"
+                                                        Visibility="{Binding Vocabulary.SelectedIsActive, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                    <TextBlock Text="使用中"
+                                                               Foreground="{StaticResource LessAsr.Brush.Accent}"
+                                                               FontWeight="SemiBold"
+                                                               TextAlignment="Center"
+                                                               VerticalAlignment="Center"/>
+                                                </Border>
+                                                <Button Content="停止使用"
+                                                        Command="{Binding Vocabulary.DeactivateCommand}"
+                                                        IsEnabled="{Binding Vocabulary.CanDeactivate}"
+                                                        Style="{StaticResource LessAsr.SecondaryButton}"
+                                                        Visibility="{Binding Vocabulary.SelectedIsActive, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                        AutomationProperties.Name="停止使用当前词汇表"/>
+                                                <Button Content="设为当前"
+                                                        Command="{Binding Vocabulary.ActivateCommand}"
+                                                        IsEnabled="{Binding Vocabulary.CanActivate}"
+                                                        MinWidth="96"
+                                                        AutomationProperties.Name="将所选词汇表设为当前">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button"
+                                                               BasedOn="{StaticResource LessAsr.SecondaryButton}">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Vocabulary.SelectedIsActive}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <TextBlock Text="名称" Style="{StaticResource LessAsr.FieldLabel}"/>
+                                        <TextBox Text="{Binding Vocabulary.SelectedName, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource LessAsr.TextBox}"
+                                                 AutomationProperties.Name="词汇表名称"/>
+
+                                        <Grid Margin="0,14,0,6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="识别词汇" Style="{StaticResource LessAsr.FieldLabel}" Margin="0"/>
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding Vocabulary.EntryCountText}"
+                                                       Style="{StaticResource LessAsr.Text.Secondary}"/>
+                                        </Grid>
+                                        <TextBox Text="{Binding Vocabulary.VocabularyText, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource LessAsr.TextBox}"
+                                                 Height="230"
+                                                 AcceptsReturn="True"
+                                                 TextWrapping="Wrap"
+                                                 VerticalContentAlignment="Top"
+                                                 VerticalScrollBarVisibility="Auto"
+                                                 HorizontalScrollBarVisibility="Disabled"
+                                                 SpellCheck.IsEnabled="False"
+                                                 AutomationProperties.Name="识别词汇，每行一个词或短语"/>
+
+                                        <TextBlock Text="{Binding Vocabulary.ValidationError}"
+                                                   Foreground="{StaticResource LessAsr.Brush.Error}"
+                                                   FontWeight="SemiBold"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,8,0,0"
+                                                   Visibility="{Binding Vocabulary.ValidationError, Converter={StaticResource StringNotEmptyToVisibilityConverter}}"/>
+                                        <TextBlock Text="每行一个词或短语，最多 100 项，每项最多 30 个字符；列表越靠上优先级越高。"
+                                                   Style="{StaticResource LessAsr.Text.Caption}"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,8,0,0"/>
+                                        <TextBlock Text="支持混合语言。设为当前后，从下一次听写开始生效，无需重启模型服务。"
+                                                   Style="{StaticResource LessAsr.Text.Caption}"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,4,0,0"/>
+                                        <TextBlock Text="请使用 Whisper 多语言模型；纯英文 .en 模型无法可靠识别中文或日文词条。"
+                                                   Style="{StaticResource LessAsr.Text.Caption}"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,4,0,0"/>
+
+                                        <WrapPanel HorizontalAlignment="Right" Margin="0,16,0,0">
+                                            <Button Content="删除"
+                                                    Command="{Binding Vocabulary.DeleteCommand}"
+                                                    IsEnabled="{Binding Vocabulary.CanDelete}"
+                                                    Style="{StaticResource LessAsr.DestructiveButton}"
+                                                    Margin="0,0,8,8"/>
+                                            <Button Content="放弃修改"
+                                                    Command="{Binding Vocabulary.DiscardCommand}"
+                                                    IsEnabled="{Binding Vocabulary.CanDiscard}"
+                                                    Style="{StaticResource LessAsr.SecondaryButton}"
+                                                    Margin="0,0,8,8"/>
+                                            <Button Content="{Binding Vocabulary.SaveButtonText}"
+                                                    Command="{Binding Vocabulary.SaveCommand}"
+                                                    IsEnabled="{Binding Vocabulary.CanSave}"
+                                                    Style="{StaticResource LessAsr.PrimaryButton}"
+                                                    MinWidth="82"
+                                                    Margin="0,0,0,8"/>
+                                        </WrapPanel>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </Grid>
                     </ScrollViewer>
                 </Grid>
 

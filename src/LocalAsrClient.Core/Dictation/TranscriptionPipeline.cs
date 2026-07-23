@@ -10,6 +10,7 @@ public sealed class TranscriptionPipeline
 {
     private readonly IAsrBackend _asrBackend;
     private readonly ISettingsStore _settingsStore;
+    private readonly IVocabularyRepository _vocabularyRepository;
     private readonly ITextPostProcessor _postProcessor;
     private readonly IStatsRepository _statsRepository;
     private readonly IClock _clock;
@@ -17,12 +18,14 @@ public sealed class TranscriptionPipeline
     public TranscriptionPipeline(
         IAsrBackend asrBackend,
         ISettingsStore settingsStore,
+        IVocabularyRepository vocabularyRepository,
         ITextPostProcessor postProcessor,
         IStatsRepository statsRepository,
         IClock clock)
     {
         _asrBackend = asrBackend;
         _settingsStore = settingsStore;
+        _vocabularyRepository = vocabularyRepository;
         _postProcessor = postProcessor;
         _statsRepository = statsRepository;
         _clock = clock;
@@ -36,7 +39,8 @@ public sealed class TranscriptionPipeline
         {
             var settings = await _settingsStore.LoadAsync(cancellationToken);
             var language = TranscriptionLanguageCatalog.ResolveLanguage(settings.PreferredTranscriptionLanguageId);
-            var initialPrompt = WhisperVocabulary.CreateInitialPrompt(settings.VocabularyText);
+            var activeVocabulary = await _vocabularyRepository.GetActiveAsync(cancellationToken);
+            var initialPrompt = WhisperVocabulary.CreateInitialPrompt(activeVocabulary?.EntriesText);
             var asrResult = await _asrBackend.TranscribeAsync(
                 new AsrRequest(
                     new InMemoryAudioInput(recording.WavData, "wav", recording.SampleRate, recording.Channels),

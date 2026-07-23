@@ -19,8 +19,7 @@ public sealed class SqliteRepositoryTests
             StartModelOnAppStartup: true,
             MinimizeToTrayOnClose: false,
             WhisperServerThreadCount: 8,
-            PreferredTranscriptionLanguageId: "zh-Hans",
-            VocabularyText: "LessASR\n大语言模型\nKubernetes\n初音ミク");
+            PreferredTranscriptionLanguageId: "zh-Hans");
 
         await store.SaveAsync(settings, CancellationToken.None);
         var loaded = await store.LoadAsync(CancellationToken.None);
@@ -70,17 +69,6 @@ public sealed class SqliteRepositoryTests
         var loaded = await store.LoadAsync(CancellationToken.None);
 
         Assert.Null(loaded.WhisperServerThreadCount);
-    }
-
-    [Fact]
-    public async Task SettingsStore_DefaultsVocabularyTextWhenMissing()
-    {
-        await using var database = await SqliteDatabase.CreateInMemoryAsync();
-        var store = new SqliteSettingsStore(database);
-
-        var loaded = await store.LoadAsync(CancellationToken.None);
-
-        Assert.Equal(string.Empty, loaded.VocabularyText);
     }
 
     [Fact]

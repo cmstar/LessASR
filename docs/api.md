@@ -15,9 +15,9 @@ whisper.cpp `whisper-server` 默认转写端点（可通过 `--inference-path` �
   - `file`：WAV 音频（`audio/wav`）
   - `response_format`：`json`
   - `language`：可选；LessASR 在「首选语言」非自动时发送 Whisper 语言代码（如 `zh`、`en`）
-  - `prompt`：可选；「词汇表」非空时发送。词条允许混合语言，列表顶部优先级更高；客户端会调整发送顺序，使高优先级词条位于 prompt 尾部并优先避开 Whisper 的左侧截断
+  - `prompt`：可选；存在“使用中”的非空词汇表时发送。词条允许混合语言，列表顶部优先级更高；客户端会调整发送顺序，使高优先级词条位于 prompt 尾部并优先避开 Whisper 的左侧截断
 
-`language` 仍决定本次请求的主要识别语言，`prompt` 仅作为软提示。简体中文 / 繁体中文的简繁转换继续在客户端通过 OpenCC 后处理完成。
+同一时间最多一份词汇表处于使用中；切换或停止使用后从下一次 ASR 请求生效。`language` 仍决定本次请求的主要识别语言，`prompt` 仅作为软提示。简体中文 / 繁体中文的简繁转换继续在客户端通过 OpenCC 后处理完成。
 
 **响应**
 
@@ -48,5 +48,6 @@ Core 层平台抽象见 `src/LocalAsrClient.Core/Abstractions/`：
 | `ITextInjector` | 文本注入 |
 | `IHotkeyListener` | 右 Ctrl 触发事件 |
 | `ISettingsStore` | 应用设置读写 |
+| `IVocabularyRepository` | 多词汇表的查询、新建、更新、删除与使用中状态切换 |
 | `IStatsRepository` | 每日统计 |
 | `ITextHistoryRepository` | 文本历史的新增、查询、单条删除与保留期清理 |

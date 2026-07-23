@@ -22,7 +22,11 @@ public sealed class MainViewModel
             ConfirmHistoryDeletion);
         Stats = new StatsViewModel();
         Model = new ModelViewModel(services);
-        Vocabulary = new VocabularyViewModel(services.SettingsStore);
+        Vocabulary = new VocabularyViewModel(
+            services.VocabularyRepository,
+            RequestVocabularyName,
+            ConfirmVocabularySaveBeforeChange,
+            ConfirmVocabularyDeletion);
         Settings = new SettingsViewModel(services, Model.RefreshFromSettingsAsync);
         Debug = new DebugViewModel(services);
         _services.Orchestrator.StatusChanged += OnDictationStatusChanged;
@@ -57,6 +61,39 @@ public sealed class MainViewModel
                 Message = "删除后将无法恢复，使用统计不会受到影响。",
                 ConfirmText = "删除",
                 Preview = entry.Text,
+                Tone = ConfirmationDialogTone.Destructive
+            });
+
+    private static string? RequestVocabularyName(IReadOnlyList<string> existingNames) =>
+        VocabularyNameDialog.Prompt(
+            System.Windows.Application.Current?.MainWindow,
+            existingNames);
+
+    private static bool ConfirmVocabularySaveBeforeChange(VocabularyProfile profile) =>
+        ConfirmationDialog.Confirm(
+            System.Windows.Application.Current?.MainWindow,
+            new ConfirmationDialogOptions
+            {
+                Title = "保存词汇表",
+                Heading = $"保存对“{profile.Name}”的修改并切换？",
+                Message = "保存后继续切换；取消将留在当前词汇表。",
+                ConfirmText = "保存并切换",
+                Preview = profile.Name,
+                IsConfirmDefault = true
+            });
+
+    private static bool ConfirmVocabularyDeletion(VocabularyProfile profile) =>
+        ConfirmationDialog.Confirm(
+            System.Windows.Application.Current?.MainWindow,
+            new ConfirmationDialogOptions
+            {
+                Title = "删除词汇表",
+                Heading = $"确定删除“{profile.Name}”？",
+                Message = profile.IsActive
+                    ? "删除后将停止使用词汇表，后续听写不会发送 Prompt。"
+                    : "删除后将无法恢复，其中的词条也会一并移除。",
+                ConfirmText = "删除",
+                Preview = profile.Name,
                 Tone = ConfirmationDialogTone.Destructive
             });
 

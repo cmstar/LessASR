@@ -14,6 +14,7 @@ public sealed class DictationOrchestrator
     private readonly IStatsRepository _statsRepository;
     private readonly ITextHistoryRepository _historyRepository;
     private readonly ISettingsStore _settingsStore;
+    private readonly IVocabularyRepository _vocabularyRepository;
     private readonly IClock _clock;
     private readonly ITextPostProcessor _postProcessor;
     private static readonly TimeSpan MinRecordingDuration = TimeSpan.FromMilliseconds(300);
@@ -29,8 +30,18 @@ public sealed class DictationOrchestrator
         IStatsRepository statsRepository,
         ITextHistoryRepository historyRepository,
         ISettingsStore settingsStore,
+        IVocabularyRepository vocabularyRepository,
         IClock clock)
-        : this(recorder, asrBackend, textInjector, statsRepository, historyRepository, settingsStore, clock, new NoOpTextPostProcessor())
+        : this(
+            recorder,
+            asrBackend,
+            textInjector,
+            statsRepository,
+            historyRepository,
+            settingsStore,
+            vocabularyRepository,
+            clock,
+            new NoOpTextPostProcessor())
     {
     }
 
@@ -41,6 +52,7 @@ public sealed class DictationOrchestrator
         IStatsRepository statsRepository,
         ITextHistoryRepository historyRepository,
         ISettingsStore settingsStore,
+        IVocabularyRepository vocabularyRepository,
         IClock clock,
         ITextPostProcessor postProcessor)
     {
@@ -50,6 +62,7 @@ public sealed class DictationOrchestrator
         _statsRepository = statsRepository;
         _historyRepository = historyRepository;
         _settingsStore = settingsStore;
+        _vocabularyRepository = vocabularyRepository;
         _clock = clock;
         _postProcessor = postProcessor;
     }
@@ -160,7 +173,8 @@ public sealed class DictationOrchestrator
 
             var settings = await _settingsStore.LoadAsync(cancellationToken);
             var language = TranscriptionLanguageCatalog.ResolveLanguage(settings.PreferredTranscriptionLanguageId);
-            var initialPrompt = WhisperVocabulary.CreateInitialPrompt(settings.VocabularyText);
+            var activeVocabulary = await _vocabularyRepository.GetActiveAsync(cancellationToken);
+            var initialPrompt = WhisperVocabulary.CreateInitialPrompt(activeVocabulary?.EntriesText);
 
             var asrResult = await _asrBackend.TranscribeAsync(new AsrRequest(
                 new InMemoryAudioInput(recording.WavData, "wav", recording.SampleRate, recording.Channels),

@@ -63,6 +63,19 @@ public sealed class SqliteDatabase : IAsyncDisposable
                 backend_id TEXT NOT NULL,
                 model_id TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS vocabulary_profiles (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+                entries_text TEXT NOT NULL,
+                is_active INTEGER NOT NULL DEFAULT 0 CHECK(is_active IN (0, 1)),
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_vocabulary_profiles_active
+            ON vocabulary_profiles(is_active)
+            WHERE is_active = 1;
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
     }

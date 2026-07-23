@@ -99,6 +99,84 @@ public sealed class StubSettingsStore : ISettingsStore
     public Task SaveAsync(AppSettings settings, CancellationToken cancellationToken) => Task.CompletedTask;
 }
 
+public sealed class StubVocabularyRepository : IVocabularyRepository
+{
+    public List<VocabularyProfile> Profiles { get; } = [];
+
+    public VocabularyProfile? ActiveProfile
+    {
+        get => Profiles.SingleOrDefault(profile => profile.IsActive);
+        set
+        {
+            for (var index = 0; index < Profiles.Count; index++)
+            {
+                Profiles[index] = Profiles[index] with { IsActive = false };
+            }
+
+            if (value is not null)
+            {
+                var existingIndex = Profiles.FindIndex(profile => profile.Id == value.Id);
+                var active = value with { IsActive = true };
+                if (existingIndex >= 0)
+                {
+                    Profiles[existingIndex] = active;
+                }
+                else
+                {
+                    Profiles.Add(active);
+                }
+            }
+        }
+    }
+
+    public Task<IReadOnlyList<VocabularyProfile>> GetAllAsync(CancellationToken cancellationToken)
+    {
+        return Task.FromResult<IReadOnlyList<VocabularyProfile>>(Profiles.ToArray());
+    }
+
+    public Task<VocabularyProfile?> GetActiveAsync(CancellationToken cancellationToken)
+    {
+        return Task.FromResult(ActiveProfile);
+    }
+
+    public Task<VocabularyProfile> CreateAsync(string name, CancellationToken cancellationToken)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var profile = new VocabularyProfile(
+            Guid.NewGuid(),
+            name,
+            string.Empty,
+            Profiles.Count == 0,
+            now,
+            now);
+        Profiles.Add(profile);
+        return Task.FromResult(profile);
+    }
+
+    public Task UpdateAsync(
+        Guid id,
+        string name,
+        string entriesText,
+        CancellationToken cancellationToken)
+    {
+        var index = Profiles.FindIndex(profile => profile.Id == id);
+        Profiles[index] = Profiles[index] with { Name = name, EntriesText = entriesText };
+        return Task.CompletedTask;
+    }
+
+    public Task SetActiveAsync(Guid? id, CancellationToken cancellationToken)
+    {
+        ActiveProfile = id is null ? null : Profiles.Single(profile => profile.Id == id);
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteAsync(Guid id, CancellationToken cancellationToken)
+    {
+        Profiles.RemoveAll(profile => profile.Id == id);
+        return Task.CompletedTask;
+    }
+}
+
 public sealed class StubClock : IClock
 {
     public DateTimeOffset Now => new(2026, 6, 7, 12, 0, 0, TimeSpan.Zero);
