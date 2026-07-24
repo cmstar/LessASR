@@ -16,6 +16,7 @@ public sealed class ContinuousDictationCoordinator : IDisposable
     private readonly ISettingsStore _settingsStore;
     private readonly IClock _clock;
     private readonly IAsrBackend _asrBackend;
+    private readonly bool _isDemoMode;
     private ContinuousDictationWindow? _window;
     private ContinuousDictationViewModel? _viewModel;
     private bool _isClosing;
@@ -25,22 +26,25 @@ public sealed class ContinuousDictationCoordinator : IDisposable
         ITextHistoryRepository historyRepository,
         ISettingsStore settingsStore,
         IClock clock,
-        IAsrBackend asrBackend)
+        IAsrBackend asrBackend,
+        bool isDemoMode = false)
     {
         _session = session;
         _historyRepository = historyRepository;
         _settingsStore = settingsStore;
         _clock = clock;
         _asrBackend = asrBackend;
+        _isDemoMode = isDemoMode;
         _session.Changed += OnSessionChanged;
     }
 
     public bool IsWindowOpen => _window is { IsLoaded: true };
 
+    public ContinuousDictationWindow? CurrentWindow => IsWindowOpen ? _window : null;
+
     public void HandleF9()
     {
-        System.Windows.Application.Current.Dispatcher.Invoke(EnsureWindowVisible);
-        _ = RunF9Async();
+        _ = ShowAndToggleRecordingAsync();
     }
 
     public void HandleRightControl()
@@ -52,6 +56,15 @@ public sealed class ContinuousDictationCoordinator : IDisposable
 
         _ = RunSessionAsync(session => session.CommitSegmentBoundaryAsync(CancellationToken.None));
     }
+
+    public async Task ShowAndToggleRecordingAsync()
+    {
+        await System.Windows.Application.Current.Dispatcher.InvokeAsync(EnsureWindowVisible);
+        await RunF9Async();
+    }
+
+    public Task CommitSegmentBoundaryAsync() =>
+        RunSessionAsync(session => session.CommitSegmentBoundaryAsync(CancellationToken.None));
 
     public void HandleEscape()
     {
@@ -84,7 +97,8 @@ public sealed class ContinuousDictationCoordinator : IDisposable
         _viewModel = new ContinuousDictationViewModel(
             _session,
             RequestClose,
-            () => _ = RunSessionAsync(session => session.CancelCurrentSegmentAsync(CancellationToken.None)));
+            () => _ = RunSessionAsync(session => session.CancelCurrentSegmentAsync(CancellationToken.None)),
+            _isDemoMode);
 
         _window = new ContinuousDictationWindow(_viewModel);
         _window.Closing += OnWindowClosing;

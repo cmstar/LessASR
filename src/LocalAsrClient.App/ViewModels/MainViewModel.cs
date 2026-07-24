@@ -42,8 +42,12 @@ public sealed class MainViewModel
                 OnHistoryChanged();
             }
         };
-        _ = LoadAsync();
+        Initialization = LoadAsync();
     }
+
+    public Task Initialization { get; }
+
+    public string RuntimeBadgeText => _services.IsDemoMode ? "演示" : "本地";
 
     public StatusViewModel Status { get; }
     public MainNavigationViewModel Navigation { get; }
@@ -211,7 +215,7 @@ public sealed class MainViewModel
         await Model.InitializeAsync();
         await RefreshHistoryAsync();
         var end = DateOnly.FromDateTime(DateTime.Now);
-        var start = end.AddDays(-30);
+        var start = end.AddDays(-(StatsViewModel.SummaryDayCount - 1));
         var stats = await _services.StatsRepository.GetRangeAsync(start, end, CancellationToken.None);
         Stats.Load(stats);
     }

@@ -110,6 +110,43 @@ dotnet run --project src/LocalAsrClient.App/LocalAsrClient.App.csproj -- --test-
 测试模式下 ASR 固定返回默认测试文本，不验证 whisper-server 识别准确率。仍使用双按右 Ctrl 完整听写链路，仅替换录音与 ASR 后端。
 测试模式使用内存 SQLite，不读取或修改用户正式的 `%USERPROFILE%\.lessasr\data\client.db`。
 
+## 演示数据与文档截图
+
+演示模式用于 README 与后续使用文档的真实界面截图。它使用系统临时目录下固定的
+`LessASR\demo\` 数据根，每次启动都会从零创建数据库，不读取或修改
+`%USERPROFILE%\.lessasr\`：
+
+```powershell
+.\tools\Start-LessAsrDemo.ps1
+```
+
+演示数据通过当前 `SqliteDatabase` 和仓储 API 生成，不提交预制 `.db` 文件。连续听写截图
+复用 `ContinuousDictationSession`、内存录音替身与顺序演示 ASR，不依赖麦克风、模型文件或
+`whisper-server`。
+
+重新生成 README 与未来 Wiki 共用的产品截图：
+
+```powershell
+.\tools\Update-DocumentationScreenshots.ps1
+```
+
+截图命令需要可交互的 Windows 桌面会话；工具会临时置顶演示窗口、按实际窗口区域捕获，并将
+高 DPI 物理像素统一缩放到文档约定尺寸。
+
+截图源文件统一放在 `docs/assets/screenshots/`，按内容场景分目录，不按 README、Wiki 等
+发布渠道重复存放。未来若使用独立的 GitHub Wiki 仓库，应由发布流程复制 `docs/` 文档及其
+`assets/`，仓库内文件仍是唯一来源。
+
+以下改动必须同步检查演示场景，并运行截图更新命令：
+
+- SQLite 表结构、迁移、仓储接口或保留策略变化；
+- 首页指标、统计范围或历史分组变化；
+- 设置项、导航、窗口尺寸、主题或通用控件样式变化；
+- 连续听写状态、文案、布局或段落数量变化。
+
+`StatsViewModel.SummaryDayCount` 与 `TrendDayCount` 是统计展示和演示数据的共同范围来源。
+修改统计窗口时应先更新这些定义，再调整相应测试和文档说明。
+
 ### 进程生命周期说明
 
 `LocalAsrClient.TestTarget` 本身是普通 WPF 窗口程序，**不会**在跑完后自动退出。通过 `dotnet test` 跑 UI E2E 时，测试框架里的 `ProcessRunner` 在断言结束后会依次 `CloseMainWindow()`，超时则 `Kill()`，因此你会看到两个窗口一闪就关——这是测试 runner 主动清理，不是 TestTarget 自己退出。

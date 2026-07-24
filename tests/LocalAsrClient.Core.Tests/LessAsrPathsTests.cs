@@ -26,4 +26,22 @@ public sealed class LessAsrPathsTests
     {
         Assert.Equal("LessASR", LessAsrPaths.ProductName);
     }
+
+    [Fact]
+    public void DemoLayout_IsIsolatedFromProductionAndStoredUnderTemp()
+    {
+        var demo = LessAsrPaths.Demo;
+        var production = LessAsrPaths.Production;
+        var tempRoot = Path.GetFullPath(Path.GetTempPath());
+
+        Assert.NotEqual(
+            Path.GetFullPath(production.AppDataRoot),
+            Path.GetFullPath(demo.AppDataRoot));
+        Assert.StartsWith(
+            tempRoot,
+            Path.GetFullPath(demo.AppDataRoot),
+            StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(Path.Combine(demo.AppDataRoot, "data", "client.db"), demo.DatabasePath);
+        Assert.Equal(Path.Combine(demo.AppDataRoot, "logs"), demo.LogsDirectory);
+    }
 }

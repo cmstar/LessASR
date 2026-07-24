@@ -21,13 +21,18 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <ui:TitleBar Title="连续听写"/>
+        <ui:TitleBar Title="连续听写" Padding="12,0,0,0"/>
 
         <Border Grid.Row="1" Style="{StaticResource LessAsr.Card}" Margin="12,4,12,10" Padding="16">
             <Grid>
                 <StackPanel>
                     <TextBlock Text="{Binding HeaderText}" Style="{StaticResource LessAsr.Text.SectionTitle}"/>
                     <TextBlock Text="按右 Ctrl 分段，按 F9 结束本轮录音。" Style="{StaticResource LessAsr.Text.Caption}" Margin="0,5,0,0"/>
+                    <TextBlock Text="演示模式 · 内容为固定示例数据"
+                               Foreground="{StaticResource LessAsr.Brush.Accent}"
+                               FontSize="12"
+                               Margin="0,4,0,0"
+                               Visibility="{Binding IsDemoMode, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                 </StackPanel>
                 <Border Style="{StaticResource LessAsr.StatusBadge}" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal">

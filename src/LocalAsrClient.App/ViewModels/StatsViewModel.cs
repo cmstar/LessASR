@@ -7,6 +7,10 @@ namespace LocalAsrClient.App.ViewModels;
 
 public sealed class StatsViewModel : INotifyPropertyChanged
 {
+    public const int SummaryDayCount = 30;
+
+    public const int TrendDayCount = 7;
+
     public ObservableCollection<DailyStatsSnapshot> Days { get; } = new();
 
     public ObservableCollection<StatsTrendPointViewModel> LastSevenDays { get; } = new();
@@ -36,7 +40,7 @@ public sealed class StatsViewModel : INotifyPropertyChanged
 
     public void Load(IEnumerable<DailyStatsSnapshot> days, DateOnly today)
     {
-        var start = today.AddDays(-29);
+        var start = today.AddDays(-(SummaryDayCount - 1));
         var snapshots = days
             .Where(day => day.Date >= start && day.Date <= today)
             .OrderBy(day => day.Date)
@@ -73,9 +77,9 @@ public sealed class StatsViewModel : INotifyPropertyChanged
 
     private void BuildLastSevenDays(IReadOnlyCollection<DailyStatsSnapshot> snapshots, DateOnly today)
     {
-        var start = today.AddDays(-6);
+        var start = today.AddDays(-(TrendDayCount - 1));
         var byDate = snapshots.ToDictionary(snapshot => snapshot.Date);
-        var counts = Enumerable.Range(0, 7)
+        var counts = Enumerable.Range(0, TrendDayCount)
             .Select(offset =>
             {
                 var date = start.AddDays(offset);

@@ -17,12 +17,14 @@ public sealed class ContinuousDictationViewModel : INotifyPropertyChanged
     public ContinuousDictationViewModel(
         ContinuousDictationSession session,
         Action onClose,
-        Action onEndRecording)
+        Action onEndRecording,
+        bool isDemoMode = false)
     {
         _session = session;
         CloseCommand = new RelayCommand(onClose);
         EndRecordingCommand = new RelayCommand(onEndRecording);
         CopyCommand = new RelayCommand(OnCopy);
+        IsDemoMode = isDemoMode;
     }
 
     public event Action? ScrollToBottomRequested;
@@ -30,6 +32,8 @@ public sealed class ContinuousDictationViewModel : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public ObservableCollection<ContinuousSegmentViewModel> Segments { get; } = new();
+
+    public bool IsDemoMode { get; }
 
     public string HeaderText => $"连续听写模式 ({CompletedCount}/{TotalCount})";
 

@@ -8,6 +8,8 @@ using LocalAsrClient.App.ContinuousDictation;
 
 using LocalAsrClient.App.Diagnostics;
 
+using LocalAsrClient.App.DemoMode;
+
 using LocalAsrClient.App.Infrastructure;
 
 using LocalAsrClient.App.Hotkeys;
@@ -65,13 +67,17 @@ public sealed class AppServices : IAsyncDisposable
 
         ContinuousDictationCoordinator continuousDictationCoordinator,
 
+        ContinuousDictationSession continuousDictationSession,
+
         InjectionTargetCapture injectionTargetCapture,
 
         ResilientWhisperServerClient transcribeClient,
 
         WhisperServerProcessManager serverManager,
 
-        IDiagnosticEventSink diagnosticSink)
+        IDiagnosticEventSink diagnosticSink,
+
+        AppStartupOptions startupOptions)
 
     {
 
@@ -97,6 +103,8 @@ public sealed class AppServices : IAsyncDisposable
 
         ContinuousDictationCoordinator = continuousDictationCoordinator;
 
+        ContinuousDictationSession = continuousDictationSession;
+
         InjectionTargetCapture = injectionTargetCapture;
 
         TranscribeClient = transcribeClient;
@@ -104,6 +112,8 @@ public sealed class AppServices : IAsyncDisposable
         ServerManager = serverManager;
 
         DiagnosticSink = diagnosticSink;
+
+        StartupOptions = startupOptions;
 
     }
 
@@ -131,6 +141,8 @@ public sealed class AppServices : IAsyncDisposable
 
     public ContinuousDictationCoordinator ContinuousDictationCoordinator { get; }
 
+    public ContinuousDictationSession ContinuousDictationSession { get; }
+
     public InjectionTargetCapture InjectionTargetCapture { get; }
 
     public ResilientWhisperServerClient TranscribeClient { get; }
@@ -138,6 +150,12 @@ public sealed class AppServices : IAsyncDisposable
     public WhisperServerProcessManager ServerManager { get; }
 
     public IDiagnosticEventSink DiagnosticSink { get; }
+
+    public AppStartupOptions StartupOptions { get; }
+
+    public LessAsrPathLayout Paths => StartupOptions.Paths;
+
+    public bool IsDemoMode => StartupOptions.IsDemoMode;
 
 
 
@@ -183,17 +201,34 @@ public sealed class AppServices : IAsyncDisposable
         CancellationToken cancellationToken = default)
 
     {
+        return await CreateAsync(AppStartupOptions.Resolve(startupArgs), cancellationToken);
+    }
 
-        Directory.CreateDirectory(LessAsrPaths.DataDirectory);
+    public static async Task<AppServices> CreateAsync(
+        AppStartupOptions startupOptions,
+        CancellationToken cancellationToken = default)
 
-        var testMode = TestModeOptions.Resolve(startupArgs);
-        IDiagnosticEventSink diagnosticSink = testMode.DiagnosticsEnabled
-            ? JsonlDiagnosticEventSink.Create(LessAsrPaths.DiagnosticsDirectory)
+    {
+        var paths = startupOptions.Paths;
+        if (startupOptions.IsDemoMode)
+        {
+            ResetDemoDatabase(paths);
+        }
+
+        Directory.CreateDirectory(paths.DataDirectory);
+
+        IDiagnosticEventSink diagnosticSink = startupOptions.DiagnosticsEnabled
+            ? JsonlDiagnosticEventSink.Create(paths.DiagnosticsDirectory)
             : NullDiagnosticEventSink.Instance;
 
-        var database = testMode.Enabled
+        var database = startupOptions.IsTestMode
             ? await SqliteDatabase.CreateInMemoryAsync()
-            : await SqliteDatabase.OpenAsync(LessAsrPaths.DatabasePath, cancellationToken);
+            : await SqliteDatabase.OpenAsync(paths.DatabasePath, cancellationToken);
+
+        if (startupOptions.IsDemoMode)
+        {
+            await DemoDataSeeder.SeedAsync(database, DateTimeOffset.Now, cancellationToken);
+        }
 
         var settingsStore = new SqliteSettingsStore(database);
 
@@ -217,9 +252,12 @@ public sealed class AppServices : IAsyncDisposable
 
         var transcribeClient = new ResilientWhisperServerClient(options.BaseUri, serverManager);
 
-        IAsrBackend backend = testMode.Enabled
-            ? new TestAsrBackend(testMode.AsrText)
-            : new ManagedWhisperServerBackend(serverManager, transcribeClient);
+        IAsrBackend backend = startupOptions.RuntimeMode switch
+        {
+            AppRuntimeMode.Test => new TestAsrBackend(TestModeOptions.DefaultAsrText),
+            AppRuntimeMode.Demo => new DemoAsrBackend(DemoDataScenario.ContinuousDictationSegments),
+            _ => new ManagedWhisperServerBackend(serverManager, transcribeClient)
+        };
 
 
 
@@ -232,11 +270,11 @@ public sealed class AppServices : IAsyncDisposable
         var historyRepository = new NotifyingTextHistoryRepository(
             new SqliteTextHistoryRepository(database));
 
-        IAudioRecorder singleRecorder = testMode.Enabled
+        IAudioRecorder singleRecorder = startupOptions.IsTestMode || startupOptions.IsDemoMode
             ? new SimulatedAudioRecorder()
             : new NAudioMemoryRecorder();
 
-        IAudioRecorder continuousRecorder = testMode.Enabled
+        IAudioRecorder continuousRecorder = startupOptions.IsTestMode || startupOptions.IsDemoMode
             ? new SimulatedAudioRecorder()
             : new NAudioMemoryRecorder();
 
@@ -255,7 +293,8 @@ public sealed class AppServices : IAsyncDisposable
             historyRepository,
             settingsStore,
             clock,
-            backend);
+            backend,
+            startupOptions.IsDemoMode);
 
         var injectionTargetCapture = new InjectionTargetCapture(diagnosticSink);
 
@@ -428,7 +467,8 @@ public sealed class AppServices : IAsyncDisposable
 
 
 
-        if (settings.StartModelOnAppStartup && !testMode.Enabled)
+        if (settings.StartModelOnAppStartup
+            && startupOptions.RuntimeMode == AppRuntimeMode.Standard)
 
         {
 
@@ -462,14 +502,43 @@ public sealed class AppServices : IAsyncDisposable
 
             continuousCoordinator,
 
+            continuousSession,
+
             injectionTargetCapture,
 
             transcribeClient,
 
             serverManager,
 
-            diagnosticSink);
+            diagnosticSink,
 
+            startupOptions);
+
+    }
+
+    private static void ResetDemoDatabase(LessAsrPathLayout paths)
+    {
+        var demoRoot = Path.GetFullPath(LessAsrPaths.Demo.AppDataRoot);
+        var productionRoot = Path.GetFullPath(LessAsrPaths.Production.AppDataRoot);
+        var requestedRoot = Path.GetFullPath(paths.AppDataRoot);
+        if (!string.Equals(requestedRoot, demoRoot, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(requestedRoot, productionRoot, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("演示模式拒绝重置非演示数据目录。");
+        }
+
+        foreach (var path in new[]
+                 {
+                     paths.DatabasePath,
+                     $"{paths.DatabasePath}-wal",
+                     $"{paths.DatabasePath}-shm"
+                 })
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
     }
 
 

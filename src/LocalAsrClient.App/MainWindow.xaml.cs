@@ -15,8 +15,11 @@ public partial class MainWindow : FluentWindow
     {
         _services = services;
         InitializeComponent();
-        DataContext = new MainViewModel(services);
+        ViewModel = new MainViewModel(services);
+        DataContext = ViewModel;
     }
+
+    public MainViewModel ViewModel { get; }
 
     public void AllowClose()
     {

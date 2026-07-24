@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Threading;
 using LocalAsrClient.App.Bootstrap;
+using LocalAsrClient.App.DemoMode;
 using LocalAsrClient.App.Infrastructure;
 using LocalAsrClient.App.Tray;
 
@@ -15,18 +16,33 @@ public partial class App : System.Windows.Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        AppExceptionLogger.Initialize();
-        DispatcherUnhandledException += OnDispatcherUnhandledException;
-        AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
-        TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
 
         try
         {
-            _services = await AppServices.CreateAsync(e.Args, CancellationToken.None);
+            var startupOptions = AppStartupOptions.Resolve(e.Args);
+            AppExceptionLogger.ConfigureLogsDirectory(startupOptions.Paths.LogsDirectory);
+            DispatcherUnhandledException += OnDispatcherUnhandledException;
+            AppDomain.CurrentDomain.UnhandledException += OnDomainUnhandledException;
+            TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
+
+            _services = await AppServices.CreateAsync(startupOptions, CancellationToken.None);
             _mainWindow = new MainWindow(_services);
             MainWindow = _mainWindow;
             _trayIconService = new TrayIconService(_mainWindow);
             _mainWindow.Show();
+
+            if (startupOptions.DemoScreenshotOutputDirectory is not null)
+            {
+                await DemoScreenshotExporter.ExportAsync(
+                    _mainWindow,
+                    _services,
+                    startupOptions.DemoScreenshotOutputDirectory,
+                    CancellationToken.None);
+                _mainWindow.AllowClose();
+                Shutdown();
+                return;
+            }
+
             _services.HotkeyListener.Start();
             _services.ContinuousDictationHotkeyListener.Start();
             _services.EscapeCancelListener.Start();

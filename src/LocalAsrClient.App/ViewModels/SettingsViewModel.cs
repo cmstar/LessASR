@@ -18,6 +18,8 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     private readonly Func<Task> _applyServerOptionsFromSettings;
     private readonly Func<Task>? _onSettingsSaved;
     private readonly Func<HistoryRetentionChange, bool> _confirmHistoryCleanup;
+    private readonly string _dataDirectoryPath;
+    private readonly string _logsDirectoryPath;
     private string _modelPath = "";
     private string _whisperServerPath = "";
     private int _whisperServerPort = AppSettings.DefaultWhisperServerPort;
@@ -40,7 +42,9 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             services.HistoryRepository,
             () => services.ApplyServerOptionsFromSettingsAsync(),
             onSettingsSaved,
-            confirmHistoryCleanup)
+            confirmHistoryCleanup,
+            services.Paths.DataDirectory,
+            services.Paths.LogsDirectory)
     {
     }
 
@@ -49,13 +53,17 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         ITextHistoryRepository historyRepository,
         Func<Task> applyServerOptionsFromSettings,
         Func<Task>? onSettingsSaved = null,
-        Func<HistoryRetentionChange, bool>? confirmHistoryCleanup = null)
+        Func<HistoryRetentionChange, bool>? confirmHistoryCleanup = null,
+        string? dataDirectoryPath = null,
+        string? logsDirectoryPath = null)
     {
         _settingsStore = settingsStore;
         _historyRepository = historyRepository;
         _applyServerOptionsFromSettings = applyServerOptionsFromSettings;
         _onSettingsSaved = onSettingsSaved;
         _confirmHistoryCleanup = confirmHistoryCleanup ?? (_ => false);
+        _dataDirectoryPath = dataDirectoryPath ?? LessAsrPaths.DataDirectory;
+        _logsDirectoryPath = logsDirectoryPath ?? LessAsrPaths.LogsDirectory;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -92,9 +100,9 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
         }
     }
 
-    public string DataDirectoryPath => LessAsrPaths.DataDirectory;
+    public string DataDirectoryPath => _dataDirectoryPath;
 
-    public string LogsDirectoryPath => LessAsrPaths.LogsDirectory;
+    public string LogsDirectoryPath => _logsDirectoryPath;
 
     public TranscriptRetentionPolicy TranscriptRetentionPolicy
     {
