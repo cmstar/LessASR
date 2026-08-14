@@ -1,5 +1,9 @@
 # LessASR
 
+[![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?style=flat&logo=dotnet)](https://dotnet.microsoft.com/)
+[![Windows](https://img.shields.io/badge/platform-Windows-0078D4?style=flat&logo=windows)](https://www.microsoft.com/windows/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)](LICENSE)
+
 LessASR（代码仓库名仍为 `LocalAsrClient`）是一款基于开源项目 [whisper.cpp](https://github.com/ggerganov/whisper.cpp) 构建的 Windows 本地语音输入 GUI。程序常驻系统托盘，通过键盘右下角的 Ctrl 键触发听写，识别结果优先直接写入当前文本框；需要整理长段内容时，也可以使用连续听写窗口边说边分段、边识别边编辑。
 
 本项目**由 AI Agent 编码实现**，开发者负责提需求、产品设计、确定业务逻辑与边界条件、验收测试，但通常不直接阅读和修改源码。

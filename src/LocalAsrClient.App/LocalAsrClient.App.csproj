@@ -25,7 +25,49 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="NAudio" Version="2.2.1" />
-    <PackageReference Include="WPF-UI" Version="4.3.0" />
+    <PackageReference Include="NAudio" Version="2.2.1" GeneratePathProperty="true" />
+    <PackageReference Include="WPF-UI" Version="4.3.0" GeneratePathProperty="true" />
   </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\LICENSE"
+          Link="licenses\LessASR-LICENSE.txt"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" />
+    <None Include="..\..\THIRD-PARTY-NOTICES.txt"
+          Link="licenses\THIRD-PARTY-NOTICES.txt"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" />
+    <None Include="..\..\licenses\Apache-2.0.txt"
+          Link="licenses\Apache-2.0.txt"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" />
+    <None Include="$(PkgWPF-UI)\LICENSE.md"
+          Link="licenses\WPF-UI-LICENSE.md"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" />
+    <None Include="$(PkgWPF-UI)\ThirdPartyNotices.txt"
+          Link="licenses\WPF-UI-THIRD-PARTY-NOTICES.txt"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" />
+    <None Include="$(PkgNAudio)\license.txt"
+          Link="licenses\NAudio-LICENSE.txt"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <Target Name="ValidateLicenseFiles" BeforeTargets="Build;Publish">
+    <Error Condition="!Exists('..\..\LICENSE')"
+           Text="LessASR LICENSE file is missing." />
+    <Error Condition="!Exists('..\..\THIRD-PARTY-NOTICES.txt')"
+           Text="LessASR third-party notices file is missing." />
+    <Error Condition="!Exists('..\..\licenses\Apache-2.0.txt')"
+           Text="Apache 2.0 license text is missing." />
+    <Error Condition="!Exists('$(PkgWPF-UI)\LICENSE.md')"
+           Text="WPF-UI license file is missing. Restore NuGet packages before building." />
+    <Error Condition="!Exists('$(PkgWPF-UI)\ThirdPartyNotices.txt')"
+           Text="WPF-UI third-party notices file is missing. Restore NuGet packages before building." />
+    <Error Condition="!Exists('$(PkgNAudio)\license.txt')"
+           Text="NAudio license file is missing. Restore NuGet packages before building." />
+  </Target>
 </Project>
