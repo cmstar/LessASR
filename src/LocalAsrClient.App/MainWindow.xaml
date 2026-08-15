@@ -449,7 +449,7 @@
                                                                     Margin="0,0,8,0"
                                                                     VerticalAlignment="Center"
                                                                     Visibility="{Binding IsActive, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                                <TextBlock Text="使用中"
+                                                                <TextBlock Text="已启用"
                                                                            Foreground="White"
                                                                            FontSize="11"
                                                                            FontWeight="SemiBold"
@@ -538,7 +538,7 @@
                                                         VerticalAlignment="Center"
                                                         Margin="0,0,8,0"
                                                         Visibility="{Binding Vocabulary.SelectedIsActive, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                    <TextBlock Text="使用中"
+                                                    <TextBlock Text="已启用"
                                                                Foreground="{StaticResource LessAsr.Brush.Accent}"
                                                                FontWeight="SemiBold"
                                                                TextAlignment="Center"
@@ -550,14 +550,13 @@
                                                         Style="{StaticResource LessAsr.SecondaryButton}"
                                                         Visibility="{Binding Vocabulary.SelectedIsActive, Converter={StaticResource BooleanToVisibilityConverter}}"
                                                         AutomationProperties.Name="停止使用当前词汇表"/>
-                                                <Button Content="设为当前"
+                                                <Button Content="启用"
                                                         Command="{Binding Vocabulary.ActivateCommand}"
                                                         IsEnabled="{Binding Vocabulary.CanActivate}"
-                                                        MinWidth="96"
-                                                        AutomationProperties.Name="将所选词汇表设为当前">
+                                                        AutomationProperties.Name="启用所选词汇表">
                                                     <Button.Style>
                                                         <Style TargetType="Button"
-                                                               BasedOn="{StaticResource LessAsr.SecondaryButton}">
+                                                               BasedOn="{StaticResource LessAsr.PrimaryButton}">
                                                             <Setter Property="Visibility" Value="Visible"/>
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding Vocabulary.SelectedIsActive}" Value="True">
@@ -606,7 +605,7 @@
                                                    Style="{StaticResource LessAsr.Text.Caption}"
                                                    TextWrapping="Wrap"
                                                    Margin="0,8,0,0"/>
-                                        <TextBlock Text="支持混合语言。设为当前后，从下一次听写开始生效，无需重启识别服务。"
+                                        <TextBlock Text="支持混合语言。启用后，从下一次听写开始生效，无需重启识别服务。"
                                                    Style="{StaticResource LessAsr.Text.Caption}"
                                                    TextWrapping="Wrap"
                                                    Margin="0,4,0,0"/>
@@ -615,23 +614,32 @@
                                                    TextWrapping="Wrap"
                                                    Margin="0,4,0,0"/>
 
-                                        <WrapPanel HorizontalAlignment="Right" Margin="0,16,0,0">
-                                            <Button Content="删除"
-                                                    Command="{Binding Vocabulary.DeleteCommand}"
-                                                    IsEnabled="{Binding Vocabulary.CanDelete}"
-                                                    Style="{StaticResource LessAsr.DestructiveButton}"
+                                        <Border Background="{StaticResource LessAsr.Brush.WarningSoft}"
+                                                CornerRadius="8"
+                                                Padding="10,7"
+                                                Margin="0,14,0,0"
+                                                Visibility="{Binding Vocabulary.HasUnsavedChanges, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <TextBlock Text="有未保存修改；切换词汇表会保留草稿，请保存或放弃修改后再启用。"
+                                                       Foreground="{StaticResource LessAsr.Brush.Warning}"
+                                                       TextWrapping="Wrap"/>
+                                        </Border>
+
+                                        <WrapPanel Margin="0,16,0,0">
+                                            <Button Content="保存"
+                                                    Command="{Binding Vocabulary.SaveCommand}"
+                                                    IsEnabled="{Binding Vocabulary.CanSave}"
+                                                    Style="{StaticResource LessAsr.PrimaryButton}"
                                                     Margin="0,0,8,8"/>
                                             <Button Content="放弃修改"
                                                     Command="{Binding Vocabulary.DiscardCommand}"
                                                     IsEnabled="{Binding Vocabulary.CanDiscard}"
                                                     Style="{StaticResource LessAsr.SecondaryButton}"
                                                     Margin="0,0,8,8"/>
-                                            <Button Content="{Binding Vocabulary.SaveButtonText}"
-                                                    Command="{Binding Vocabulary.SaveCommand}"
-                                                    IsEnabled="{Binding Vocabulary.CanSave}"
-                                                    Style="{StaticResource LessAsr.PrimaryButton}"
-                                                    MinWidth="82"
-                                                    Margin="0,0,0,8"/>
+                                            <Button Content="删除"
+                                                    Command="{Binding Vocabulary.DeleteCommand}"
+                                                    IsEnabled="{Binding Vocabulary.CanDelete}"
+                                                    Style="{StaticResource LessAsr.DestructiveButton}"
+                                                    Margin="0,0,8,8"/>
                                         </WrapPanel>
                                     </StackPanel>
                                 </Grid>

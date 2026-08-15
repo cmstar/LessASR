@@ -85,6 +85,59 @@ public sealed class ServiceViewModelTests
     }
 
     [Fact]
+    public async Task SwitchingModelProviders_PreservesIndependentLocalAndRemoteDrafts()
+    {
+        var profile = CreateProfile("Office API");
+        var viewModel = CreateViewModel(
+            new FakeSettingsStore(AppSettings.CreateDefault()),
+            new FakeCoordinator(profile),
+            new FakeManager());
+        await viewModel.LoadAsync();
+        viewModel.ModelPath = "local-draft.bin";
+
+        Assert.True(viewModel.HasLocalUnsavedChanges);
+        Assert.True(viewModel.CanSaveLocal);
+        Assert.True(viewModel.CanDiscardLocal);
+
+        viewModel.SelectModelProvider(viewModel.ModelProviders.Single(item => !item.IsLocal));
+        var remote = Assert.Single(viewModel.RemoteProfiles);
+        remote.Endpoint = "https://draft.example/v1/audio/transcriptions";
+        viewModel.SelectModelProvider(viewModel.ModelProviders.Single(item => item.IsLocal));
+
+        Assert.Equal("local-draft.bin", viewModel.ModelPath);
+
+        viewModel.SelectModelProvider(viewModel.ModelProviders.Single(item => !item.IsLocal));
+
+        Assert.Equal("https://draft.example/v1/audio/transcriptions", remote.Endpoint);
+        Assert.True(remote.HasUnsavedChanges);
+    }
+
+    [Fact]
+    public async Task DiscardLocalChanges_RestoresSavedConfigurationAndDisablesDraftActions()
+    {
+        var settings = AppSettings.CreateDefault() with
+        {
+            ModelPath = "saved-model.bin",
+            WhisperServerPort = 18080
+        };
+        var viewModel = CreateViewModel(
+            new FakeSettingsStore(settings),
+            new FakeCoordinator(),
+            new FakeManager());
+        await viewModel.LoadAsync();
+        viewModel.ModelPath = "draft-model.bin";
+        viewModel.WhisperServerPort = 28080;
+
+        viewModel.DiscardLocalChanges();
+
+        Assert.Equal("saved-model.bin", viewModel.ModelPath);
+        Assert.Equal(18080, viewModel.WhisperServerPort);
+        Assert.False(viewModel.HasLocalUnsavedChanges);
+        Assert.False(viewModel.CanSaveLocal);
+        Assert.False(viewModel.CanDiscardLocal);
+    }
+
+    [Fact]
     public async Task SaveRemoteProfile_PersistsItsOptionalProxyAddress()
     {
         var coordinator = new FakeCoordinator();
@@ -164,6 +217,8 @@ public sealed class ServiceViewModelTests
         Assert.Equal(18080, settings.Settings.WhisperServerPort);
         Assert.Equal(WhisperServerStatus.Ready, manager.Status);
         Assert.False(manager.IsRestartRequired);
+        Assert.False(viewModel.HasLocalUnsavedChanges);
+        Assert.False(viewModel.CanSaveLocal);
         Assert.Equal(["update", "stop", "start"], manager.Events);
     }
 

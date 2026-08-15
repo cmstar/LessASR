@@ -38,6 +38,11 @@ public sealed class ServiceViewModel : INotifyPropertyChanged
     private int _whisperServerPort = AppSettings.DefaultWhisperServerPort;
     private string _whisperServerThreadCountText = "";
     private bool _startModelOnAppStartup;
+    private string _savedModelPath = "";
+    private string _savedWhisperServerPath = "";
+    private int _savedWhisperServerPort = AppSettings.DefaultWhisperServerPort;
+    private string _savedWhisperServerThreadCountText = "";
+    private bool _savedStartModelOnAppStartup;
     private bool _isOperationInProgress;
     private string _lastMessage = "";
     private string _lastError = "";
@@ -79,6 +84,7 @@ public sealed class ServiceViewModel : INotifyPropertyChanged
         BrowseModelPathCommand = new RelayCommand(BrowseModelPath);
         BrowseWhisperServerPathCommand = new RelayCommand(BrowseWhisperServerPath);
         SaveLocalCommand = new AsyncRelayCommand(SaveLocalAsync, "保存本地服务失败");
+        DiscardLocalCommand = new RelayCommand(DiscardLocalChanges);
         ActivateLocalCommand = new AsyncRelayCommand(ActivateLocalAsync, "切换本地服务失败");
         StartLocalCommand = new AsyncRelayCommand(StartLocalAsync, "启动本地服务失败");
         StopLocalCommand = new AsyncRelayCommand(StopLocalAsync, "停止本地服务失败");
@@ -97,25 +103,49 @@ public sealed class ServiceViewModel : INotifyPropertyChanged
     public string ModelPath
     {
         get => _modelPath;
-        set => SetField(ref _modelPath, value);
+        set
+        {
+            if (SetField(ref _modelPath, value))
+            {
+                NotifyLocalDraftState();
+            }
+        }
     }
 
     public string WhisperServerPath
     {
         get => _whisperServerPath;
-        set => SetField(ref _whisperServerPath, value);
+        set
+        {
+            if (SetField(ref _whisperServerPath, value))
+            {
+                NotifyLocalDraftState();
+            }
+        }
     }
 
     public int WhisperServerPort
     {
         get => _whisperServerPort;
-        set => SetField(ref _whisperServerPort, value);
+        set
+        {
+            if (SetField(ref _whisperServerPort, value))
+            {
+                NotifyLocalDraftState();
+            }
+        }
     }
 
     public string WhisperServerThreadCountText
     {
         get => _whisperServerThreadCountText;
-        set => SetField(ref _whisperServerThreadCountText, value);
+        set
+        {
+            if (SetField(ref _whisperServerThreadCountText, value))
+            {
+                NotifyLocalDraftState();
+            }
+        }
     }
 
     public int RecommendedThreadCount => WhisperServerThreadCountCatalogValue();
@@ -123,7 +153,13 @@ public sealed class ServiceViewModel : INotifyPropertyChanged
     public bool StartModelOnAppStartup
     {
         get => _startModelOnAppStartup;
-        set => SetField(ref _startModelOnAppStartup, value);
+        set
+        {
+            if (SetField(ref _startModelOnAppStartup, value))
+            {
+                NotifyLocalDraftState();
+            }
+        }
     }
 
     public bool IsLocalActive => _activeRemoteId is null;
@@ -131,8 +167,21 @@ public sealed class ServiceViewModel : INotifyPropertyChanged
     public string LocalServiceAddress => _localManager.BaseUri.ToString();
     public bool IsOperationInProgress => _isOperationInProgress;
     public bool CanMutate => !_isOperationInProgress && !_isDictationBusy();
-    public bool CanActivateLocal => CanMutate && !IsLocalActive;
+    public bool HasLocalUnsavedChanges => !string.Equals(ModelPath, _savedModelPath, StringComparison.Ordinal)
+        || !string.Equals(WhisperServerPath, _savedWhisperServerPath, StringComparison.Ordinal)
+        || WhisperServerPort != _savedWhisperServerPort
+        || !string.Equals(
+            WhisperServerThreadCountText,
+            _savedWhisperServerThreadCountText,
+            StringComparison.Ordinal)
+        || StartModelOnAppStartup != _savedStartModelOnAppStartup;
+    public bool CanSaveLocal => CanMutate && HasLocalUnsavedChanges;
+    public bool CanDiscardLocal => CanMutate && HasLocalUnsavedChanges;
+    public bool CanActivateLocal => CanMutate && !IsLocalActive && !HasLocalUnsavedChanges;
     public bool CanOperateLocal => CanMutate && IsLocalActive;
+    public bool CanStartLocal => CanOperateLocal && !HasLocalUnsavedChanges;
+    public bool CanStopLocal => CanOperateLocal;
+    public bool CanTestLocal => CanMutate && !HasLocalUnsavedChanges;
     public string ActiveServiceStatusText => _activeRemoteId is Guid activeId
         ? $"{RemoteProfiles.FirstOrDefault(profile => profile.Id == activeId)?.Name ?? "远程 API"} · 远程 API"
         : $"本地 Whisper · {LocalServiceStateText}";
@@ -147,6 +196,7 @@ public sealed class ServiceViewModel : INotifyPropertyChanged
     public ICommand BrowseModelPathCommand { get; }
     public ICommand BrowseWhisperServerPathCommand { get; }
     public ICommand SaveLocalCommand { get; }
+    public ICommand DiscardLocalCommand { get; }
     public ICommand ActivateLocalCommand { get; }
     public ICommand StartLocalCommand { get; }
     public ICommand StopLocalCommand { get; }
@@ -161,6 +211,7 @@ public sealed class ServiceViewModel : INotifyPropertyChanged
         _whisperServerPort = settings.WhisperServerPort;
         _whisperServerThreadCountText = settings.WhisperServerThreadCount?.ToString(CultureInfo.InvariantCulture) ?? "";
         _startModelOnAppStartup = settings.StartModelOnAppStartup;
+        CaptureSavedLocalConfiguration(settings);
         RaiseLocalConfigurationChanged();
         await ReloadRemoteProfilesAsync();
         RefreshAvailability();
@@ -185,6 +236,11 @@ public sealed class ServiceViewModel : INotifyPropertyChanged
 
     public async Task SaveLocalAsync()
     {
+        if (!CanSaveLocal)
+        {
+            return;
+        }
+
         await RunLocalOperationAsync(async () =>
         {
             if (WhisperServerPort is < 1 or > 65535)
@@ -203,6 +259,7 @@ public sealed class ServiceViewModel : INotifyPropertyChanged
                 WhisperServerThreadCount = threadCount,
                 StartModelOnAppStartup = StartModelOnAppStartup
             }, CancellationToken.None);
+            CaptureSavedLocalConfiguration(savedSettings!);
             _localManager.UpdateOptions(ToOptions(savedSettings!));
 
             if (IsLocalActive && _localManager.IsRestartRequired)
@@ -228,11 +285,33 @@ public sealed class ServiceViewModel : INotifyPropertyChanged
         });
     }
 
+    public void DiscardLocalChanges()
+    {
+        if (!CanDiscardLocal)
+        {
+            return;
+        }
+
+        _modelPath = _savedModelPath;
+        _whisperServerPath = _savedWhisperServerPath;
+        _whisperServerPort = _savedWhisperServerPort;
+        _whisperServerThreadCountText = _savedWhisperServerThreadCountText;
+        _startModelOnAppStartup = _savedStartModelOnAppStartup;
+        SetError("");
+        SetMessage("已放弃未保存修改。");
+        RaiseLocalConfigurationChanged();
+    }
+
     public void RefreshAvailability()
     {
         OnPropertyChanged(nameof(CanMutate));
+        OnPropertyChanged(nameof(CanSaveLocal));
+        OnPropertyChanged(nameof(CanDiscardLocal));
         OnPropertyChanged(nameof(CanActivateLocal));
         OnPropertyChanged(nameof(CanOperateLocal));
+        OnPropertyChanged(nameof(CanStartLocal));
+        OnPropertyChanged(nameof(CanStopLocal));
+        OnPropertyChanged(nameof(CanTestLocal));
         foreach (var profile in RemoteProfiles)
         {
             profile.SetInteractionLocked(!CanMutate);
@@ -572,6 +651,28 @@ public sealed class ServiceViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(WhisperServerThreadCountText));
         OnPropertyChanged(nameof(RecommendedThreadCount));
         OnPropertyChanged(nameof(StartModelOnAppStartup));
+        NotifyLocalDraftState();
+    }
+
+    private void CaptureSavedLocalConfiguration(AppSettings settings)
+    {
+        _savedModelPath = settings.ModelPath;
+        _savedWhisperServerPath = settings.WhisperServerPath;
+        _savedWhisperServerPort = settings.WhisperServerPort;
+        _savedWhisperServerThreadCountText = settings.WhisperServerThreadCount?.ToString(
+            CultureInfo.InvariantCulture) ?? "";
+        _savedStartModelOnAppStartup = settings.StartModelOnAppStartup;
+        NotifyLocalDraftState();
+    }
+
+    private void NotifyLocalDraftState()
+    {
+        OnPropertyChanged(nameof(HasLocalUnsavedChanges));
+        OnPropertyChanged(nameof(CanSaveLocal));
+        OnPropertyChanged(nameof(CanDiscardLocal));
+        OnPropertyChanged(nameof(CanActivateLocal));
+        OnPropertyChanged(nameof(CanStartLocal));
+        OnPropertyChanged(nameof(CanTestLocal));
     }
 
     private void RaiseServiceStateChanged()

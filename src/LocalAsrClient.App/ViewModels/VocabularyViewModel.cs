@@ -21,10 +21,12 @@ public sealed record VocabularyProfileListItem(
 
 public sealed class VocabularyViewModel : INotifyPropertyChanged
 {
+    private sealed record VocabularyDraft(string Name, string EntriesText);
+
     private readonly IVocabularyRepository _repository;
     private readonly Func<IReadOnlyList<string>, string?> _requestNewName;
-    private readonly Func<VocabularyProfile, bool> _confirmSaveBeforeChange;
     private readonly Func<VocabularyProfile, bool> _confirmDelete;
+    private readonly Dictionary<Guid, VocabularyDraft> _drafts = [];
     private IReadOnlyList<VocabularyProfile> _loadedProfiles = [];
     private VocabularyProfile? _selectedProfile;
     private VocabularyProfile? _activeProfile;
@@ -37,12 +39,10 @@ public sealed class VocabularyViewModel : INotifyPropertyChanged
     public VocabularyViewModel(
         IVocabularyRepository repository,
         Func<IReadOnlyList<string>, string?>? requestNewName = null,
-        Func<VocabularyProfile, bool>? confirmSaveBeforeChange = null,
         Func<VocabularyProfile, bool>? confirmDelete = null)
     {
         _repository = repository;
         _requestNewName = requestNewName ?? (_ => null);
-        _confirmSaveBeforeChange = confirmSaveBeforeChange ?? (_ => false);
         _confirmDelete = confirmDelete ?? (_ => false);
     }
 
@@ -60,6 +60,8 @@ public sealed class VocabularyViewModel : INotifyPropertyChanged
             if (SetField(ref _selectedName, value ?? string.Empty))
             {
                 RefreshValidationAndEditorState();
+                StoreSelectedDraft();
+                RebuildProfileItems();
             }
         }
     }
@@ -72,6 +74,8 @@ public sealed class VocabularyViewModel : INotifyPropertyChanged
             if (SetField(ref _vocabularyText, value ?? string.Empty))
             {
                 RefreshValidationAndEditorState();
+                StoreSelectedDraft();
+                RebuildProfileItems();
             }
         }
     }
@@ -132,14 +136,13 @@ public sealed class VocabularyViewModel : INotifyPropertyChanged
 
     public bool CanActivate => HasSelection
         && !SelectedIsActive
+        && !HasUnsavedChanges
         && string.IsNullOrEmpty(ValidationError)
         && !IsBusy;
 
     public bool CanDeactivate => HasActiveVocabulary && !IsBusy;
 
     public bool CanDelete => HasSelection && !IsBusy;
-
-    public string SaveButtonText => IsBusy ? "处理中…" : HasUnsavedChanges ? "保存" : "已保存";
 
     public string LastUpdatedText => _selectedProfile is null
         ? string.Empty
@@ -186,11 +189,11 @@ public sealed class VocabularyViewModel : INotifyPropertyChanged
         return created;
     }
 
-    public async Task SelectAsync(VocabularyProfileListItem item)
+    public Task SelectAsync(VocabularyProfileListItem item)
     {
-        if (_selectedProfile?.Id == item.Id || !await SaveBeforeChangingAsync())
+        if (_selectedProfile?.Id == item.Id)
         {
-            return;
+            return Task.CompletedTask;
         }
 
         var profile = _loadedProfiles.SingleOrDefault(candidate => candidate.Id == item.Id);
@@ -198,6 +201,8 @@ public sealed class VocabularyViewModel : INotifyPropertyChanged
         {
             ApplySelectedProfile(profile);
         }
+
+        return Task.CompletedTask;
     }
 
     public async Task<bool> SaveAsync()
@@ -215,6 +220,7 @@ public sealed class VocabularyViewModel : INotifyPropertyChanged
                 SelectedName,
                 VocabularyText,
                 CancellationToken.None);
+            _drafts.Remove(_selectedProfile.Id);
             await ReloadAsync(_selectedProfile.Id);
             return true;
         }
@@ -228,6 +234,7 @@ public sealed class VocabularyViewModel : INotifyPropertyChanged
     {
         if (_selectedProfile is not null)
         {
+            _drafts.Remove(_selectedProfile.Id);
             ApplySelectedProfile(_selectedProfile);
         }
     }
@@ -235,16 +242,6 @@ public sealed class VocabularyViewModel : INotifyPropertyChanged
     public async Task ActivateSelectedAsync()
     {
         if (!CanActivate || _selectedProfile is null)
-        {
-            return;
-        }
-
-        if (HasUnsavedChanges && !await SaveAsync())
-        {
-            return;
-        }
-
-        if (_selectedProfile is null)
         {
             return;
         }
@@ -270,22 +267,11 @@ public sealed class VocabularyViewModel : INotifyPropertyChanged
         }
 
         var selectedId = _selectedProfile?.Id;
-        var unsavedName = SelectedName;
-        var unsavedEntries = VocabularyText;
-        var preserveUnsavedChanges = HasUnsavedChanges;
         IsBusy = true;
         try
         {
             await _repository.SetActiveAsync(null, CancellationToken.None);
             await ReloadAsync(selectedId);
-            if (preserveUnsavedChanges && _selectedProfile?.Id == selectedId)
-            {
-                _selectedName = unsavedName;
-                _vocabularyText = unsavedEntries;
-                OnPropertyChanged(nameof(SelectedName));
-                OnPropertyChanged(nameof(VocabularyText));
-                RefreshValidationAndEditorState();
-            }
         }
         finally
         {
@@ -309,6 +295,7 @@ public sealed class VocabularyViewModel : INotifyPropertyChanged
         IsBusy = true;
         try
         {
+            _drafts.Remove(deletedId);
             await _repository.DeleteAsync(deletedId, CancellationToken.None);
             var remaining = await _repository.GetAllAsync(CancellationToken.None);
             var nextId = remaining.Count == 0
@@ -324,33 +311,14 @@ public sealed class VocabularyViewModel : INotifyPropertyChanged
 
     private async Task NewFromDialogAsync()
     {
-        if (!await SaveBeforeChangingAsync())
-        {
-            return;
-        }
-
-        var name = _requestNewName(_loadedProfiles.Select(profile => profile.Name).ToArray());
+        var visibleNames = _loadedProfiles
+            .Select(profile => _drafts.GetValueOrDefault(profile.Id)?.Name ?? profile.Name)
+            .ToArray();
+        var name = _requestNewName(visibleNames);
         if (name is not null)
         {
             await CreateAsync(name);
         }
-    }
-
-    private async Task<bool> SaveBeforeChangingAsync()
-    {
-        if (!HasUnsavedChanges)
-        {
-            return true;
-        }
-
-        if (_selectedProfile is null
-            || !string.IsNullOrEmpty(ValidationError)
-            || !_confirmSaveBeforeChange(_selectedProfile))
-        {
-            return false;
-        }
-
-        return await SaveAsync();
     }
 
     private async Task ReloadAsync(Guid? preferredSelectedId)
@@ -365,6 +333,11 @@ public sealed class VocabularyViewModel : INotifyPropertyChanged
     {
         _loadedProfiles = profiles;
         _activeProfile = profiles.SingleOrDefault(profile => profile.IsActive);
+        var profileIds = profiles.Select(profile => profile.Id).ToHashSet();
+        foreach (var removedId in _drafts.Keys.Where(id => !profileIds.Contains(id)).ToArray())
+        {
+            _drafts.Remove(removedId);
+        }
 
         var selected = preferredSelectedId is not null
             ? profiles.SingleOrDefault(profile => profile.Id == preferredSelectedId)
@@ -383,8 +356,11 @@ public sealed class VocabularyViewModel : INotifyPropertyChanged
     private void ApplySelectedProfile(VocabularyProfile? profile)
     {
         _selectedProfile = profile;
-        _selectedName = profile?.Name ?? string.Empty;
-        _vocabularyText = profile?.EntriesText ?? string.Empty;
+        var draft = profile is not null && _drafts.TryGetValue(profile.Id, out var storedDraft)
+            ? storedDraft
+            : null;
+        _selectedName = draft?.Name ?? profile?.Name ?? string.Empty;
+        _vocabularyText = draft?.EntriesText ?? profile?.EntriesText ?? string.Empty;
         OnPropertyChanged(nameof(SelectedProfileId));
         OnPropertyChanged(nameof(SelectedName));
         OnPropertyChanged(nameof(VocabularyText));
@@ -400,10 +376,11 @@ public sealed class VocabularyViewModel : INotifyPropertyChanged
         Profiles.Clear();
         foreach (var profile in _loadedProfiles)
         {
+            var draft = _drafts.GetValueOrDefault(profile.Id);
             Profiles.Add(new VocabularyProfileListItem(
                 profile.Id,
-                profile.Name,
-                WhisperVocabulary.Parse(profile.EntriesText).Entries.Count,
+                draft?.Name ?? profile.Name,
+                WhisperVocabulary.Parse(draft?.EntriesText ?? profile.EntriesText).Entries.Count,
                 profile.IsActive,
                 profile.Id == _selectedProfile?.Id));
         }
@@ -418,7 +395,7 @@ public sealed class VocabularyViewModel : INotifyPropertyChanged
             && _loadedProfiles.Any(profile =>
                 profile.Id != _selectedProfile?.Id
                 && string.Equals(
-                    profile.Name,
+                    _drafts.GetValueOrDefault(profile.Id)?.Name ?? profile.Name,
                     nameResult.NormalizedName,
                     StringComparison.OrdinalIgnoreCase));
         var entriesResult = WhisperVocabulary.Parse(VocabularyText);
@@ -429,6 +406,23 @@ public sealed class VocabularyViewModel : INotifyPropertyChanged
         NotifyEditorState();
     }
 
+    private void StoreSelectedDraft()
+    {
+        if (_selectedProfile is null)
+        {
+            return;
+        }
+
+        if (HasUnsavedChanges)
+        {
+            _drafts[_selectedProfile.Id] = new VocabularyDraft(SelectedName, VocabularyText);
+        }
+        else
+        {
+            _drafts.Remove(_selectedProfile.Id);
+        }
+    }
+
     private void NotifyEditorState()
     {
         OnPropertyChanged(nameof(HasUnsavedChanges));
@@ -436,7 +430,6 @@ public sealed class VocabularyViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(CanDiscard));
         OnPropertyChanged(nameof(CanActivate));
         OnPropertyChanged(nameof(CanDelete));
-        OnPropertyChanged(nameof(SaveButtonText));
     }
 
     private void NotifyActionState()
@@ -446,7 +439,6 @@ public sealed class VocabularyViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(CanActivate));
         OnPropertyChanged(nameof(CanDeactivate));
         OnPropertyChanged(nameof(CanDelete));
-        OnPropertyChanged(nameof(SaveButtonText));
     }
 
     private bool SetField<T>(

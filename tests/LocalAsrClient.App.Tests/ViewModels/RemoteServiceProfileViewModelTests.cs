@@ -68,8 +68,13 @@ public sealed class RemoteServiceProfileViewModelTests
     {
         var viewModel = CreateViewModel(CreateProfile());
 
+        Assert.False(viewModel.CanSave);
+        Assert.False(viewModel.CanDiscardChanges);
+
         viewModel.Endpoint = "https://draft.example/v1/audio/transcriptions";
 
+        Assert.True(viewModel.CanSave);
+        Assert.True(viewModel.CanDiscardChanges);
         Assert.False(viewModel.CanTest);
         Assert.False(viewModel.CanActivate);
     }
@@ -134,6 +139,8 @@ public sealed class RemoteServiceProfileViewModelTests
         Assert.Equal(profile.Model, viewModel.Model);
         Assert.Equal(profile.UseVocabulary, viewModel.UseVocabulary);
         Assert.False(viewModel.HasUnsavedChanges);
+        Assert.False(viewModel.CanSave);
+        Assert.False(viewModel.CanDiscardChanges);
         Assert.True(viewModel.CanTest);
     }
 

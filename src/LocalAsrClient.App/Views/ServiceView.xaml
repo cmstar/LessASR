@@ -73,7 +73,7 @@
                                                     Padding="6,2"
                                                     VerticalAlignment="Center"
                                                     Visibility="{Binding IsActive, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                <TextBlock Text="启用"
+                                                <TextBlock Text="已启用"
                                                            Foreground="White"
                                                            FontSize="11"
                                                            FontWeight="SemiBold"/>
@@ -197,11 +197,22 @@
                                       IsEnabled="{Binding CanMutate}"
                                       Margin="0,14,0,0"/>
 
+                            <Border Background="{StaticResource LessAsr.Brush.WarningSoft}"
+                                    CornerRadius="8"
+                                    Padding="10,7"
+                                    Margin="0,14,0,0"
+                                    Visibility="{Binding HasLocalUnsavedChanges, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <TextBlock Text="有未保存修改；切换模型会保留草稿，请保存或放弃修改后再启动、测试或启用。"
+                                           Foreground="{StaticResource LessAsr.Brush.Warning}"
+                                           TextWrapping="Wrap"/>
+                            </Border>
+
                             <WrapPanel Margin="0,18,0,0">
-                                <Button Content="保存" Command="{Binding SaveLocalCommand}" IsEnabled="{Binding CanMutate}" Style="{StaticResource LessAsr.PrimaryButton}" Margin="0,0,8,8"/>
-                                <Button Content="启动" Command="{Binding StartLocalCommand}" IsEnabled="{Binding CanOperateLocal}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="0,0,8,8"/>
-                                <Button Content="测试" Command="{Binding TestLocalCommand}" IsEnabled="{Binding CanMutate}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="0,0,8,8"/>
-                                <Button Content="停止" Command="{Binding StopLocalCommand}" IsEnabled="{Binding CanOperateLocal}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="0,0,8,8"/>
+                                <Button Content="保存" Command="{Binding SaveLocalCommand}" IsEnabled="{Binding CanSaveLocal}" Style="{StaticResource LessAsr.PrimaryButton}" Margin="0,0,8,8"/>
+                                <Button Content="放弃修改" Command="{Binding DiscardLocalCommand}" IsEnabled="{Binding CanDiscardLocal}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="0,0,8,8"/>
+                                <Button Content="启动" Command="{Binding StartLocalCommand}" IsEnabled="{Binding CanStartLocal}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="0,0,8,8"/>
+                                <Button Content="测试" Command="{Binding TestLocalCommand}" IsEnabled="{Binding CanTestLocal}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="0,0,8,8"/>
+                                <Button Content="停止" Command="{Binding StopLocalCommand}" IsEnabled="{Binding CanStopLocal}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="0,0,8,8"/>
                             </WrapPanel>
 
                             <TextBlock Text="{Binding LastMessage}" Foreground="{StaticResource LessAsr.Brush.Success}" TextWrapping="Wrap" Margin="0,4,0,0"

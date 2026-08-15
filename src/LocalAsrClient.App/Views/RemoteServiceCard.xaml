@@ -145,20 +145,19 @@
                     Padding="10,7"
                     Margin="0,10,0,0"
                     Visibility="{Binding HasUnsavedChanges, Converter={StaticResource BooleanToVisibilityConverter}}">
-                <TextBlock Text="有未保存修改；请先保存，再测试或启用。"
+                <TextBlock Text="有未保存修改；切换模型会保留草稿，请保存或放弃修改后再测试或启用。"
                            Foreground="{StaticResource LessAsr.Brush.Warning}"
                            TextWrapping="Wrap"/>
             </Border>
 
             <WrapPanel Margin="0,10,0,0">
-                <Button Content="保存" Click="Save_Click" IsEnabled="{Binding CanMutate}" Style="{StaticResource LessAsr.PrimaryButton}" Margin="0,0,8,8"/>
-                <Button Content="测试" Click="Test_Click" IsEnabled="{Binding CanTest}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="0,0,8,8"/>
+                <Button Content="保存" Click="Save_Click" IsEnabled="{Binding CanSave}" Style="{StaticResource LessAsr.PrimaryButton}" Margin="0,0,8,8"/>
                 <Button Content="放弃修改"
                         Click="DiscardChanges_Click"
                         IsEnabled="{Binding CanDiscardChanges}"
-                        Visibility="{Binding ShowDiscardChanges, Converter={StaticResource BooleanToVisibilityConverter}}"
                         Style="{StaticResource LessAsr.SecondaryButton}"
                         Margin="0,0,8,8"/>
+                <Button Content="测试" Click="Test_Click" IsEnabled="{Binding CanTest}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="0,0,8,8"/>
                 <Button Content="删除" Click="Delete_Click" IsEnabled="{Binding CanDelete}" Style="{StaticResource LessAsr.DestructiveButton}" Margin="0,0,8,8"/>
             </WrapPanel>
 

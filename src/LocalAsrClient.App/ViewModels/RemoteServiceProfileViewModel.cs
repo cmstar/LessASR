@@ -133,14 +133,14 @@ public sealed class RemoteServiceProfileViewModel : INotifyPropertyChanged
         || UseVocabulary != _savedUseVocabulary
         || _hasApiKeyDraft;
     public bool CanMutate => !_isOperationInProgress && !_isInteractionLocked;
+    public bool CanSave => CanMutate && HasUnsavedChanges;
     public bool CanActivate => CanMutate && !IsActive && !IsNew && !HasUnsavedChanges
         && _apiKeyAvailability != ApiKeyAvailability.Unavailable;
     public bool CanTest => CanMutate && !IsNew && !HasUnsavedChanges
         && _apiKeyAvailability != ApiKeyAvailability.Unavailable;
     public bool CanDelete => CanMutate && !IsActive;
     public bool CanClearApiKey => CanMutate && HasApiKey && !IsNew;
-    public bool ShowDiscardChanges => !IsNew && HasUnsavedChanges;
-    public bool CanDiscardChanges => CanMutate && ShowDiscardChanges;
+    public bool CanDiscardChanges => CanMutate && HasUnsavedChanges;
     public bool IsHttpEndpoint => Uri.TryCreate(Endpoint, UriKind.Absolute, out var endpoint)
         && endpoint.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase);
     public string EndpointWarningText => IsHttpEndpoint
@@ -244,7 +244,6 @@ public sealed class RemoteServiceProfileViewModel : INotifyPropertyChanged
         }
 
         OnPropertyChanged(nameof(HasUnsavedChanges));
-        OnPropertyChanged(nameof(ShowDiscardChanges));
         RaiseAvailabilityChanged();
     }
 
@@ -270,7 +269,6 @@ public sealed class RemoteServiceProfileViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(IsHttpEndpoint));
         OnPropertyChanged(nameof(EndpointWarningText));
         OnPropertyChanged(nameof(HasUnsavedChanges));
-        OnPropertyChanged(nameof(ShowDiscardChanges));
         SetError("");
         SetMessage("已放弃未保存修改。");
         RaiseAvailabilityChanged();
@@ -341,7 +339,6 @@ public sealed class RemoteServiceProfileViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(IsHttpEndpoint));
         OnPropertyChanged(nameof(EndpointWarningText));
         OnPropertyChanged(nameof(HasUnsavedChanges));
-        OnPropertyChanged(nameof(ShowDiscardChanges));
         RaiseAvailabilityChanged();
     }
 
@@ -367,11 +364,11 @@ public sealed class RemoteServiceProfileViewModel : INotifyPropertyChanged
     private void RaiseAvailabilityChanged()
     {
         OnPropertyChanged(nameof(CanMutate));
+        OnPropertyChanged(nameof(CanSave));
         OnPropertyChanged(nameof(CanActivate));
         OnPropertyChanged(nameof(CanTest));
         OnPropertyChanged(nameof(CanDelete));
         OnPropertyChanged(nameof(CanClearApiKey));
-        OnPropertyChanged(nameof(ShowDiscardChanges));
         OnPropertyChanged(nameof(CanDiscardChanges));
     }
 
@@ -387,7 +384,6 @@ public sealed class RemoteServiceProfileViewModel : INotifyPropertyChanged
         SetMessage("");
         SetError("");
         OnPropertyChanged(nameof(HasUnsavedChanges));
-        OnPropertyChanged(nameof(ShowDiscardChanges));
         RaiseAvailabilityChanged();
         return true;
     }

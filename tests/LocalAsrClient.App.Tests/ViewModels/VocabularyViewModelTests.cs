@@ -39,54 +39,50 @@ public sealed class VocabularyViewModelTests
     }
 
     [Fact]
-    public async Task SelectAsync_WithDirtyChanges_SavesOnlyAfterConfirmation()
+    public async Task SelectAsync_WithDirtyChanges_PreservesDraftAcrossSelectionsWithoutSaving()
     {
         var repository = StubVocabularyRepository.WithProfiles(
             Profile("编程", "LessASR", isActive: true),
             Profile("日语", "初音ミク"));
-        var allowSave = false;
-        var viewModel = new VocabularyViewModel(
-            repository,
-            confirmSaveBeforeChange: _ => allowSave);
+        var viewModel = new VocabularyViewModel(repository);
         await viewModel.LoadAsync();
         var target = viewModel.Profiles.Single(item => item.Name == "日语");
         viewModel.VocabularyText = "LessASR\nKubernetes";
 
         await viewModel.SelectAsync(target);
 
-        Assert.Equal("编程", viewModel.SelectedName);
-        Assert.Equal("LessASR", repository.Profiles.Single(item => item.Name == "编程").EntriesText);
-
-        allowSave = true;
-        await viewModel.SelectAsync(target);
-
         Assert.Equal("日语", viewModel.SelectedName);
+        Assert.Equal("LessASR", repository.Profiles.Single(item => item.Name == "编程").EntriesText);
         Assert.Equal(
-            "LessASR\nKubernetes",
-            repository.Profiles.Single(item => item.Name == "编程").EntriesText);
+            "2 项",
+            viewModel.Profiles.Single(item => item.Name == "编程").EntryCountText);
+
+        await viewModel.SelectAsync(viewModel.Profiles.Single(item => item.Name == "编程"));
+
+        Assert.Equal("编程", viewModel.SelectedName);
+        Assert.Equal("LessASR\nKubernetes", viewModel.VocabularyText);
+        Assert.True(viewModel.HasUnsavedChanges);
     }
 
     [Fact]
-    public async Task SelectAsync_WithValidationError_DoesNotSwitchOrPrompt()
+    public async Task SelectAsync_WithValidationError_PreservesInvalidDraftAcrossSelections()
     {
         var repository = StubVocabularyRepository.WithProfiles(
             Profile("编程", string.Empty, isActive: true),
             Profile("日语", string.Empty));
-        var promptCount = 0;
-        var viewModel = new VocabularyViewModel(
-            repository,
-            confirmSaveBeforeChange: _ =>
-            {
-                promptCount++;
-                return true;
-            });
+        var viewModel = new VocabularyViewModel(repository);
         await viewModel.LoadAsync();
-        viewModel.VocabularyText = new string('词', WhisperVocabulary.MaxEntryCharacters + 1);
+        var invalidDraft = new string('词', WhisperVocabulary.MaxEntryCharacters + 1);
+        viewModel.VocabularyText = invalidDraft;
 
         await viewModel.SelectAsync(viewModel.Profiles.Single(item => item.Name == "日语"));
 
-        Assert.Equal("编程", viewModel.SelectedName);
-        Assert.Equal(0, promptCount);
+        Assert.Equal("日语", viewModel.SelectedName);
+        Assert.Null(viewModel.ValidationError);
+
+        await viewModel.SelectAsync(viewModel.Profiles.Single(item => item.Name == "编程"));
+
+        Assert.Equal(invalidDraft, viewModel.VocabularyText);
         Assert.NotNull(viewModel.ValidationError);
     }
 
@@ -113,6 +109,23 @@ public sealed class VocabularyViewModelTests
     }
 
     [Fact]
+    public async Task DraftNames_RemainUniqueAcrossUnsavedProfiles()
+    {
+        var repository = StubVocabularyRepository.WithProfiles(
+            Profile("编程", string.Empty, isActive: true),
+            Profile("日语", string.Empty));
+        var viewModel = new VocabularyViewModel(repository);
+        await viewModel.LoadAsync();
+        viewModel.SelectedName = "共享草稿名";
+        await viewModel.SelectAsync(viewModel.Profiles.Single(item => item.Name == "日语"));
+
+        viewModel.SelectedName = "共享草稿名";
+
+        Assert.Equal("词汇表名称不能重复。", viewModel.ValidationError);
+        Assert.False(viewModel.CanSave);
+    }
+
+    [Fact]
     public async Task ActivateAndDeactivate_ChangeActiveProfileWithoutChangingSelection()
     {
         var first = Profile("编程", string.Empty, isActive: true);
@@ -123,6 +136,12 @@ public sealed class VocabularyViewModelTests
         await viewModel.SelectAsync(viewModel.Profiles.Single(item => item.Id == second.Id));
         viewModel.VocabularyText = "初音ミク\n重音テト";
 
+        Assert.False(viewModel.CanActivate);
+        await viewModel.ActivateSelectedAsync();
+        Assert.Equal(first.Id, repository.ActiveProfile?.Id);
+
+        await viewModel.SaveAsync();
+        Assert.True(viewModel.CanActivate);
         await viewModel.ActivateSelectedAsync();
 
         Assert.Equal(second.Id, repository.ActiveProfile?.Id);

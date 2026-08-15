@@ -25,7 +25,6 @@ public sealed class MainViewModel
         Vocabulary = new VocabularyViewModel(
             services.VocabularyRepository,
             RequestVocabularyName,
-            ConfirmVocabularySaveBeforeChange,
             ConfirmVocabularyDeletion);
         Settings = new SettingsViewModel(
             services,
@@ -96,19 +95,6 @@ public sealed class MainViewModel
         VocabularyNameDialog.Prompt(
             System.Windows.Application.Current?.MainWindow,
             existingNames);
-
-    private static bool ConfirmVocabularySaveBeforeChange(VocabularyProfile profile) =>
-        ConfirmationDialog.Confirm(
-            System.Windows.Application.Current?.MainWindow,
-            new ConfirmationDialogOptions
-            {
-                Title = "保存词汇表",
-                Heading = $"保存对“{profile.Name}”的修改并切换？",
-                Message = "保存后继续切换；取消将留在当前词汇表。",
-                ConfirmText = "保存并切换",
-                Preview = profile.Name,
-                IsConfirmDefault = true
-            });
 
     private static bool ConfirmVocabularyDeletion(VocabularyProfile profile) =>
         ConfirmationDialog.Confirm(
