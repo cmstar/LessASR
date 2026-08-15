@@ -55,7 +55,12 @@
                                UseLayoutRounding="True"
                                RenderOptions.BitmapScalingMode="HighQuality"/>
                         <TextBlock Grid.Column="1" Text="LessASR" Margin="10,0,0,0" VerticalAlignment="Center" FontSize="18" FontWeight="SemiBold"/>
-                        <Border Grid.Column="2" Background="{StaticResource LessAsr.Brush.CardBackground}" CornerRadius="10" Padding="7,3" VerticalAlignment="Center">
+                        <Border Grid.Column="2"
+                                Background="{StaticResource LessAsr.Brush.CardBackground}"
+                                CornerRadius="10"
+                                Padding="7,3"
+                                VerticalAlignment="Center"
+                                Visibility="{Binding RuntimeBadgeText, Converter={StaticResource StringNotEmptyToVisibilityConverter}}">
                             <TextBlock Text="{Binding RuntimeBadgeText}" Style="{StaticResource LessAsr.Text.Caption}"/>
                         </Border>
                     </Grid>

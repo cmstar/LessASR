@@ -20,7 +20,7 @@ public sealed class RemoteServiceProfileViewModelTests
         await viewModel.SaveAsync("");
 
         Assert.Equal(ApiKeyUpdateMode.Retain, capturedMode);
-        Assert.Equal("已配置 · 基于系统 DPAPI 保存", viewModel.ApiKeyStatusText);
+        Assert.Equal("已配置 · 基于系统 DPAPI 保存", viewModel.ApiKeyPlaceholderText);
     }
 
     [Fact]
@@ -41,7 +41,7 @@ public sealed class RemoteServiceProfileViewModelTests
 
         Assert.Equal("secret-key", capturedKey);
         Assert.Equal(ApiKeyUpdateMode.Replace, capturedMode);
-        Assert.DoesNotContain("secret-key", viewModel.ApiKeyStatusText, StringComparison.Ordinal);
+        Assert.DoesNotContain("secret-key", viewModel.ApiKeyPlaceholderText, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -60,7 +60,7 @@ public sealed class RemoteServiceProfileViewModelTests
         await viewModel.ClearApiKeyAsync();
 
         Assert.Equal(profile.Id, clearedId);
-        Assert.Equal("", viewModel.ApiKeyStatusText);
+        Assert.Equal("可为空", viewModel.ApiKeyPlaceholderText);
     }
 
     [Fact]
@@ -218,7 +218,7 @@ public sealed class RemoteServiceProfileViewModelTests
 
         var viewModel = CreateViewModel(profile);
 
-        Assert.Contains("重新输入", viewModel.ApiKeyStatusText, StringComparison.Ordinal);
+        Assert.Contains("重新输入", viewModel.ApiKeyPlaceholderText, StringComparison.Ordinal);
         Assert.False(viewModel.CanTest);
         Assert.False(viewModel.CanActivate);
         Assert.True(viewModel.CanClearApiKey);

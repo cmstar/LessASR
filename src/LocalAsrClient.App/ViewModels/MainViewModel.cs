@@ -46,7 +46,7 @@ public sealed class MainViewModel
 
     public Task Initialization { get; }
 
-    public string RuntimeBadgeText => _services.IsDemoMode ? "演示" : "Windows";
+    public string RuntimeBadgeText => _services.IsDemoMode ? "演示" : "";
 
     public StatusViewModel Status { get; }
     public MainNavigationViewModel Navigation { get; }

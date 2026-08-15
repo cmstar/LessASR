@@ -15,12 +15,18 @@
                 </StackPanel>
                 <Border Grid.Column="1"
                         Style="{StaticResource LessAsr.StatusBadge}"
+                        VerticalAlignment="Top"
                         Visibility="{Binding IsActive, Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <TextBlock Text="启用" Foreground="{StaticResource LessAsr.Brush.Accent}" FontWeight="SemiBold"/>
+                    <TextBlock Text="已启用"
+                               Foreground="{StaticResource LessAsr.Brush.Accent}"
+                               FontWeight="SemiBold"
+                               TextAlignment="Center"
+                               VerticalAlignment="Center"/>
                 </Border>
                 <Button Grid.Column="1"
                         Content="启用"
                         Click="Activate_Click"
+                        VerticalAlignment="Top"
                         IsEnabled="{Binding CanActivate}">
                     <Button.Style>
                         <Style TargetType="Button" BasedOn="{StaticResource LessAsr.PrimaryButton}">
@@ -109,7 +115,7 @@
                              PasswordChanged="ApiKeyBox_PasswordChanged"
                              AutomationProperties.Name="API Key"/>
                 <TextBlock x:Name="ApiKeyPlaceholder"
-                           Text="可为空"
+                           Text="{Binding ApiKeyPlaceholderText}"
                            Foreground="{StaticResource LessAsr.Brush.TextTertiary}"
                            VerticalAlignment="Center"
                            Margin="11,0,0,0"
@@ -121,10 +127,6 @@
                         Style="{StaticResource LessAsr.SecondaryButton}"
                         Margin="8,0,0,0"/>
             </Grid>
-            <TextBlock Text="{Binding ApiKeyStatusText}"
-                       Style="{StaticResource LessAsr.Text.Caption}"
-                       Margin="0,6,0,0"
-                       Visibility="{Binding ApiKeyStatusText, Converter={StaticResource StringNotEmptyToVisibilityConverter}}"/>
 
             <CheckBox Content="启用词汇表"
                       IsChecked="{Binding UseVocabulary}"

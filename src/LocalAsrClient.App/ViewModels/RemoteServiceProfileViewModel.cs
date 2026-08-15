@@ -117,11 +117,11 @@ public sealed class RemoteServiceProfileViewModel : INotifyPropertyChanged
     }
 
     public bool HasApiKey => _apiKeyAvailability != ApiKeyAvailability.NotConfigured;
-    public string ApiKeyStatusText => _apiKeyAvailability switch
+    public string ApiKeyPlaceholderText => _apiKeyAvailability switch
     {
         ApiKeyAvailability.Available => "已配置 · 基于系统 DPAPI 保存",
         ApiKeyAvailability.Unavailable => "需要重新输入 API Key · 当前 Windows 用户无法解密",
-        _ => ""
+        _ => "可为空"
     };
 
     public bool IsActive => _isActive;
@@ -168,7 +168,7 @@ public sealed class RemoteServiceProfileViewModel : INotifyPropertyChanged
         await _clearApiKey(id);
         _apiKeyAvailability = ApiKeyAvailability.NotConfigured;
         OnPropertyChanged(nameof(HasApiKey));
-        OnPropertyChanged(nameof(ApiKeyStatusText));
+        OnPropertyChanged(nameof(ApiKeyPlaceholderText));
         RaiseAvailabilityChanged();
         SetMessage("API Key 已清除。");
     });
@@ -337,7 +337,7 @@ public sealed class RemoteServiceProfileViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(ProxyUrl));
         OnPropertyChanged(nameof(UseVocabulary));
         OnPropertyChanged(nameof(HasApiKey));
-        OnPropertyChanged(nameof(ApiKeyStatusText));
+        OnPropertyChanged(nameof(ApiKeyPlaceholderText));
         OnPropertyChanged(nameof(IsHttpEndpoint));
         OnPropertyChanged(nameof(EndpointWarningText));
         OnPropertyChanged(nameof(HasUnsavedChanges));

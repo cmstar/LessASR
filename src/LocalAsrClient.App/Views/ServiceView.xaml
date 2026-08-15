@@ -103,14 +103,18 @@
                                 </StackPanel>
                                 <Border Grid.Column="1"
                                         Style="{StaticResource LessAsr.StatusBadge}"
+                                        VerticalAlignment="Top"
                                         Visibility="{Binding IsLocalActive, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                    <TextBlock Text="启用"
+                                    <TextBlock Text="已启用"
                                                Foreground="{StaticResource LessAsr.Brush.Accent}"
-                                               FontWeight="SemiBold"/>
+                                               FontWeight="SemiBold"
+                                               TextAlignment="Center"
+                                               VerticalAlignment="Center"/>
                                 </Border>
                                 <Button Grid.Column="1"
                                         Content="启用"
                                         Command="{Binding ActivateLocalCommand}"
+                                        VerticalAlignment="Top"
                                         IsEnabled="{Binding CanActivateLocal}">
                                     <Button.Style>
                                         <Style TargetType="Button" BasedOn="{StaticResource LessAsr.PrimaryButton}">
