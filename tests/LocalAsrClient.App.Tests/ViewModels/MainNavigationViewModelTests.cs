@@ -27,7 +27,19 @@ public sealed class MainNavigationViewModelTests
 
         Assert.Equal(MainSection.Vocabulary, viewModel.SelectedSection);
         Assert.True(viewModel.IsVocabularySelected);
-        Assert.False(viewModel.IsModelSelected);
+        Assert.False(viewModel.IsServicesSelected);
+        Assert.False(viewModel.IsSettingsSelected);
+    }
+
+    [Fact]
+    public void NavigatesToServicesSection()
+    {
+        var viewModel = new MainNavigationViewModel();
+
+        viewModel.NavigateCommand.Execute(MainSection.Services);
+
+        Assert.Equal(MainSection.Services, viewModel.SelectedSection);
+        Assert.True(viewModel.IsServicesSelected);
         Assert.False(viewModel.IsSettingsSelected);
     }
 }

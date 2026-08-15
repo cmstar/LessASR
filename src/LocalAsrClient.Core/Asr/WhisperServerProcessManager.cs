@@ -9,6 +9,8 @@ public interface IWhisperServerManager
     event Action<WhisperServerStatus>? StatusChanged;
     WhisperServerStatus Status { get; }
     Uri BaseUri { get; }
+    bool IsRestartRequired => false;
+    string ActiveModelPath => string.Empty;
     void UpdateOptions(WhisperServerOptions options);
     Task EnsureStartedAsync(CancellationToken cancellationToken);
     Task StopAsync(CancellationToken cancellationToken);
@@ -37,6 +39,7 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
     public WhisperServerStatus Status { get; private set; } = WhisperServerStatus.Stopped;
     public Uri BaseUri => _options.BaseUri;
     public bool IsRestartRequired { get; private set; }
+    public string ActiveModelPath => _options.ModelPath;
 
     public void UpdateOptions(WhisperServerOptions options)
     {

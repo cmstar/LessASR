@@ -10,7 +10,7 @@ public enum MainSection
     Home,
     History,
     Stats,
-    Model,
+    Services,
     Vocabulary,
     Settings,
     Diagnostics
@@ -44,7 +44,7 @@ public sealed class MainNavigationViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(IsHomeSelected));
             OnPropertyChanged(nameof(IsHistorySelected));
             OnPropertyChanged(nameof(IsStatsSelected));
-            OnPropertyChanged(nameof(IsModelSelected));
+            OnPropertyChanged(nameof(IsServicesSelected));
             OnPropertyChanged(nameof(IsVocabularySelected));
             OnPropertyChanged(nameof(IsSettingsSelected));
             OnPropertyChanged(nameof(IsDiagnosticsSelected));
@@ -57,7 +57,7 @@ public sealed class MainNavigationViewModel : INotifyPropertyChanged
 
     public bool IsStatsSelected => SelectedSection == MainSection.Stats;
 
-    public bool IsModelSelected => SelectedSection == MainSection.Model;
+    public bool IsServicesSelected => SelectedSection == MainSection.Services;
 
     public bool IsVocabularySelected => SelectedSection == MainSection.Vocabulary;
 

@@ -78,6 +78,8 @@ public sealed class DemoModeTests
         var historyRepository = new SqliteTextHistoryRepository(database);
         var history = await historyRepository.GetRecentAsync(50, CancellationToken.None);
         var settings = await new SqliteSettingsStore(database).LoadAsync(CancellationToken.None);
+        var remoteProfiles = await new SqliteRemoteApiProfileRepository(database)
+            .GetAllAsync(CancellationToken.None);
 
         Assert.Equal(StatsViewModel.SummaryDayCount, stats.Count);
         Assert.All(
@@ -87,5 +89,9 @@ public sealed class DemoModeTests
         Assert.True(history.Count > 12);
         Assert.Equal(TranscriptRetentionPolicy.OneMonth, settings.TranscriptRetentionPolicy);
         Assert.Equal("zh-Hans", settings.PreferredTranscriptionLanguageId);
+        var remote = Assert.Single(remoteProfiles);
+        Assert.Equal("局域网 Whisper", remote.Name);
+        Assert.False(remote.UseVocabulary);
+        Assert.Null(remote.ProtectedApiKey);
     }
 }

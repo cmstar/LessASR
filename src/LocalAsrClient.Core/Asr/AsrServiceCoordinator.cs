@@ -18,7 +18,18 @@ public sealed record RemoteApiProfileInput(
     bool UseVocabulary,
     string? ApiKey);
 
-public sealed class AsrServiceCoordinator
+public interface IAsrServiceCoordinator
+{
+    Task<IReadOnlyList<RemoteApiProfile>> GetRemoteProfilesAsync(CancellationToken cancellationToken);
+    Task<RemoteApiProfile> CreateRemoteAsync(RemoteApiProfileInput input, CancellationToken cancellationToken);
+    Task UpdateRemoteAsync(Guid id, RemoteApiProfileInput input, ApiKeyUpdateMode apiKeyUpdateMode, CancellationToken cancellationToken);
+    Task DeleteRemoteAsync(Guid id, CancellationToken cancellationToken);
+    Task ActivateRemoteAsync(Guid id, CancellationToken cancellationToken);
+    Task ActivateLocalAsync(CancellationToken cancellationToken);
+    Task<AsrResult> TestRemoteAsync(Guid id, CancellationToken cancellationToken);
+}
+
+public sealed class AsrServiceCoordinator : IAsrServiceCoordinator
 {
     private readonly IRemoteApiProfileRepository _repository;
     private readonly ISettingsStore _settingsStore;
@@ -101,6 +112,7 @@ public sealed class AsrServiceCoordinator
         await _mutationLock.WaitAsync(cancellationToken);
         try
         {
+            ThrowIfBusy();
             var existing = await GetRequiredProfileAsync(id, cancellationToken);
             var protectedApiKey = apiKeyUpdateMode switch
             {
@@ -138,6 +150,7 @@ public sealed class AsrServiceCoordinator
         await _mutationLock.WaitAsync(cancellationToken);
         try
         {
+            ThrowIfBusy();
             var settings = await _settingsStore.LoadAsync(cancellationToken);
             if (settings.ActiveRemoteApiProfileId == id)
             {
@@ -158,6 +171,7 @@ public sealed class AsrServiceCoordinator
         await _mutationLock.WaitAsync(cancellationToken);
         try
         {
+            ThrowIfBusy();
             var profile = await GetRequiredProfileAsync(id, cancellationToken);
             var remoteBackend = _remoteBackendFactory(profile);
             await remoteBackend.EnsureReadyAsync(cancellationToken);
@@ -184,6 +198,7 @@ public sealed class AsrServiceCoordinator
         await _mutationLock.WaitAsync(cancellationToken);
         try
         {
+            ThrowIfBusy();
             var settings = await _settingsStore.LoadAsync(cancellationToken);
             await _settingsStore.SaveAsync(
                 settings with { ActiveRemoteApiProfileId = null }, cancellationToken);

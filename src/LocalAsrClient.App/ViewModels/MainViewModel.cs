@@ -21,7 +21,7 @@ public sealed class MainViewModel
             services.HistoryRepository.DeleteAsync,
             ConfirmHistoryDeletion);
         Stats = new StatsViewModel();
-        Model = new ModelViewModel(services);
+        Services = new ServiceViewModel(services, ConfirmRemoteServiceDeletion);
         Vocabulary = new VocabularyViewModel(
             services.VocabularyRepository,
             RequestVocabularyName,
@@ -29,7 +29,6 @@ public sealed class MainViewModel
             ConfirmVocabularyDeletion);
         Settings = new SettingsViewModel(
             services,
-            Model.RefreshFromSettingsAsync,
             ConfirmHistoryRetentionCleanup);
         Debug = new DebugViewModel(services);
         _services.Orchestrator.StatusChanged += OnDictationStatusChanged;
@@ -47,13 +46,13 @@ public sealed class MainViewModel
 
     public Task Initialization { get; }
 
-    public string RuntimeBadgeText => _services.IsDemoMode ? "演示" : "本地";
+    public string RuntimeBadgeText => _services.IsDemoMode ? "演示" : "Windows";
 
     public StatusViewModel Status { get; }
     public MainNavigationViewModel Navigation { get; }
     public HistoryViewModel History { get; }
     public StatsViewModel Stats { get; }
-    public ModelViewModel Model { get; }
+    public ServiceViewModel Services { get; }
     public VocabularyViewModel Vocabulary { get; }
     public SettingsViewModel Settings { get; }
     public DebugViewModel Debug { get; }
@@ -123,6 +122,19 @@ public sealed class MainViewModel
                     : "删除后将无法恢复，其中的词条也会一并移除。",
                 ConfirmText = "删除",
                 Preview = profile.Name,
+                Tone = ConfirmationDialogTone.Destructive
+            });
+
+    private static bool ConfirmRemoteServiceDeletion(RemoteApiProfile profile) =>
+        ConfirmationDialog.Confirm(
+            System.Windows.Application.Current?.MainWindow,
+            new ConfirmationDialogOptions
+            {
+                Title = "删除远程 API",
+                Heading = $"确定删除“{profile.Name}”？",
+                Message = "删除后将无法恢复。已保存的 API Key 也会一并移除。",
+                ConfirmText = "删除",
+                Preview = profile.Endpoint,
                 Tone = ConfirmationDialogTone.Destructive
             });
 
@@ -212,7 +224,7 @@ public sealed class MainViewModel
     {
         await Vocabulary.LoadAsync();
         await Settings.LoadAsync();
-        await Model.InitializeAsync();
+        await Services.LoadAsync();
         await RefreshHistoryAsync();
         var end = DateOnly.FromDateTime(DateTime.Now);
         var start = end.AddDays(-(StatsViewModel.SummaryDayCount - 1));

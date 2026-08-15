@@ -25,6 +25,15 @@ public static class DemoDataSeeder
             },
             cancellationToken);
 
+        var remoteProfiles = new SqliteRemoteApiProfileRepository(database);
+        await remoteProfiles.CreateAsync(
+            "局域网 Whisper",
+            "http://192.168.1.24:9000/v1/audio/transcriptions",
+            "whisper-large-v3-turbo",
+            protectedApiKey: null,
+            useVocabulary: false,
+            cancellationToken);
+
         var statsRepository = new SqliteStatsRepository(database);
         var today = DateOnly.FromDateTime(now.Date);
         for (var dayOffset = -(StatsViewModel.SummaryDayCount - 1); dayOffset <= 0; dayOffset++)

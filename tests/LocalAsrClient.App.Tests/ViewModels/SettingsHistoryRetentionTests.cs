@@ -98,6 +98,32 @@ public sealed class SettingsHistoryRetentionTests
         Assert.Equal(TranscriptRetentionPolicy.SevenDays, history.PrunedPolicy);
     }
 
+    [Fact]
+    public async Task SaveAsync_PreservesLocalServiceConfigurationOwnedByServicesPage()
+    {
+        var original = AppSettings.CreateDefault() with
+        {
+            ModelPath = "models/current.bin",
+            WhisperServerPath = "tools/whisper-server.exe",
+            WhisperServerPort = 18080,
+            WhisperServerThreadCount = 6,
+            StartModelOnAppStartup = true
+        };
+        var settings = new StubSettingsStore(original);
+        var history = new StubHistoryRepository();
+        var viewModel = CreateViewModel(settings, history, _ => true);
+        await viewModel.LoadAsync();
+
+        viewModel.MinimizeToTrayOnClose = false;
+        await viewModel.SaveAsync();
+
+        Assert.Equal(original.ModelPath, settings.Settings.ModelPath);
+        Assert.Equal(original.WhisperServerPath, settings.Settings.WhisperServerPath);
+        Assert.Equal(original.WhisperServerPort, settings.Settings.WhisperServerPort);
+        Assert.Equal(original.WhisperServerThreadCount, settings.Settings.WhisperServerThreadCount);
+        Assert.Equal(original.StartModelOnAppStartup, settings.Settings.StartModelOnAppStartup);
+    }
+
     private static SettingsViewModel CreateViewModel(
         ISettingsStore settingsStore,
         ITextHistoryRepository historyRepository,
@@ -106,8 +132,7 @@ public sealed class SettingsHistoryRetentionTests
         return new SettingsViewModel(
             settingsStore,
             historyRepository,
-            () => Task.CompletedTask,
-            confirmHistoryCleanup: confirmHistoryCleanup);
+            confirmHistoryCleanup);
     }
 
     private sealed class StubSettingsStore : ISettingsStore

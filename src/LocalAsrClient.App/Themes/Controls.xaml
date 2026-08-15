@@ -184,6 +184,12 @@
         <Setter Property="BorderBrush" Value="{StaticResource LessAsr.Brush.Border}"/>
     </Style>
 
+    <Style x:Key="LessAsr.PasswordBox" TargetType="PasswordBox" BasedOn="{StaticResource {x:Type PasswordBox}}">
+        <Setter Property="MinHeight" Value="36"/>
+        <Setter Property="Padding" Value="10,7"/>
+        <Setter Property="BorderBrush" Value="{StaticResource LessAsr.Brush.Border}"/>
+    </Style>
+
     <Style x:Key="LessAsr.ComboBox" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
         <Setter Property="MinHeight" Value="36"/>
         <Setter Property="Padding" Value="8,5"/>

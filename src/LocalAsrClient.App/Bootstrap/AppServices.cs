@@ -184,37 +184,13 @@ public sealed class AppServices : IAsyncDisposable
 
     public bool IsDemoMode => StartupOptions.IsDemoMode;
 
+    public bool IsDictationBusy => Orchestrator.State is DictationState.Recording
+        or DictationState.Transcribing
+        or DictationState.Injecting
+        or DictationState.EnsuringModelReady
+        || ContinuousDictationSession.IsBusy;
 
 
-    public async Task ApplyServerOptionsFromSettingsAsync(CancellationToken cancellationToken = default)
-
-    {
-
-        var settings = await SettingsStore.LoadAsync(cancellationToken);
-
-        var options = new WhisperServerOptions(
-
-            settings.WhisperServerPath,
-
-            settings.ModelPath,
-
-            "127.0.0.1",
-
-            settings.WhisperServerPort,
-
-            settings.WhisperServerThreadCount);
-
-        ServerManager.UpdateOptions(options);
-
-        var baseUri = options.BaseUri;
-        var currentAuthority = TranscribeClient.BaseUri.GetLeftPart(UriPartial.Authority);
-        var newAuthority = baseUri.GetLeftPart(UriPartial.Authority);
-        if (!string.Equals(currentAuthority, newAuthority, StringComparison.OrdinalIgnoreCase))
-        {
-            TranscribeClient.Refresh(baseUri);
-        }
-
-    }
 
     public void RefreshTranscribeHttpClient()
     {
@@ -286,7 +262,7 @@ public sealed class AppServices : IAsyncDisposable
             _ => new ManagedWhisperServerBackend(
                 serverManager,
                 transcribeClient,
-                Path.GetFileNameWithoutExtension(settings.ModelPath))
+                () => Path.GetFileNameWithoutExtension(serverManager.ActiveModelPath))
         };
 
         var backend = new SwitchableAsrBackend(modeBackend);

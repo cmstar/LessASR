@@ -6,20 +6,28 @@ public sealed class ManagedWhisperServerBackend : IAsrBackend
 {
     private readonly IWhisperServerManager _manager;
     private readonly IWhisperServerClient _client;
-    private readonly string _modelId;
+    private readonly Func<string> _modelIdProvider;
 
     public ManagedWhisperServerBackend(
         IWhisperServerManager manager,
         IWhisperServerClient client,
         string modelId = "")
+        : this(manager, client, () => modelId)
+    {
+    }
+
+    public ManagedWhisperServerBackend(
+        IWhisperServerManager manager,
+        IWhisperServerClient client,
+        Func<string> modelIdProvider)
     {
         _manager = manager;
         _client = client;
-        _modelId = modelId;
+        _modelIdProvider = modelIdProvider;
     }
 
     public string Name => "本地 Whisper";
-    public string ModelId => _modelId;
+    public string ModelId => _modelIdProvider();
     public AsrBackendStatus Status => _manager.Status switch
     {
         WhisperServerStatus.Stopped => AsrBackendStatus.Stopped,

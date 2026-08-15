@@ -2,6 +2,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Media;
 using System.Windows.Threading;
 using LocalAsrClient.App.Bootstrap;
 using LocalAsrClient.App.ViewModels;
@@ -35,6 +36,17 @@ public static class DemoScreenshotExporter
             cancellationToken);
         await CaptureMainSectionAsync(
             services,
+            MainSection.Services,
+            Path.Combine(outputDirectory, "services.png"),
+            cancellationToken);
+        await CaptureMainSectionAsync(
+            services,
+            MainSection.Services,
+            Path.Combine(outputDirectory, "services-remote.png"),
+            cancellationToken,
+            scrollOffset: 560);
+        await CaptureMainSectionAsync(
+            services,
             MainSection.Settings,
             Path.Combine(outputDirectory, "settings.png"),
             cancellationToken);
@@ -52,7 +64,8 @@ public static class DemoScreenshotExporter
         AppServices services,
         MainSection section,
         string outputPath,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        double scrollOffset = 0)
     {
         var window = new MainWindow(services);
         window.Show();
@@ -61,6 +74,13 @@ public static class DemoScreenshotExporter
             await window.ViewModel.Initialization;
             window.ViewModel.Navigation.SelectedSection = section;
             await WaitForLayoutAsync(window, cancellationToken);
+            if (scrollOffset > 0)
+            {
+                var scrollViewer = FindVisibleScrollableViewer(window)
+                    ?? throw new InvalidOperationException("没有找到可滚动的演示页面。");
+                scrollViewer.ScrollToVerticalOffset(scrollOffset);
+                await WaitForLayoutAsync(window, cancellationToken);
+            }
             CaptureVisual(window, outputPath);
         }
         finally
@@ -68,6 +88,28 @@ public static class DemoScreenshotExporter
             window.AllowClose();
             window.Close();
         }
+    }
+
+    private static System.Windows.Controls.ScrollViewer? FindVisibleScrollableViewer(DependencyObject parent)
+    {
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, index);
+            if (child is System.Windows.Controls.ScrollViewer scrollViewer
+                && scrollViewer.IsVisible
+                && scrollViewer.ScrollableHeight > 0)
+            {
+                return scrollViewer;
+            }
+
+            var nested = FindVisibleScrollableViewer(child);
+            if (nested is not null)
+            {
+                return nested;
+            }
+        }
+
+        return null;
     }
 
     private static async Task PopulateContinuousDictationAsync(
