@@ -1,4 +1,5 @@
 using System.IO;
+using System.Net.Http;
 
 using LocalAsrClient.App.Audio;
 
@@ -17,6 +18,8 @@ using LocalAsrClient.App.Hotkeys;
 using LocalAsrClient.App.Overlay;
 
 using LocalAsrClient.App.Persistence;
+
+using LocalAsrClient.App.Security;
 
 using LocalAsrClient.App.TestMode;
 
@@ -73,6 +76,14 @@ public sealed class AppServices : IAsyncDisposable
 
         ResilientWhisperServerClient transcribeClient,
 
+        HttpClient remoteHttpClient,
+
+        SqliteRemoteApiProfileRepository remoteApiProfileRepository,
+
+        SwitchableAsrBackend backendRouter,
+
+        AsrServiceCoordinator serviceCoordinator,
+
         WhisperServerProcessManager serverManager,
 
         IDiagnosticEventSink diagnosticSink,
@@ -108,6 +119,14 @@ public sealed class AppServices : IAsyncDisposable
         InjectionTargetCapture = injectionTargetCapture;
 
         TranscribeClient = transcribeClient;
+
+        RemoteHttpClient = remoteHttpClient;
+
+        RemoteApiProfileRepository = remoteApiProfileRepository;
+
+        BackendRouter = backendRouter;
+
+        ServiceCoordinator = serviceCoordinator;
 
         ServerManager = serverManager;
 
@@ -146,6 +165,14 @@ public sealed class AppServices : IAsyncDisposable
     public InjectionTargetCapture InjectionTargetCapture { get; }
 
     public ResilientWhisperServerClient TranscribeClient { get; }
+
+    public HttpClient RemoteHttpClient { get; }
+
+    public SqliteRemoteApiProfileRepository RemoteApiProfileRepository { get; }
+
+    public SwitchableAsrBackend BackendRouter { get; }
+
+    public AsrServiceCoordinator ServiceCoordinator { get; }
 
     public WhisperServerProcessManager ServerManager { get; }
 
@@ -252,12 +279,30 @@ public sealed class AppServices : IAsyncDisposable
 
         var transcribeClient = new ResilientWhisperServerClient(options.BaseUri, serverManager);
 
-        IAsrBackend backend = startupOptions.RuntimeMode switch
+        IAsrBackend modeBackend = startupOptions.RuntimeMode switch
         {
             AppRuntimeMode.Test => new TestAsrBackend(TestModeOptions.DefaultAsrText),
             AppRuntimeMode.Demo => new DemoAsrBackend(DemoDataScenario.ContinuousDictationSegments),
-            _ => new ManagedWhisperServerBackend(serverManager, transcribeClient)
+            _ => new ManagedWhisperServerBackend(
+                serverManager,
+                transcribeClient,
+                Path.GetFileNameWithoutExtension(settings.ModelPath))
         };
+
+        var backend = new SwitchableAsrBackend(modeBackend);
+
+        var remoteApiProfileRepository = new SqliteRemoteApiProfileRepository(database);
+        var secretProtector = new DpapiSecretProtector();
+        var remoteHttpClient = new HttpClient(new SocketsHttpHandler
+        {
+            AllowAutoRedirect = false,
+            PooledConnectionLifetime = TimeSpan.FromMinutes(2),
+            MaxConnectionsPerServer = 1
+        })
+        {
+            Timeout = TimeSpan.FromSeconds(120)
+        };
+        var remoteTranscriptionClient = new OpenAiCompatibleTranscriptionClient(remoteHttpClient);
 
 
 
@@ -325,6 +370,26 @@ public sealed class AppServices : IAsyncDisposable
             clock,
 
             new TranscriptionScriptPostProcessor(settingsStore));
+
+        var serviceCoordinator = new AsrServiceCoordinator(
+            remoteApiProfileRepository,
+            settingsStore,
+            secretProtector,
+            serverManager,
+            backend,
+            modeBackend,
+            profile => new RemoteOpenAiBackend(profile, secretProtector, remoteTranscriptionClient),
+            () => orchestrator.State is DictationState.Recording
+                or DictationState.Transcribing
+                or DictationState.Injecting
+                or DictationState.EnsuringModelReady
+                || continuousSession.IsBusy);
+
+        if (startupOptions.RuntimeMode == AppRuntimeMode.Standard)
+        {
+            await serviceCoordinator.InitializeAsync(cancellationToken);
+            settings = await settingsStore.LoadAsync(cancellationToken);
+        }
 
         var transcribeAttempt = 0;
         orchestrator.StatusChanged += status =>
@@ -468,6 +533,7 @@ public sealed class AppServices : IAsyncDisposable
 
 
         if (settings.StartModelOnAppStartup
+            && settings.ActiveRemoteApiProfileId is null
             && startupOptions.RuntimeMode == AppRuntimeMode.Standard)
 
         {
@@ -507,6 +573,14 @@ public sealed class AppServices : IAsyncDisposable
             injectionTargetCapture,
 
             transcribeClient,
+
+            remoteHttpClient,
+
+            remoteApiProfileRepository,
+
+            backend,
+
+            serviceCoordinator,
 
             serverManager,
 
@@ -556,6 +630,8 @@ public sealed class AppServices : IAsyncDisposable
         ContinuousDictationCoordinator.Dispose();
 
         TranscribeClient.Dispose();
+
+        RemoteHttpClient.Dispose();
 
         await ServerManager.StopAsync(CancellationToken.None);
 

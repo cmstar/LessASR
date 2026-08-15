@@ -13,6 +13,7 @@ public sealed class TestAsrBackend : IAsrBackend
     }
 
     public string Name => "test-asr";
+    public string ModelId => "test-model";
 
     public AsrBackendStatus Status => AsrBackendStatus.Ready;
 

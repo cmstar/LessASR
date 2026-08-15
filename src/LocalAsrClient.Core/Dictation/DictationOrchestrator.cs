@@ -269,8 +269,8 @@ public sealed class DictationOrchestrator
                 wordCount,
                 recordingDuration,
                 processingDuration,
-                "whisper-server",
-                Path.GetFileNameWithoutExtension(settings.ModelPath)), cancellationToken);
+                _asrBackend.Name,
+                _asrBackend.ModelId), cancellationToken);
             await _historyRepository.PruneAsync(_clock.Now, settings.TranscriptRetentionPolicy, cancellationToken);
         }
 

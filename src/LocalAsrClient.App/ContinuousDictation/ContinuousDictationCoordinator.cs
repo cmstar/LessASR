@@ -236,8 +236,8 @@ public sealed class ContinuousDictationCoordinator : IDisposable
                 wordCount,
                 TimeSpan.Zero,
                 TimeSpan.Zero,
-                "continuous-dictation",
-                string.Empty),
+                _asrBackend.Name,
+                _asrBackend.ModelId),
             cancellationToken);
         await _historyRepository.PruneAsync(_clock.Now, settings.TranscriptRetentionPolicy, cancellationToken);
     }

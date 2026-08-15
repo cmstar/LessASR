@@ -19,6 +19,7 @@ public sealed class DemoAsrBackend : IAsrBackend
     }
 
     public string Name => "demo-asr";
+    public string ModelId => "demo-model";
 
     public AsrBackendStatus Status => AsrBackendStatus.Ready;
 

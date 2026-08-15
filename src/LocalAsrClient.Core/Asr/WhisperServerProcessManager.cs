@@ -22,11 +22,13 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
     private readonly object _outputLock = new();
     private readonly StringBuilder _processOutput = new();
     private WhisperServerOptions _options;
+    private WhisperServerOptions _configuredOptions;
     private Process? _process;
 
     public WhisperServerProcessManager(WhisperServerOptions options, IAppLog? log = null)
     {
         _options = options;
+        _configuredOptions = options;
         _log = log;
     }
 
@@ -34,21 +36,19 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
 
     public WhisperServerStatus Status { get; private set; } = WhisperServerStatus.Stopped;
     public Uri BaseUri => _options.BaseUri;
+    public bool IsRestartRequired { get; private set; }
 
     public void UpdateOptions(WhisperServerOptions options)
     {
-        var restartRequired = _options.Host != options.Host
-            || _options.Port != options.Port
-            || _options.ThreadCount != options.ThreadCount
-            || !string.Equals(_options.ServerExecutablePath, options.ServerExecutablePath, StringComparison.OrdinalIgnoreCase)
-            || !string.Equals(_options.ModelPath, options.ModelPath, StringComparison.OrdinalIgnoreCase);
-
-        _options = options;
-
-        if (restartRequired)
+        _configuredOptions = options;
+        if (Status is WhisperServerStatus.Stopped or WhisperServerStatus.Failed
+            && _process is null or { HasExited: true })
         {
-            StopManagedProcess();
+            ApplyConfiguredOptions();
+            return;
         }
+
+        IsRestartRequired = OptionsDiffer(_options, _configuredOptions);
     }
 
     public async Task EnsureStartedAsync(CancellationToken cancellationToken)
@@ -66,6 +66,11 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
                 await WaitUntilReadyAsync(cancellationToken);
                 SetStatus(WhisperServerStatus.Ready);
                 return;
+            }
+
+            if (Status is WhisperServerStatus.Stopped or WhisperServerStatus.Failed)
+            {
+                ApplyConfiguredOptions();
             }
 
             ValidatePaths();
@@ -119,8 +124,22 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
     public Task StopAsync(CancellationToken cancellationToken)
     {
         StopManagedProcess();
+        ApplyConfiguredOptions();
         return Task.CompletedTask;
     }
+
+    private void ApplyConfiguredOptions()
+    {
+        _options = _configuredOptions;
+        IsRestartRequired = false;
+    }
+
+    private static bool OptionsDiffer(WhisperServerOptions left, WhisperServerOptions right) =>
+        left.Host != right.Host
+        || left.Port != right.Port
+        || left.ThreadCount != right.ThreadCount
+        || !string.Equals(left.ServerExecutablePath, right.ServerExecutablePath, StringComparison.OrdinalIgnoreCase)
+        || !string.Equals(left.ModelPath, right.ModelPath, StringComparison.OrdinalIgnoreCase);
 
     private void ValidatePaths()
     {

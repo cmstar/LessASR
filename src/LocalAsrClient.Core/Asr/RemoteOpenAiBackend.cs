@@ -20,6 +20,7 @@ public sealed class RemoteOpenAiBackend : IAsrBackend
     }
 
     public string Name => _profile.Name;
+    public string ModelId => _profile.Model;
 
     public AsrBackendStatus Status => AsrBackendStatus.Ready;
 

@@ -51,6 +51,21 @@ public sealed class DictationOrchestratorTests
     }
 
     [Fact]
+    public async Task ToggleAsync_PersistsActiveBackendAndModelMetadata()
+    {
+        var fixture = new Fixture();
+        fixture.Backend.Status = AsrBackendStatus.Ready;
+        fixture.Backend.ModelId = "whisper-1";
+
+        await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+        await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+
+        var entry = Assert.Single(fixture.History.Entries);
+        Assert.Equal("Whisper Server", entry.BackendId);
+        Assert.Equal("whisper-1", entry.ModelId);
+    }
+
+    [Fact]
     public async Task ToggleAsync_WhenInjectionFailsLeavesResultNeedsAction()
     {
         var fixture = new Fixture();

@@ -25,6 +25,7 @@ public sealed class StubRecorder : IAudioRecorder
 public sealed class StubBackend : IAsrBackend
 {
     public string Name => "Whisper Server";
+    public string ModelId { get; set; } = "ggml-large-v3-turbo";
     public AsrBackendStatus Status { get; set; } = AsrBackendStatus.Ready;
     public bool EnsureReadyCalled { get; private set; }
     public int TranscribeCallCount { get; private set; }

@@ -20,6 +20,8 @@ public sealed class ContinuousDictationSession
     public event Action<ContinuousDictationSnapshot>? Changed;
 
     public bool IsRecordingActive => _isRecordingActive;
+    public bool IsBusy => _isRecordingActive || _segments.Any(segment =>
+        segment.State is ContinuousSegmentState.WaitingInput or ContinuousSegmentState.Transcribing);
 
     public ContinuousDictationSession(IAudioRecorder recorder, TranscriptionPipeline pipeline)
     {

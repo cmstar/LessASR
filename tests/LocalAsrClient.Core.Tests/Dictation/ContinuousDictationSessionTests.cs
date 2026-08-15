@@ -18,6 +18,7 @@ public sealed class ContinuousDictationSessionTests
         Assert.Single(snap.Segments);
         Assert.Equal(ContinuousSegmentState.WaitingInput, snap.Segments[0].State);
         Assert.True(fixture.Recorder.Started);
+        Assert.True(fixture.Session.IsBusy);
     }
 
     [Fact]
@@ -77,6 +78,20 @@ public sealed class ContinuousDictationSessionTests
 
         Assert.Equal(ContinuousSegmentState.Completed, fixture.LastSnapshot.Segments[0].State);
         Assert.Equal("段落一", fixture.LastSnapshot.Segments[0].Text);
+        Assert.False(fixture.Session.IsBusy);
+    }
+
+    [Fact]
+    public async Task IsBusy_RemainsTrueWhileStoppedRecordingIsStillTranscribing()
+    {
+        var fixture = new SessionFixture();
+        fixture.Backend.TranscribeDelay = TimeSpan.FromSeconds(10);
+
+        await fixture.Session.ToggleRecordingAsync(CancellationToken.None);
+        await fixture.Session.ToggleRecordingAsync(CancellationToken.None);
+
+        Assert.False(fixture.Session.IsRecordingActive);
+        Assert.True(fixture.Session.IsBusy);
     }
 
     [Fact]
