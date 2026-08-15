@@ -60,7 +60,7 @@ public sealed class RemoteServiceProfileViewModelTests
         await viewModel.ClearApiKeyAsync();
 
         Assert.Equal(profile.Id, clearedId);
-        Assert.Equal("未配置 · API Key 可为空", viewModel.ApiKeyStatusText);
+        Assert.Equal("", viewModel.ApiKeyStatusText);
     }
 
     [Fact]

@@ -97,10 +97,10 @@
                                 Tag="{Binding Navigation.IsServicesSelected}"
                                 Command="{Binding Navigation.NavigateCommand}"
                                 CommandParameter="{x:Static vm:MainSection.Services}"
-                                AutomationProperties.Name="服务">
+                                AutomationProperties.Name="模型">
                             <StackPanel Orientation="Horizontal">
                                 <ui:SymbolIcon Symbol="BrainCircuit24" Width="20"/>
-                                <TextBlock Text="服务" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="模型" Margin="12,0,0,0" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
                         <Button Style="{StaticResource LessAsr.NavButton}"
@@ -372,7 +372,7 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <!-- 服务 -->
+                <!-- 模型 -->
                 <Grid Visibility="{Binding Navigation.IsServicesSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <views:ServiceView DataContext="{Binding Services}"/>
                 </Grid>
@@ -414,16 +414,7 @@
 
                             <Border Style="{StaticResource LessAsr.Card}" Padding="12">
                                 <Grid>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="*"/>
-                                    </Grid.RowDefinitions>
-                                    <TextBlock Text="我的词汇表"
-                                               Style="{StaticResource LessAsr.Text.SectionTitle}"
-                                               Margin="6,4,6,12"/>
-
-                                    <ScrollViewer Grid.Row="1"
-                                                  VerticalScrollBarVisibility="Auto"
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto"
                                                   HorizontalScrollBarVisibility="Disabled"
                                                   Visibility="{Binding Vocabulary.HasProfiles, Converter={StaticResource BooleanToVisibilityConverter}}">
                                         <ItemsControl ItemsSource="{Binding Vocabulary.Profiles}">
@@ -470,8 +461,7 @@
                                         </ItemsControl>
                                     </ScrollViewer>
 
-                                    <StackPanel Grid.Row="1"
-                                                HorizontalAlignment="Center"
+                                    <StackPanel HorizontalAlignment="Center"
                                                 VerticalAlignment="Center"
                                                 Margin="8">
                                         <StackPanel.Style>

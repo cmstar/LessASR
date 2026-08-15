@@ -111,7 +111,7 @@ public sealed class RemoteServiceProfileViewModel : INotifyPropertyChanged
     {
         ApiKeyAvailability.Available => "已配置 · 基于系统 DPAPI 保存",
         ApiKeyAvailability.Unavailable => "需要重新输入 API Key · 当前 Windows 用户无法解密",
-        _ => "未配置 · API Key 可为空"
+        _ => ""
     };
 
     public bool IsActive => _isActive;
@@ -165,7 +165,7 @@ public sealed class RemoteServiceProfileViewModel : INotifyPropertyChanged
     public async Task ActivateAsync() => _ = await RunRequiredIdAsync(async id =>
     {
         await _activate(id);
-        SetMessage("已设为当前服务。");
+        SetMessage("已启用该模型。");
     });
 
     public async Task TestAsync()

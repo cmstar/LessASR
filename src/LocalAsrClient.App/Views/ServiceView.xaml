@@ -3,131 +3,218 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:infra="clr-namespace:LocalAsrClient.App.Infrastructure"
              xmlns:views="clr-namespace:LocalAsrClient.App.Views">
-    <ScrollViewer x:Name="PageScrollViewer"
-                  VerticalScrollBarVisibility="Auto"
-                  HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Margin="20,0,20,24">
-            <Grid Margin="0,0,0,20">
+    <Grid x:Name="ScreenshotServiceRoot">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Grid Margin="20,0,20,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Text="模型" Style="{StaticResource LessAsr.Text.PageTitle}"/>
+                <TextBlock Text="管理本地 Whisper 和 OpenAI 兼容的远程 API 模型；同一时间只启用一个。"
+                           Style="{StaticResource LessAsr.Text.Secondary}"
+                           Margin="0,5,0,0"/>
+            </StackPanel>
+            <Button Grid.Column="1"
+                    Content="+  添加远程 API"
+                    Command="{Binding AddRemoteCommand}"
+                    IsEnabled="{Binding CanMutate}"
+                    Style="{StaticResource LessAsr.PrimaryButton}"
+                    MinWidth="128"
+                    VerticalAlignment="Center"
+                    AutomationProperties.Name="添加远程 API 模型"/>
+        </Grid>
+
+        <ScrollViewer Grid.Row="1"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <Grid Margin="20,0,20,24" MinHeight="430">
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="234"/>
+                    <ColumnDefinition Width="12"/>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <StackPanel>
-                    <TextBlock Text="服务" Style="{StaticResource LessAsr.Text.PageTitle}"/>
-                    <TextBlock Text="管理本地 Whisper 和 OpenAI 兼容的远程 API；同一时间只启用一个。"
-                               Style="{StaticResource LessAsr.Text.Secondary}" Margin="0,5,0,0"/>
-                </StackPanel>
-                <Button Grid.Column="1"
-                        Content="添加远程 API"
-                        Command="{Binding AddRemoteCommand}"
-                        IsEnabled="{Binding CanMutate}"
-                        Style="{StaticResource LessAsr.PrimaryButton}"
-                        VerticalAlignment="Center"/>
-            </Grid>
 
-            <Border Style="{StaticResource LessAsr.Card}" Margin="0,0,0,12">
-                <StackPanel>
-                    <Grid Margin="0,0,0,16">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
+                <Border Style="{StaticResource LessAsr.Card}" Padding="12">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl ItemsSource="{Binding ModelProviders}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Style="{StaticResource LessAsr.NavButton}"
+                                            Tag="{Binding IsSelected}"
+                                            Command="{Binding DataContext.SelectModelProviderCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}"
+                                            Margin="0,0,0,4"
+                                            HorizontalContentAlignment="Stretch"
+                                            AutomationProperties.Name="{Binding Name}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Margin="6,0,8,0">
+                                                <TextBlock Text="{Binding Name}"
+                                                           FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{Binding ProviderTypeText}"
+                                                           Style="{StaticResource LessAsr.Text.Caption}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           Margin="0,3,0,0"/>
+                                            </StackPanel>
+                                            <Border Grid.Column="1"
+                                                    Background="{StaticResource LessAsr.Brush.Accent}"
+                                                    CornerRadius="8"
+                                                    Padding="6,2"
+                                                    VerticalAlignment="Center"
+                                                    Visibility="{Binding IsActive, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                <TextBlock Text="启用"
+                                                           Foreground="White"
+                                                           FontSize="11"
+                                                           FontWeight="SemiBold"/>
+                                            </Border>
+                                        </Grid>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
+
+                <Grid Grid.Column="2">
+                    <Border Style="{StaticResource LessAsr.Card}"
+                            Visibility="{Binding IsLocalSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <StackPanel>
-                            <TextBlock Text="本地 Whisper" Style="{StaticResource LessAsr.Text.SectionTitle}"/>
-                            <TextBlock Text="由 LessASR 托管 whisper.cpp 的 whisper-server 进程"
-                                       Style="{StaticResource LessAsr.Text.Caption}" Margin="0,4,0,0"/>
+                            <Grid Margin="0,0,0,16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="本地 Whisper" Style="{StaticResource LessAsr.Text.SectionTitle}"/>
+                                    <TextBlock Text="由 LessASR 托管 whisper.cpp 的 whisper-server 进程"
+                                               Style="{StaticResource LessAsr.Text.Caption}"
+                                               Margin="0,4,0,0"/>
+                                </StackPanel>
+                                <Border Grid.Column="1"
+                                        Style="{StaticResource LessAsr.StatusBadge}"
+                                        Visibility="{Binding IsLocalActive, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <TextBlock Text="启用"
+                                               Foreground="{StaticResource LessAsr.Brush.Accent}"
+                                               FontWeight="SemiBold"/>
+                                </Border>
+                                <Button Grid.Column="1"
+                                        Content="启用"
+                                        Command="{Binding ActivateLocalCommand}"
+                                        IsEnabled="{Binding CanActivateLocal}">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource LessAsr.PrimaryButton}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsLocalActive}" Value="True">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                            </Grid>
+
+                            <Grid Margin="0,0,0,14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="14"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                    <TextBlock Text="服务状态" Style="{StaticResource LessAsr.FieldLabel}"/>
+                                    <TextBlock Text="{Binding LocalServiceStateText}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="服务地址" Style="{StaticResource LessAsr.FieldLabel}"/>
+                                    <TextBlock Text="{Binding LocalServiceAddress}"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <TextBlock Text="模型文件路径" Style="{StaticResource LessAsr.FieldLabel}"/>
+                            <Grid Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBox Text="{Binding ModelPath, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource LessAsr.TextBox}" IsEnabled="{Binding CanMutate}"/>
+                                <Button Grid.Column="1" Content="浏览…" Command="{Binding BrowseModelPathCommand}" IsEnabled="{Binding CanMutate}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="8,0,0,0"/>
+                            </Grid>
+
+                            <TextBlock Text="whisper-server 路径" Style="{StaticResource LessAsr.FieldLabel}"/>
+                            <Grid Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <TextBox Text="{Binding WhisperServerPath, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource LessAsr.TextBox}" IsEnabled="{Binding CanMutate}"/>
+                                <Button Grid.Column="1" Content="浏览…" Command="{Binding BrowseWhisperServerPathCommand}" IsEnabled="{Binding CanMutate}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="8,0,0,0"/>
+                            </Grid>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="140"/><ColumnDefinition Width="14"/>
+                                    <ColumnDefinition Width="140"/><ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                <TextBlock Grid.Column="0" Text="服务端口" Style="{StaticResource LessAsr.FieldLabel}"/>
+                                <TextBlock Grid.Column="2" Text="线程数" Style="{StaticResource LessAsr.FieldLabel}"/>
+                                <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding WhisperServerPort, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource LessAsr.TextBox}" infra:IntegerTextBoxBehavior.IsEnabled="True" IsEnabled="{Binding CanMutate}"/>
+                                <Grid Grid.Row="1" Grid.Column="2">
+                                    <TextBox x:Name="ThreadCountBox"
+                                             Text="{Binding WhisperServerThreadCountText, UpdateSourceTrigger=PropertyChanged}"
+                                             Style="{StaticResource LessAsr.TextBox}"
+                                             infra:IntegerTextBoxBehavior.IsEnabled="True"
+                                             IsEnabled="{Binding CanMutate}"/>
+                                    <TextBlock Text="{Binding RecommendedThreadCount, StringFormat=默认：{0}}"
+                                               Foreground="{StaticResource LessAsr.Brush.TextTertiary}"
+                                               VerticalAlignment="Center"
+                                               Margin="11,0,0,0"
+                                               IsHitTestVisible="False">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Text, ElementName=ThreadCountBox}" Value="">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
+                            </Grid>
+
+                            <CheckBox Content="客户端启动时自动加载本地模型"
+                                      IsChecked="{Binding StartModelOnAppStartup}"
+                                      IsEnabled="{Binding CanMutate}"
+                                      Margin="0,14,0,0"/>
+
+                            <WrapPanel Margin="0,18,0,0">
+                                <Button Content="保存" Command="{Binding SaveLocalCommand}" IsEnabled="{Binding CanMutate}" Style="{StaticResource LessAsr.PrimaryButton}" Margin="0,0,8,8"/>
+                                <Button Content="启动" Command="{Binding StartLocalCommand}" IsEnabled="{Binding CanOperateLocal}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="0,0,8,8"/>
+                                <Button Content="测试" Command="{Binding TestLocalCommand}" IsEnabled="{Binding CanMutate}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="0,0,8,8"/>
+                                <Button Content="停止" Command="{Binding StopLocalCommand}" IsEnabled="{Binding CanOperateLocal}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="0,0,8,8"/>
+                            </WrapPanel>
+
+                            <TextBlock Text="{Binding LastMessage}" Foreground="{StaticResource LessAsr.Brush.Success}" TextWrapping="Wrap" Margin="0,4,0,0"
+                                       Visibility="{Binding LastMessage, Converter={StaticResource StringNotEmptyToVisibilityConverter}}"/>
+                            <TextBlock Text="{Binding LastError}" Foreground="{StaticResource LessAsr.Brush.Error}" TextWrapping="Wrap" Margin="0,4,0,0"
+                                       Visibility="{Binding LastError, Converter={StaticResource StringNotEmptyToVisibilityConverter}}"/>
                         </StackPanel>
-                        <Border Grid.Column="1" Style="{StaticResource LessAsr.StatusBadge}"
-                                Visibility="{Binding IsLocalActive, Converter={StaticResource BooleanToVisibilityConverter}}">
-                            <TextBlock Text="当前启用" Foreground="{StaticResource LessAsr.Brush.Accent}" FontWeight="SemiBold"/>
-                        </Border>
-                    </Grid>
-
-                    <Grid Margin="0,0,0,14">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="14"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <StackPanel>
-                            <TextBlock Text="服务状态" Style="{StaticResource LessAsr.FieldLabel}"/>
-                            <TextBlock Text="{Binding LocalServiceStateText}"/>
-                        </StackPanel>
-                        <StackPanel Grid.Column="2">
-                            <TextBlock Text="服务地址" Style="{StaticResource LessAsr.FieldLabel}"/>
-                            <TextBlock Text="{Binding LocalServiceAddress}"/>
-                        </StackPanel>
-                    </Grid>
-
-                    <TextBlock Text="模型文件路径" Style="{StaticResource LessAsr.FieldLabel}"/>
-                    <Grid Margin="0,0,0,12">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                        <TextBox Text="{Binding ModelPath, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource LessAsr.TextBox}" IsEnabled="{Binding CanMutate}"/>
-                        <Button Grid.Column="1" Content="浏览…" Command="{Binding BrowseModelPathCommand}" IsEnabled="{Binding CanMutate}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="8,0,0,0"/>
-                    </Grid>
-
-                    <TextBlock Text="whisper-server 路径" Style="{StaticResource LessAsr.FieldLabel}"/>
-                    <Grid Margin="0,0,0,12">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                        <TextBox Text="{Binding WhisperServerPath, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource LessAsr.TextBox}" IsEnabled="{Binding CanMutate}"/>
-                        <Button Grid.Column="1" Content="浏览…" Command="{Binding BrowseWhisperServerPathCommand}" IsEnabled="{Binding CanMutate}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="8,0,0,0"/>
-                    </Grid>
-
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="160"/><ColumnDefinition Width="14"/>
-                            <ColumnDefinition Width="160"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                        <TextBlock Grid.Column="0" Text="服务端口" Style="{StaticResource LessAsr.FieldLabel}"/>
-                        <TextBlock Grid.Column="2" Text="线程数" Style="{StaticResource LessAsr.FieldLabel}"/>
-                        <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding WhisperServerPort, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource LessAsr.TextBox}" infra:IntegerTextBoxBehavior.IsEnabled="True" IsEnabled="{Binding CanMutate}"/>
-                        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding WhisperServerThreadCount, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource LessAsr.TextBox}" infra:IntegerTextBoxBehavior.IsEnabled="True" IsEnabled="{Binding CanMutate}"/>
-                        <Button Grid.Row="1" Grid.Column="3" Content="恢复推荐值" Command="{Binding ResetThreadCountCommand}" IsEnabled="{Binding CanMutate}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="8,0,0,0"/>
-                        <TextBlock Grid.Row="2" Grid.Column="2" Grid.ColumnSpan="2" Text="{Binding RecommendedThreadCount, StringFormat=系统推荐线程数：{0}}" Style="{StaticResource LessAsr.Text.Caption}" Margin="0,6,0,0"/>
-                    </Grid>
-
-                    <CheckBox Content="客户端启动时自动加载本地模型"
-                              IsChecked="{Binding StartModelOnAppStartup}"
-                              IsEnabled="{Binding CanMutate}"
-                              Margin="0,14,0,0"/>
-
-                    <Border Background="{StaticResource LessAsr.Brush.WarningSoft}" CornerRadius="8" Padding="10,7" Margin="0,12,0,0"
-                            Visibility="{Binding LocalIsRestartRequired, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <TextBlock Text="配置已保存，需要重启本地服务后生效。" Foreground="{StaticResource LessAsr.Brush.Warning}"/>
                     </Border>
 
-                    <WrapPanel Margin="0,18,0,0">
-                        <Button Content="保存" Command="{Binding SaveLocalCommand}" IsEnabled="{Binding CanMutate}" Style="{StaticResource LessAsr.PrimaryButton}" Margin="0,0,8,8"/>
-                        <Button Content="保存并重启" Command="{Binding SaveAndRestartLocalCommand}" IsEnabled="{Binding CanSaveAndRestartLocal}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="0,0,8,8"/>
-                        <Button Content="设为当前" Command="{Binding ActivateLocalCommand}" IsEnabled="{Binding CanActivateLocal}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="0,0,8,8"/>
-                        <Button Content="启动" Command="{Binding StartLocalCommand}" IsEnabled="{Binding CanOperateLocal}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="0,0,8,8"/>
-                        <Button Content="测试" Command="{Binding TestLocalCommand}" IsEnabled="{Binding CanMutate}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="0,0,8,8"/>
-                        <Button Content="停止" Command="{Binding StopLocalCommand}" IsEnabled="{Binding CanOperateLocal}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="0,0,8,8"/>
-                    </WrapPanel>
-
-                    <TextBlock Text="{Binding LastMessage}"
-                               Foreground="{StaticResource LessAsr.Brush.Success}"
-                               TextWrapping="Wrap"
-                               Margin="0,4,0,0"
-                               Visibility="{Binding LastMessage, Converter={StaticResource StringNotEmptyToVisibilityConverter}}"/>
-                    <TextBlock Text="{Binding LastError}"
-                               Foreground="{StaticResource LessAsr.Brush.Error}"
-                               TextWrapping="Wrap"
-                               Margin="0,4,0,0"
-                               Visibility="{Binding LastError, Converter={StaticResource StringNotEmptyToVisibilityConverter}}"/>
-                </StackPanel>
-            </Border>
-
-            <TextBlock Text="远程 API" Style="{StaticResource LessAsr.Text.SectionTitle}" Margin="2,8,0,10"/>
-            <TextBlock Text="配置完整的 Audio Transcriptions 端点。公网和域名地址必须使用 HTTPS；可信本机或局域网 IP 可使用 HTTP。"
-                       Style="{StaticResource LessAsr.Text.Secondary}" TextWrapping="Wrap" Margin="2,0,0,12"/>
-            <ItemsControl ItemsSource="{Binding RemoteProfiles}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate><views:RemoteServiceCard/></DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-
-        </StackPanel>
-    </ScrollViewer>
+                    <ContentControl Content="{Binding SelectedRemoteProfile}"
+                                    Visibility="{Binding IsRemoteSelected, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <ContentControl.ContentTemplate>
+                            <DataTemplate><views:RemoteServiceCard/></DataTemplate>
+                        </ContentControl.ContentTemplate>
+                    </ContentControl>
+                </Grid>
+            </Grid>
+        </ScrollViewer>
+    </Grid>
 </UserControl>

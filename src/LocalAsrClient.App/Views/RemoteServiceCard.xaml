@@ -16,8 +16,22 @@
                 <Border Grid.Column="1"
                         Style="{StaticResource LessAsr.StatusBadge}"
                         Visibility="{Binding IsActive, Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <TextBlock Text="当前启用" Foreground="{StaticResource LessAsr.Brush.Accent}" FontWeight="SemiBold"/>
+                    <TextBlock Text="启用" Foreground="{StaticResource LessAsr.Brush.Accent}" FontWeight="SemiBold"/>
                 </Border>
+                <Button Grid.Column="1"
+                        Content="启用"
+                        Click="Activate_Click"
+                        IsEnabled="{Binding CanActivate}">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource LessAsr.PrimaryButton}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
             </Grid>
 
             <Grid>
@@ -55,7 +69,7 @@
                            TextWrapping="Wrap"/>
             </Border>
 
-            <TextBlock Text="API Key（可选）" Style="{StaticResource LessAsr.FieldLabel}" Margin="0,14,0,6"/>
+            <TextBlock Text="API Key" Style="{StaticResource LessAsr.FieldLabel}" Margin="0,14,0,6"/>
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -66,6 +80,12 @@
                              IsEnabled="{Binding CanMutate}"
                              PasswordChanged="ApiKeyBox_PasswordChanged"
                              AutomationProperties.Name="API Key"/>
+                <TextBlock x:Name="ApiKeyPlaceholder"
+                           Text="可为空"
+                           Foreground="{StaticResource LessAsr.Brush.TextTertiary}"
+                           VerticalAlignment="Center"
+                           Margin="11,0,0,0"
+                           IsHitTestVisible="False"/>
                 <Button Grid.Column="1"
                         Content="清除已保存 Key"
                         Click="ClearApiKey_Click"
@@ -73,7 +93,10 @@
                         Style="{StaticResource LessAsr.SecondaryButton}"
                         Margin="8,0,0,0"/>
             </Grid>
-            <TextBlock Text="{Binding ApiKeyStatusText}" Style="{StaticResource LessAsr.Text.Caption}" Margin="0,6,0,0"/>
+            <TextBlock Text="{Binding ApiKeyStatusText}"
+                       Style="{StaticResource LessAsr.Text.Caption}"
+                       Margin="0,6,0,0"
+                       Visibility="{Binding ApiKeyStatusText, Converter={StaticResource StringNotEmptyToVisibilityConverter}}"/>
 
             <CheckBox Content="启用词汇表"
                       IsChecked="{Binding UseVocabulary}"
@@ -92,7 +115,7 @@
                     Padding="10,7"
                     Margin="0,10,0,0"
                     Visibility="{Binding HasUnsavedChanges, Converter={StaticResource BooleanToVisibilityConverter}}">
-                <TextBlock Text="有未保存修改；请先保存，再测试或设为当前服务。"
+                <TextBlock Text="有未保存修改；请先保存，再测试或启用。"
                            Foreground="{StaticResource LessAsr.Brush.Warning}"
                            TextWrapping="Wrap"/>
             </Border>
@@ -100,14 +123,13 @@
             <WrapPanel Margin="0,10,0,0">
                 <Button Content="保存" Click="Save_Click" IsEnabled="{Binding CanMutate}" Style="{StaticResource LessAsr.PrimaryButton}" Margin="0,0,8,8"/>
                 <Button Content="测试" Click="Test_Click" IsEnabled="{Binding CanTest}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="0,0,8,8"/>
-                <Button Content="设为当前" Click="Activate_Click" IsEnabled="{Binding CanActivate}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="0,0,8,8"/>
                 <Button Content="放弃修改"
                         Click="DiscardChanges_Click"
                         IsEnabled="{Binding CanDiscardChanges}"
                         Visibility="{Binding ShowDiscardChanges, Converter={StaticResource BooleanToVisibilityConverter}}"
                         Style="{StaticResource LessAsr.SecondaryButton}"
                         Margin="0,0,8,8"/>
-                <Button Content="移除" Click="Delete_Click" IsEnabled="{Binding CanDelete}" Style="{StaticResource LessAsr.DestructiveButton}" Margin="0,0,8,8"/>
+                <Button Content="删除" Click="Delete_Click" IsEnabled="{Binding CanDelete}" Style="{StaticResource LessAsr.DestructiveButton}" Margin="0,0,8,8"/>
             </WrapPanel>
 
             <TextBlock Text="{Binding LastMessage}"

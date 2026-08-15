@@ -5,7 +5,6 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using LocalAsrClient.App.Bootstrap;
 using LocalAsrClient.App.ViewModels;
-using LocalAsrClient.App.Views;
 using LocalAsrClient.Core.Dictation;
 
 namespace LocalAsrClient.App.DemoMode;
@@ -34,13 +33,19 @@ public static class DemoScreenshotExporter
             MainSection.History,
             Path.Combine(outputDirectory, "history.png"),
             cancellationToken);
+        var localModelScreenshot = Path.Combine(outputDirectory, "services.png");
         await CaptureMainSectionAsync(
             services,
             MainSection.Services,
-            Path.Combine(outputDirectory, "services.png"),
+            localModelScreenshot,
+            cancellationToken);
+        await CaptureMainSectionAsync(
+            services,
+            MainSection.Services,
+            Path.Combine(outputDirectory, "services-remote.png"),
             cancellationToken,
-            scrolledOutputPath: Path.Combine(outputDirectory, "services-remote.png"),
-            scrollOffset: 560);
+            selectRemoteModel: true,
+            chromeSourcePath: localModelScreenshot);
         await CaptureMainSectionAsync(
             services,
             MainSection.Settings,
@@ -61,54 +66,38 @@ public static class DemoScreenshotExporter
         MainSection section,
         string outputPath,
         CancellationToken cancellationToken,
-        string? scrolledOutputPath = null,
-        double scrollOffset = 0)
+        bool selectRemoteModel = false,
+        string? chromeSourcePath = null)
     {
         var window = new MainWindow(services);
         window.Show();
         try
         {
             await window.ViewModel.Initialization;
+            if (selectRemoteModel)
+            {
+                var remoteModel = window.ViewModel.Services.ModelProviders
+                    .FirstOrDefault(model => !model.IsLocal)
+                    ?? throw new InvalidOperationException("没有找到远程模型演示配置。");
+                window.ViewModel.Services.SelectModelProvider(remoteModel);
+            }
             window.ViewModel.Navigation.SelectedSection = section;
             await WaitForLayoutAsync(window, cancellationToken);
-            var stableChrome = scrolledOutputPath is null
-                ? null
-                : CaptureNamedOverlays(window);
-            CaptureVisual(window, outputPath);
-            if (scrolledOutputPath is not null && scrollOffset > 0)
-            {
-                var serviceView = FindVisibleServiceView(window)
-                    ?? throw new InvalidOperationException("没有找到服务页演示视图。");
-                serviceView.ScrollToPageOffset(scrollOffset);
-                await WaitForLayoutAsync(window, cancellationToken);
-                CaptureVisual(window, scrolledOutputPath, stableChrome);
-            }
+            var capturedOverlays = selectRemoteModel
+                ? CaptureNamedOverlays(window, "ScreenshotServiceRoot")
+                    .Concat(CaptureChromeOverlays(chromeSourcePath!))
+                    .ToArray()
+                : null;
+            CaptureVisual(
+                window,
+                outputPath,
+                capturedOverlays);
         }
         finally
         {
             window.AllowClose();
             window.Close();
         }
-    }
-
-    private static ServiceView? FindVisibleServiceView(DependencyObject parent)
-    {
-        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
-        {
-            var child = VisualTreeHelper.GetChild(parent, index);
-            if (child is ServiceView serviceView && serviceView.IsVisible)
-            {
-                return serviceView;
-            }
-
-            var nested = FindVisibleServiceView(child);
-            if (nested is not null)
-            {
-                return nested;
-            }
-        }
-
-        return null;
     }
 
     private static async Task PopulateContinuousDictationAsync(
@@ -227,11 +216,14 @@ public static class DemoScreenshotExporter
                 window.Background,
                 null,
                 new Rect(0, 0, outputWidth, outputHeight));
-            drawingContext.DrawRectangle(
-                CreateVisualBrush(visual),
-                null,
-                new Rect(0, 0, outputWidth, outputHeight));
+        }
 
+        bitmap.Render(background);
+        bitmap.Render(visual);
+
+        var overlayVisual = new DrawingVisual();
+        using (var drawingContext = overlayVisual.RenderOpen())
+        {
             if (capturedOverlays is null)
             {
                 DrawNamedOverlay(window, visual, drawingContext, "ScreenshotSidebar");
@@ -246,7 +238,7 @@ public static class DemoScreenshotExporter
             }
         }
 
-        bitmap.Render(background);
+        bitmap.Render(overlayVisual);
 
         var encoder = new PngBitmapEncoder();
         encoder.Frames.Add(BitmapFrame.Create(bitmap));
@@ -259,13 +251,15 @@ public static class DemoScreenshotExporter
         ?? window.Content as FrameworkElement
         ?? throw new InvalidOperationException("演示窗口缺少可渲染的根内容。");
 
-    private static IReadOnlyList<CapturedOverlay> CaptureNamedOverlays(Window window)
+    private static IReadOnlyList<CapturedOverlay> CaptureNamedOverlays(
+        Window window,
+        params string[] elementNames)
     {
         var captureRoot = GetCaptureRoot(window);
         var overlays = new List<CapturedOverlay>();
-        foreach (var elementName in new[] { "ScreenshotSidebar", "ScreenshotTitleBar" })
+        foreach (var elementName in elementNames)
         {
-            if (window.FindName(elementName) is not FrameworkElement overlay
+            if (FindNamedElement(window, elementName) is not FrameworkElement overlay
                 || overlay.ActualWidth <= 0
                 || overlay.ActualHeight <= 0)
             {
@@ -292,10 +286,57 @@ public static class DemoScreenshotExporter
             bitmap.Render(drawing);
             var bounds = overlay.TransformToAncestor(captureRoot).TransformBounds(
                 new Rect(0, 0, overlay.ActualWidth, overlay.ActualHeight));
+            if (elementName == "ScreenshotServiceRoot")
+            {
+                bounds = new Rect(bounds.X, 48, bounds.Width, bounds.Height);
+            }
+
             overlays.Add(new CapturedOverlay(bitmap, bounds));
         }
 
         return overlays;
+    }
+
+    private static IReadOnlyList<CapturedOverlay> CaptureChromeOverlays(
+        string sourcePath)
+    {
+        using var input = File.Open(
+            sourcePath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.ReadWrite | FileShare.Delete);
+        var decoder = new PngBitmapDecoder(
+            input,
+            BitmapCreateOptions.PreservePixelFormat,
+            BitmapCacheOption.OnLoad);
+        var source = decoder.Frames[0];
+        const int sidebarWidth = 240;
+        const int titleBarHeight = 48;
+        var sidebar = new CroppedBitmap(
+            source,
+            new Int32Rect(0, 0, sidebarWidth, source.PixelHeight));
+        var titleBar = new CroppedBitmap(
+            source,
+            new Int32Rect(
+                sidebarWidth,
+                0,
+                source.PixelWidth - sidebarWidth,
+                titleBarHeight));
+        sidebar.Freeze();
+        titleBar.Freeze();
+        return
+        [
+            new CapturedOverlay(
+                sidebar,
+                new Rect(0, 0, sidebarWidth, source.PixelHeight)),
+            new CapturedOverlay(
+                titleBar,
+                new Rect(
+                    sidebarWidth,
+                    0,
+                    source.PixelWidth - sidebarWidth,
+                    titleBarHeight))
+        ];
     }
 
     private static void DrawNamedOverlay(
@@ -304,7 +345,7 @@ public static class DemoScreenshotExporter
         DrawingContext drawingContext,
         string elementName)
     {
-        if (window.FindName(elementName) is not FrameworkElement overlay
+        if (FindNamedElement(window, elementName) is not FrameworkElement overlay
             || overlay.ActualWidth <= 0
             || overlay.ActualHeight <= 0)
         {
@@ -317,6 +358,29 @@ public static class DemoScreenshotExporter
             CreateVisualBrush(overlay),
             null,
             bounds);
+    }
+
+    private static FrameworkElement? FindNamedElement(
+        DependencyObject parent,
+        string elementName)
+    {
+        if (parent is FrameworkElement element && element.Name == elementName)
+        {
+            return element;
+        }
+
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
+        {
+            var found = FindNamedElement(
+                VisualTreeHelper.GetChild(parent, index),
+                elementName);
+            if (found is not null)
+            {
+                return found;
+            }
+        }
+
+        return null;
     }
 
     private static VisualBrush CreateVisualBrush(FrameworkElement visual) =>

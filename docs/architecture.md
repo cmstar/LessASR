@@ -4,7 +4,7 @@
 
 ```text
 LocalAsrClient.App (WPF Shell)
-  ├── 托盘、主窗口、听写浮窗、服务页与词汇表页面
+  ├── 托盘、主窗口、听写浮窗、模型页与词汇表页面
   ├── 右 Ctrl 热键监听（Win32 低级钩子）
   ├── F9 热键监听 → ContinuousDictationCoordinator
   ├── ContinuousDictationWindow（连续听写专用窗口）
@@ -73,20 +73,20 @@ OpenAI-compatible API (远程进程或服务)
 
 ## 识别服务管理
 
-- 服务页固定包含一个不可删除的本地 Whisper 配置，并可保存任意数量的远程 API 配置；`AppSettings.ActiveRemoteApiProfileId == null` 表示本地服务。
+- 模型页左侧列表固定以不可删除的本地 Whisper 开头，并可保存任意数量的远程 API 配置；右侧只展示当前选中项的详情。`AppSettings.ActiveRemoteApiProfileId == null` 表示本地服务。
 - `AsrServiceCoordinator` 是切换与远程配置变更的业务边界。切换到远程前必须成功停止本地托管进程；切回本地只改变路由，不主动启动进程。
 - `AsrActivityGate` 为听写和服务变更提供共享租约：单句从录音开始持有到结果持久化结束，连续听写持有到录音停止且识别队列清空；切换、编辑、删除、本地启停与重启必须先取得同一租约，因此不会发生检查通过后又在听写中途替换路由的竞态。当前启用的远程配置不可删除。
-- 本地服务运行中保存路径、端口或线程参数时，`WhisperServerProcessManager` 保留当前活动参数并标记 `IsRestartRequired`；停止或“保存并重启”后才应用待定参数。
+- 本地服务运行中保存路径、端口或线程参数时，`WhisperServerProcessManager` 先保留当前活动参数并标记 `IsRestartRequired`；模型页随后自动停止并重启服务，使待定参数立即生效。
 - 远程 API 使用独立的 `HttpClient` 与后端，不复用本地 `ResilientWhisperServerClient` 的重启或重试逻辑。测试配置也不会改变当前路由。
 - 单句在发出请求前快照后端名和模型名；连续听写把来源写入每个完成段。连续历史来源一致时保存该来源，混用多个来源时保存“多个服务 / mixed”，避免关窗时误用当前路由。
-- `SqliteSettingsStore.UpdateAsync` 在仓储锁和 SQLite 事务内完成设置的读—改—写；服务选择、服务页和设置页只更新各自字段，避免并发保存覆盖当前服务。
+- `SqliteSettingsStore.UpdateAsync` 在仓储锁和 SQLite 事务内完成设置的读—改—写；服务选择、模型页和设置页只更新各自字段，避免并发保存覆盖当前服务。
 
 ## 外部集成
 
-- **whisper-server**：客户端按服务页配置启动子进程，通过 `HttpClient` 调用 `/inference` 等端点。
+- **whisper-server**：客户端按模型页配置启动子进程，通过 `HttpClient` 调用 `/inference` 等端点。
 - **OpenAI 兼容 API**：客户端向完整端点单次发送 multipart 请求；空 Key 不发送 `Authorization`，非空 Key 使用 Bearer。远程服务生命周期始终由用户或提供方管理。
 - **DPAPI**：`LocalAsrClient.App` 使用 Windows CurrentUser 范围且禁止 UI 提示的 DPAPI 实现 `ISecretProtector`；SQLite 只保存密文，返回给 ViewModel 的配置会移除密文，只携带“未配置 / 可用 / 需重新输入”状态；Core 不依赖 Windows 桌面 API。
-- **服务状态同步**：`WhisperServerProcessManager` 发布启动、就绪、停止与失败状态变化；WPF ViewModel 在 UI Dispatcher 上接收并刷新首页及服务页，包含热键触发的后台启动路径。
+- **服务状态同步**：`WhisperServerProcessManager` 发布启动、就绪、停止与失败状态变化；WPF ViewModel 在 UI Dispatcher 上接收并刷新首页及模型页，包含热键触发的后台启动路径。
 - **Win32/WPF Clipboard**：热键钩子、前台窗口恢复、`SendInput` 与剪贴板粘贴回退。
 
 ## 关键架构决策

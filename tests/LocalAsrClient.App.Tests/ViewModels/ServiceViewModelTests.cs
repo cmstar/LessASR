@@ -25,7 +25,42 @@ public sealed class ServiceViewModelTests
         Assert.False(viewModel.IsLocalActive);
         var card = Assert.Single(viewModel.RemoteProfiles);
         Assert.True(card.IsActive);
+        Assert.Collection(
+            viewModel.ModelProviders,
+            local =>
+            {
+                Assert.True(local.IsLocal);
+                Assert.False(local.CanDelete);
+                Assert.False(local.IsSelected);
+                Assert.Equal("本地 Whisper", local.Name);
+            },
+            remote =>
+            {
+                Assert.False(remote.IsLocal);
+                Assert.True(remote.CanDelete);
+                Assert.True(remote.IsSelected);
+                Assert.Equal("Office API", remote.Name);
+            });
+        Assert.Same(card, viewModel.SelectedRemoteProfile);
         Assert.Equal("Office API · 远程 API", viewModel.ActiveServiceStatusText);
+    }
+
+    [Fact]
+    public async Task StaleRemoteCardState_CannotCreateASecondCurrentModel()
+    {
+        var profile = CreateProfile("Office API");
+        var viewModel = CreateViewModel(
+            new FakeSettingsStore(AppSettings.CreateDefault()),
+            new FakeCoordinator(profile),
+            new FakeManager());
+        await viewModel.LoadAsync();
+
+        Assert.True(viewModel.IsLocalActive);
+
+        Assert.Single(viewModel.RemoteProfiles).SetActive(true);
+
+        var currentModel = Assert.Single(viewModel.ModelProviders.Where(item => item.IsActive));
+        Assert.True(currentModel.IsLocal);
     }
 
     [Fact]
@@ -42,10 +77,36 @@ public sealed class ServiceViewModelTests
         var card = Assert.Single(viewModel.RemoteProfiles);
         Assert.True(card.IsNew);
         Assert.False(card.UseVocabulary);
+        Assert.Equal(2, viewModel.ModelProviders.Count);
+        Assert.True(viewModel.ModelProviders[0].IsLocal);
+        Assert.Same(card, viewModel.ModelProviders[1].RemoteProfile);
+        Assert.Same(card, viewModel.SelectedRemoteProfile);
+        Assert.False(viewModel.IsLocalSelected);
     }
 
     [Fact]
-    public async Task SaveLocalAsync_WhileRunning_LeavesServiceReadyAndShowsRestartRequired()
+    public async Task DeleteSelectedRemoteProfile_ReturnsSelectionToFixedLocalModel()
+    {
+        var profile = CreateProfile("Office API");
+        var viewModel = CreateViewModel(
+            new FakeSettingsStore(AppSettings.CreateDefault()),
+            new FakeCoordinator(profile),
+            new FakeManager());
+        await viewModel.LoadAsync();
+        var remoteItem = Assert.Single(viewModel.ModelProviders.Where(item => !item.IsLocal));
+        viewModel.SelectModelProvider(remoteItem);
+
+        await Assert.Single(viewModel.RemoteProfiles).DeleteAsync();
+
+        var localItem = Assert.Single(viewModel.ModelProviders);
+        Assert.True(localItem.IsLocal);
+        Assert.True(localItem.IsSelected);
+        Assert.True(viewModel.IsLocalSelected);
+        Assert.Null(viewModel.SelectedRemoteProfile);
+    }
+
+    [Fact]
+    public async Task SaveLocalAsync_WhileRunning_RestartsAutomatically()
     {
         var settings = new FakeSettingsStore(AppSettings.CreateDefault());
         var manager = new FakeManager { MutableStatus = WhisperServerStatus.Ready };
@@ -53,16 +114,16 @@ public sealed class ServiceViewModelTests
         await viewModel.LoadAsync();
         viewModel.WhisperServerPort = 18080;
 
-        await viewModel.SaveLocalAsync(restart: false);
+        await viewModel.SaveLocalAsync();
 
         Assert.Equal(18080, settings.Settings.WhisperServerPort);
         Assert.Equal(WhisperServerStatus.Ready, manager.Status);
-        Assert.True(viewModel.LocalIsRestartRequired);
-        Assert.DoesNotContain("stop", manager.Events);
+        Assert.False(manager.IsRestartRequired);
+        Assert.Equal(["update", "stop", "start"], manager.Events);
     }
 
     [Fact]
-    public async Task SaveLocalAsync_WithRestart_AppliesPendingOptionsInOrder()
+    public async Task SaveLocalAsync_RefreshesClientBeforeRestarting()
     {
         var settings = new FakeSettingsStore(AppSettings.CreateDefault());
         var manager = new FakeManager { MutableStatus = WhisperServerStatus.Ready };
@@ -77,10 +138,57 @@ public sealed class ServiceViewModelTests
         await viewModel.LoadAsync();
         viewModel.WhisperServerPort = 18080;
 
-        await viewModel.SaveLocalAsync(restart: true);
+        await viewModel.SaveLocalAsync();
 
         Assert.Equal(["update", "stop", "refresh", "start"], events);
-        Assert.False(viewModel.LocalIsRestartRequired);
+        Assert.False(manager.IsRestartRequired);
+    }
+
+    [Fact]
+    public async Task LoadAsync_WithAutomaticThreadCount_LeavesTheEditorBlank()
+    {
+        var viewModel = CreateViewModel(
+            new FakeSettingsStore(AppSettings.CreateDefault()),
+            new FakeCoordinator(),
+            new FakeManager());
+
+        await viewModel.LoadAsync();
+
+        Assert.Equal("", viewModel.WhisperServerThreadCountText);
+        Assert.True(viewModel.RecommendedThreadCount > 0);
+    }
+
+    [Fact]
+    public async Task SaveLocalAsync_WithBlankThreadCount_UsesTheAutomaticDefault()
+    {
+        var settings = new FakeSettingsStore(AppSettings.CreateDefault() with
+        {
+            WhisperServerThreadCount = 6
+        });
+        var viewModel = CreateViewModel(settings, new FakeCoordinator(), new FakeManager());
+        await viewModel.LoadAsync();
+        viewModel.WhisperServerThreadCountText = "";
+
+        await viewModel.SaveLocalAsync();
+
+        Assert.Null(settings.Settings.WhisperServerThreadCount);
+    }
+
+    [Fact]
+    public async Task SaveLocalAsync_WithZeroThreadCount_ShowsValidationAndKeepsSavedValue()
+    {
+        var settings = new FakeSettingsStore(AppSettings.CreateDefault() with
+        {
+            WhisperServerThreadCount = 6
+        });
+        var viewModel = CreateViewModel(settings, new FakeCoordinator(), new FakeManager());
+        await viewModel.LoadAsync();
+        viewModel.WhisperServerThreadCountText = "0";
+
+        await viewModel.SaveLocalAsync();
+
+        Assert.Equal(6, settings.Settings.WhisperServerThreadCount);
+        Assert.Contains("大于 0", viewModel.LastError, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -98,7 +206,7 @@ public sealed class ServiceViewModelTests
         await using var dictation = Assert.IsType<AsrActivityLease>(
             await activityGate.TryEnterAsync(CancellationToken.None));
 
-        await viewModel.SaveLocalAsync(restart: false);
+        await viewModel.SaveLocalAsync();
 
         Assert.NotEqual("draft-model.bin", settings.Settings.ModelPath);
         Assert.Contains("听写", viewModel.LastError, StringComparison.Ordinal);
@@ -152,6 +260,7 @@ public sealed class ServiceViewModelTests
 
         Assert.Contains(nameof(ServiceViewModel.ActiveServiceStatusText), changed);
         Assert.Equal("New name · 远程 API", viewModel.ActiveServiceStatusText);
+        Assert.Equal("New name", viewModel.ModelProviders[1].Name);
     }
 
     [Fact]

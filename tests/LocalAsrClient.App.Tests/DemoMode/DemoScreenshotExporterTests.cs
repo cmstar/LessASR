@@ -6,13 +6,13 @@ namespace LocalAsrClient.App.Tests.DemoMode;
 public sealed class DemoScreenshotExporterTests
 {
     [Fact]
-    public void ServiceView_ExposesItsPageScrollerForDeterministicScreenshotScrolling()
+    public void ModelView_ExposesItsRootForDeterministicScreenshotRendering()
     {
-        var pageScroller = typeof(ServiceView).GetField(
-            "PageScrollViewer",
+        var captureRoot = typeof(ServiceView).GetField(
+            "ScreenshotServiceRoot",
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
-        Assert.NotNull(pageScroller);
-        Assert.Equal(typeof(System.Windows.Controls.ScrollViewer), pageScroller.FieldType);
+        Assert.NotNull(captureRoot);
+        Assert.Equal(typeof(System.Windows.Controls.Grid), captureRoot.FieldType);
     }
 }

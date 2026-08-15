@@ -12,6 +12,9 @@ public partial class RemoteServiceCard : System.Windows.Controls.UserControl
 
     private void ApiKeyBox_PasswordChanged(object sender, RoutedEventArgs e)
     {
+        ApiKeyPlaceholder.Visibility = ApiKeyBox.Password.Length == 0
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         if (DataContext is RemoteServiceProfileViewModel viewModel)
         {
             viewModel.SetApiKeyDraftPresent(ApiKeyBox.Password.Length > 0);

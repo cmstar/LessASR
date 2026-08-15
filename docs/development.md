@@ -30,7 +30,7 @@ src/LocalAsrClient.App/
   Dialogs/        # 通用确认窗口及其配置模型
   Security/       # Windows DPAPI 等桌面安全实现
   ViewModels/     # 主窗口各 Tab
-  Views/          # 服务页及远程配置卡等独立 UserControl
+  Views/          # 模型页及远程配置详情等独立 UserControl
 
 tests/LocalAsrClient.Core.Tests/
 ```
@@ -124,7 +124,7 @@ dotnet run --project src/LocalAsrClient.App/LocalAsrClient.App.csproj -- --test-
 .\tools\Start-LessAsrDemo.ps1
 ```
 
-演示数据通过当前 `SqliteDatabase` 和仓储 API 生成，不提交预制 `.db` 文件。服务页演示配置不含 API Key，演示模式也不会发起远程网络请求。连续听写截图
+演示数据通过当前 `SqliteDatabase` 和仓储 API 生成，不提交预制 `.db` 文件。模型页演示配置不含 API Key，演示模式也不会发起远程网络请求。连续听写截图
 复用 `ContinuousDictationSession`、内存录音替身与顺序演示 ASR，不依赖麦克风、模型文件或
 `whisper-server`。
 
@@ -134,8 +134,7 @@ dotnet run --project src/LocalAsrClient.App/LocalAsrClient.App.csproj -- --test-
 .\tools\Update-DocumentationScreenshots.ps1
 ```
 
-截图命令需要可交互的 Windows 桌面会话；工具会临时置顶演示窗口、按实际窗口区域捕获，并将
-高 DPI 物理像素统一缩放到文档约定尺寸。
+截图命令需要 Windows 桌面会话；工具会临时置顶演示窗口，通过 WPF 视觉树导出约定尺寸，并分别选择本地与远程模型生成详情截图。
 
 截图源文件统一放在 `docs/assets/screenshots/`，按内容场景分目录，不按 README、Wiki 等
 发布渠道重复存放。未来若使用独立的 GitHub Wiki 仓库，应由发布流程复制 `docs/` 文档及其
@@ -146,7 +145,7 @@ dotnet run --project src/LocalAsrClient.App/LocalAsrClient.App.csproj -- --test-
 - SQLite 表结构、迁移、仓储接口或保留策略变化；
 - 首页指标、统计范围或历史分组变化；
 - 设置项、导航、窗口尺寸、主题或通用控件样式变化；
-- 服务页、本地卡、远程 API 卡或地址安全提示变化；
+- 模型页、模型列表、本地详情、远程 API 详情或地址安全提示变化；
 - 连续听写状态、文案、布局或段落数量变化。
 
 `StatsViewModel.SummaryDayCount` 与 `TrendDayCount` 是统计展示和演示数据的共同范围来源。

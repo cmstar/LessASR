@@ -33,8 +33,8 @@ LessASR（代码仓库名仍为 `LocalAsrClient`）是一款 Windows 语音输�
   </tr>
   <tr>
     <td width="50%" align="center">
-      <img src="docs/assets/screenshots/product/services.png" width="420" alt="LessASR 本地识别服务"><br>
-      <sub><b>本地服务</b></sub>
+      <img src="docs/assets/screenshots/product/services.png" width="420" alt="LessASR 本地 Whisper 模型"><br>
+      <sub><b>本地模型</b></sub>
     </td>
     <td width="50%" align="center">
       <img src="docs/assets/screenshots/product/services-remote.png" width="420" alt="LessASR 远程 API 配置"><br>
@@ -91,7 +91,7 @@ dotnet test LocalAsrClient.sln
 dotnet run --project src/LocalAsrClient.App/LocalAsrClient.App.csproj
 ```
 
-首次运行可在「服务」页配置本地模型与 `whisper-server` 路径，或添加远程 API。旧版本用户会继续默认使用本地服务。
+首次运行可在「模型」页配置本地模型与 `whisper-server` 路径，或添加远程 API。左侧列表固定以本地 Whisper 开头，远程配置会依次列在其后；旧版本用户会继续默认使用本地服务。
 
 ### 演示模式
 
