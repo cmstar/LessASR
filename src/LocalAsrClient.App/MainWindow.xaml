@@ -14,8 +14,9 @@
         MinHeight="560"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource LessAsr.Brush.AppBackground}">
-    <Grid>
-        <ui:TitleBar Height="48"
+    <Grid x:Name="ScreenshotRoot">
+        <ui:TitleBar x:Name="ScreenshotTitleBar"
+                     Height="48"
                      VerticalAlignment="Top"
                      Background="Transparent"
                      Panel.ZIndex="10"/>
@@ -27,7 +28,8 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <Border Grid.Column="0"
+            <Border x:Name="ScreenshotSidebar"
+                    Grid.Column="0"
                     Style="{StaticResource LessAsr.Card}"
                     Background="{StaticResource LessAsr.Brush.SidebarBackground}"
                     Padding="12">

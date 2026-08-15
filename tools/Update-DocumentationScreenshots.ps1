@@ -20,6 +20,8 @@ finally {
 $expectedScreenshots = @{
     'home.png' = @(1040, 760)
     'history.png' = @(1040, 760)
+    'services.png' = @(1040, 760)
+    'services-remote.png' = @(1040, 760)
     'settings.png' = @(1040, 760)
     'continuous-dictation.png' = @(560, 680)
 }

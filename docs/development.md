@@ -13,7 +13,7 @@
 ```text
 src/LocalAsrClient.Core/
   Abstractions/   # 平台与持久化接口
-  Asr/            # whisper-server 客户端与后端
+  Asr/            # 本地/远程 ASR 客户端、后端、运行时路由与服务协调
   Dictation/      # 状态机与编排
   Persistence/    # SQLite 与设置模型
   Text/           # 注入相关模型
@@ -28,7 +28,9 @@ src/LocalAsrClient.App/
   Tray/           # 托盘图标
   Overlay/        # 听写浮窗
   Dialogs/        # 通用确认窗口及其配置模型
+  Security/       # Windows DPAPI 等桌面安全实现
   ViewModels/     # 主窗口各 Tab
+  Views/          # 服务页及远程配置卡等独立 UserControl
 
 tests/LocalAsrClient.Core.Tests/
 ```
@@ -55,7 +57,9 @@ tests/LocalAsrClient.Core.Tests/
 
 - Core 业务逻辑采用 TDD：先写失败测试，再实现，再全量测试。
 - 持久化测试使用 `SqliteDatabase.CreateInMemoryAsync()`。
-- ASR 后端测试 mock `HttpClient` 或进程管理器，避免依赖真实 whisper-server。
+- ASR 后端测试 mock `HttpClient` 或进程管理器，避免依赖真实 whisper-server 或远程平台；远程请求测试必须验证无自动重试、可选 Bearer 和 multipart 字段。
+- API Key 测试只使用测试字符串；不得把明文 Key 写入 SQLite、日志、截图或测试快照。WPF 只通过 `PasswordBox` 在保存操作中传递本次输入，不建立明文双向绑定。
+- 服务变更测试必须覆盖共享 `AsrActivityGate`、whisper-server 启停竞态、设置并发更新、DPAPI 不可用状态，以及单句/连续历史的后端来源快照。
 - 提交前运行：`dotnet test LocalAsrClient.sln`
 
 ## 验证命令
@@ -120,7 +124,7 @@ dotnet run --project src/LocalAsrClient.App/LocalAsrClient.App.csproj -- --test-
 .\tools\Start-LessAsrDemo.ps1
 ```
 
-演示数据通过当前 `SqliteDatabase` 和仓储 API 生成，不提交预制 `.db` 文件。连续听写截图
+演示数据通过当前 `SqliteDatabase` 和仓储 API 生成，不提交预制 `.db` 文件。服务页演示配置不含 API Key，演示模式也不会发起远程网络请求。连续听写截图
 复用 `ContinuousDictationSession`、内存录音替身与顺序演示 ASR，不依赖麦克风、模型文件或
 `whisper-server`。
 
@@ -142,6 +146,7 @@ dotnet run --project src/LocalAsrClient.App/LocalAsrClient.App.csproj -- --test-
 - SQLite 表结构、迁移、仓储接口或保留策略变化；
 - 首页指标、统计范围或历史分组变化；
 - 设置项、导航、窗口尺寸、主题或通用控件样式变化；
+- 服务页、本地卡、远程 API 卡或地址安全提示变化；
 - 连续听写状态、文案、布局或段落数量变化。
 
 `StatsViewModel.SummaryDayCount` 与 `TrendDayCount` 是统计展示和演示数据的共同范围来源。

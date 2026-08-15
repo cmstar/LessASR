@@ -4,7 +4,7 @@
 
 ```text
 LocalAsrClient.App (WPF Shell)
-  ├── 托盘、主窗口、听写浮窗、词汇表页面
+  ├── 托盘、主窗口、听写浮窗、服务页与词汇表页面
   ├── 右 Ctrl 热键监听（Win32 低级钩子）
   ├── F9 热键监听 → ContinuousDictationCoordinator
   ├── ContinuousDictationWindow（连续听写专用窗口）
@@ -16,11 +16,16 @@ LocalAsrClient.Core (Dictation Core)
   ├── DictationOrchestrator（单句听写状态机与编排）
   ├── ContinuousDictationSession（连续听写：段列表 + 单路录音 + FIFO 转写队列）
   ├── TranscriptionPipeline（单段 WAV → ASR → 后处理 → 统计，单句与连续共用）
-  ├── ManagedWhisperServerBackend（ASR 后端）
-  └── SQLite 持久化（设置、词汇表、统计、文本历史）
+  ├── SwitchableAsrBackend（单一当前后端的运行时路由）
+  ├── ManagedWhisperServerBackend / RemoteOpenAiBackend
+  ├── AsrServiceCoordinator（选择、停止本地、忙碌约束与配置操作）
+  └── SQLite 持久化（设置、远程 API 配置、词汇表、统计、文本历史）
 
 whisper-server (外部进程)
   └── HTTP 语音转文字服务，由客户端托管生命周期
+
+OpenAI-compatible API (远程进程或服务)
+  └── 用户提供完整 Audio Transcriptions 端点；LessASR 不管理生命周期
 ```
 
 ## 技术栈
@@ -31,7 +36,7 @@ whisper-server (外部进程)
 | 托盘 | System.Windows.Forms.NotifyIcon |
 | 音频 | NAudio |
 | 存储 | Microsoft.Data.Sqlite |
-| ASR | whisper-server HTTP API |
+| ASR | whisper-server HTTP API / OpenAI 兼容 Audio Transcriptions API |
 | 测试 | xUnit |
 
 ## 模块边界
@@ -48,7 +53,7 @@ whisper-server (外部进程)
 
 1. 用户按下右 Ctrl（连续窗口未开）→ 捕获输入焦点 → `IHotkeyListener` 通知 `DictationOrchestrator`。
 2. 再次按下或超时 → 停止 `IAudioRecorder`，获得 WAV 数据。
-3. Core 从最新设置取得语言，并通过 `IVocabularyRepository` 查询当前使用中的词汇表，构造可选 prompt；`IAsrBackend` 确保 whisper-server 就绪后发送 HTTP 转写请求。
+3. Core 从最新设置取得语言，并通过 `IVocabularyRepository` 查询当前使用中的词汇表，构造可选 prompt；`SwitchableAsrBackend` 将请求路由到唯一的当前服务。本地后端确保 whisper-server 就绪；远程后端校验配置后直接调用用户填写的完整端点。
 4. 识别文本经 `TranscriptionScriptPostProcessor`（简繁 OpenCC；简中 / 繁中时规范化 CJK 标点）后由 `ITextInjector` 注入。
 5. 注入失败时进入 `ResultNeedsAction`，浮窗展示结果供复制。
 6. 成功或失败后写入 `IStatsRepository`；若启用则写入 `ITextHistoryRepository`。
@@ -66,15 +71,28 @@ whisper-server (外部进程)
 
 设置页缩短文本历史保留期时，先通过 `ITextHistoryRepository.CountPrunableAsync` 计算超出新期限的记录数量；数量大于零时使用通用危险确认窗口提示用户。只有确认后才保存新策略并立即调用 `PruneAsync`，取消时设置与历史均保持不变；使用统计存储不参与该流程。
 
+## 识别服务管理
+
+- 服务页固定包含一个不可删除的本地 Whisper 配置，并可保存任意数量的远程 API 配置；`AppSettings.ActiveRemoteApiProfileId == null` 表示本地服务。
+- `AsrServiceCoordinator` 是切换与远程配置变更的业务边界。切换到远程前必须成功停止本地托管进程；切回本地只改变路由，不主动启动进程。
+- `AsrActivityGate` 为听写和服务变更提供共享租约：单句从录音开始持有到结果持久化结束，连续听写持有到录音停止且识别队列清空；切换、编辑、删除、本地启停与重启必须先取得同一租约，因此不会发生检查通过后又在听写中途替换路由的竞态。当前启用的远程配置不可删除。
+- 本地服务运行中保存路径、端口或线程参数时，`WhisperServerProcessManager` 保留当前活动参数并标记 `IsRestartRequired`；停止或“保存并重启”后才应用待定参数。
+- 远程 API 使用独立的 `HttpClient` 与后端，不复用本地 `ResilientWhisperServerClient` 的重启或重试逻辑。测试配置也不会改变当前路由。
+- 单句在发出请求前快照后端名和模型名；连续听写把来源写入每个完成段。连续历史来源一致时保存该来源，混用多个来源时保存“多个服务 / mixed”，避免关窗时误用当前路由。
+- `SqliteSettingsStore.UpdateAsync` 在仓储锁和 SQLite 事务内完成设置的读—改—写；服务选择、服务页和设置页只更新各自字段，避免并发保存覆盖当前服务。
+
 ## 外部集成
 
-- **whisper-server**：客户端按设置路径启动子进程，通过 `HttpClient` 调用 `/inference` 等端点。
-- **服务状态同步**：`WhisperServerProcessManager` 发布启动、就绪、停止与失败状态变化；WPF ViewModel 在 UI Dispatcher 上接收并刷新首页及模型页，包含热键触发的后台启动路径。
+- **whisper-server**：客户端按服务页配置启动子进程，通过 `HttpClient` 调用 `/inference` 等端点。
+- **OpenAI 兼容 API**：客户端向完整端点单次发送 multipart 请求；空 Key 不发送 `Authorization`，非空 Key 使用 Bearer。远程服务生命周期始终由用户或提供方管理。
+- **DPAPI**：`LocalAsrClient.App` 使用 Windows CurrentUser 范围且禁止 UI 提示的 DPAPI 实现 `ISecretProtector`；SQLite 只保存密文，返回给 ViewModel 的配置会移除密文，只携带“未配置 / 可用 / 需重新输入”状态；Core 不依赖 Windows 桌面 API。
+- **服务状态同步**：`WhisperServerProcessManager` 发布启动、就绪、停止与失败状态变化；WPF ViewModel 在 UI Dispatcher 上接收并刷新首页及服务页，包含热键触发的后台启动路径。
 - **Win32/WPF Clipboard**：热键钩子、前台窗口恢复、`SendInput` 与剪贴板粘贴回退。
 
 ## 关键架构决策
 
 - Core/App 分离以支持无头测试与后续替换 UI 层。
+- 当前 ASR 选择通过可替换路由统一注入单句与连续听写，避免两条链路分别判断本地/远程。
 - 文本注入优先使用 Win32 控件直写；现代应用或未知控件无法直写时，使用“保存剪贴板 → 写入识别文本 → Ctrl+V → 恢复剪贴板”的兼容回退。
 - 简繁后处理：`TranscriptionScriptPostProcessor` + OpenCC（`t2s` / `s2t`）；简中 / 繁中偏好时经 `ITranscriptionPunctuationPolicy` 判定后由 `CjkPunctuationNormalizer` 规范化标点；LLM 后处理接口仍保留。
 - Whisper 词汇表是独立持久化实体，可创建多份但同一时间最多一份处于使用中；单句与连续听写在每次 ASR 请求前查询当前词汇表并构造 `prompt`。词汇表支持混合 Unicode 语言，只提供识别软偏向，不覆盖首选语言。

@@ -4,13 +4,14 @@
 [![Windows](https://img.shields.io/badge/platform-Windows-0078D4?style=flat&logo=windows)](https://www.microsoft.com/windows/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)](LICENSE)
 
-LessASR（代码仓库名仍为 `LocalAsrClient`）是一款基于开源项目 [whisper.cpp](https://github.com/ggerganov/whisper.cpp) 构建的 Windows 本地语音输入 GUI。程序常驻系统托盘，通过键盘右下角的 Ctrl 键触发听写，识别结果优先直接写入当前文本框；需要整理长段内容时，也可以使用连续听写窗口边说边分段、边识别边编辑。
+LessASR（代码仓库名仍为 `LocalAsrClient`）是一款 Windows 语音输入 GUI，可由程序托管 [whisper.cpp](https://github.com/ggerganov/whisper.cpp)，也可连接 OpenAI 兼容的 Audio Transcriptions API。程序常驻系统托盘，通过键盘右下角的 Ctrl 键触发听写，识别结果优先直接写入当前文本框；需要整理长段内容时，也可以使用连续听写窗口边说边分段、边识别边编辑。
 
 本项目**由 AI Agent 编码实现**，开发者负责提需求、产品设计、确定业务逻辑与边界条件、验收测试，但通常不直接阅读和修改源码。
 
 ## 核心特色
 
-- **本地识别**：通过 whisper.cpp 提供的 `whisper-server` 在本机处理语音，不上传到云端。
+- **本地或远程**：可在托管的本地 whisper.cpp 与多套 OpenAI 兼容 API 配置之间切换。
+- **密钥保护**：远程 API Key 可留空；填写后使用当前 Windows 用户的 DPAPI 加密保存。
 - **随处输入**：按右 Ctrl 开始和结束单句听写，结果优先写入当前输入框。
 - **连续听写**：按 F9 打开专用窗口，使用右 Ctrl 连续分段；上一段识别时可以继续录制下一段。
 - **可编辑结果**：连续听写完成的段落可以直接修订，也可以一次复制全部内容。
@@ -28,6 +29,16 @@ LessASR（代码仓库名仍为 `LocalAsrClient`）是一款基于开源项目 [
     <td width="50%" align="center">
       <img src="docs/assets/screenshots/product/history.png" width="420" alt="LessASR 历史记录"><br>
       <sub><b>历史记录</b></sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="docs/assets/screenshots/product/services.png" width="420" alt="LessASR 本地识别服务"><br>
+      <sub><b>本地服务</b></sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="docs/assets/screenshots/product/services-remote.png" width="420" alt="LessASR 远程 API 配置"><br>
+      <sub><b>远程 API</b></sub>
     </td>
   </tr>
   <tr>
@@ -62,7 +73,9 @@ LessASR（代码仓库名仍为 `LocalAsrClient`）是一款基于开源项目 [
 
 - Windows 10/11
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-- 本地 `whisper-server` 可执行文件与 Whisper 模型文件
+- 以下识别服务至少准备一种：
+  - 本地 `whisper-server` 可执行文件与 Whisper 模型文件；或
+  - OpenAI 兼容的 Audio Transcriptions 完整端点，以及提供方要求时使用的 API Key。
 
 ### 本地开发
 
@@ -78,7 +91,7 @@ dotnet test LocalAsrClient.sln
 dotnet run --project src/LocalAsrClient.App/LocalAsrClient.App.csproj
 ```
 
-首次运行需在「设置」页配置模型路径与 `whisper-server` 路径。
+首次运行可在「服务」页配置本地模型与 `whisper-server` 路径，或添加远程 API。旧版本用户会继续默认使用本地服务。
 
 ### 演示模式
 
@@ -124,5 +137,6 @@ dotnet publish src/LocalAsrClient.App/LocalAsrClient.App.csproj -c Release -r wi
 - 业务领域说明：`docs/domain.md`
 - 开发约定：`docs/development.md`
 - MVP 设计规格：`docs/superpowers/specs/2026-06-07-windows-asr-client-mvp-design.md`
-- whisper-server 接口：`docs/api.md`
+- 识别服务设计：`docs/superpowers/specs/2026-08-15-recognition-services-design.md`
+- 本地与远程转写接口：`docs/api.md`
 - Agent 工作入口：`AGENTS.md`

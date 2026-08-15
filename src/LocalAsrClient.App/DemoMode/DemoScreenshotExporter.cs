@@ -1,8 +1,7 @@
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Windows;
-using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using LocalAsrClient.App.Bootstrap;
 using LocalAsrClient.App.ViewModels;
@@ -39,12 +38,8 @@ public static class DemoScreenshotExporter
             services,
             MainSection.Services,
             Path.Combine(outputDirectory, "services.png"),
-            cancellationToken);
-        await CaptureMainSectionAsync(
-            services,
-            MainSection.Services,
-            Path.Combine(outputDirectory, "services-remote.png"),
             cancellationToken,
+            scrolledOutputPath: Path.Combine(outputDirectory, "services-remote.png"),
             scrollOffset: 560);
         await CaptureMainSectionAsync(
             services,
@@ -66,6 +61,7 @@ public static class DemoScreenshotExporter
         MainSection section,
         string outputPath,
         CancellationToken cancellationToken,
+        string? scrolledOutputPath = null,
         double scrollOffset = 0)
     {
         var window = new MainWindow(services);
@@ -75,14 +71,18 @@ public static class DemoScreenshotExporter
             await window.ViewModel.Initialization;
             window.ViewModel.Navigation.SelectedSection = section;
             await WaitForLayoutAsync(window, cancellationToken);
-            if (scrollOffset > 0)
+            var stableChrome = scrolledOutputPath is null
+                ? null
+                : CaptureNamedOverlays(window);
+            CaptureVisual(window, outputPath);
+            if (scrolledOutputPath is not null && scrollOffset > 0)
             {
                 var serviceView = FindVisibleServiceView(window)
                     ?? throw new InvalidOperationException("没有找到服务页演示视图。");
                 serviceView.ScrollToPageOffset(scrollOffset);
                 await WaitForLayoutAsync(window, cancellationToken);
+                CaptureVisual(window, scrolledOutputPath, stableChrome);
             }
-            CaptureVisual(window, outputPath);
         }
         finally
         {
@@ -206,64 +206,128 @@ public static class DemoScreenshotExporter
             cancellationToken);
     }
 
-    private static void CaptureVisual(Window window, string outputPath)
+    private static void CaptureVisual(
+        Window window,
+        string outputPath,
+        IReadOnlyList<CapturedOverlay>? capturedOverlays = null)
     {
-        var windowHandle = new WindowInteropHelper(window).Handle;
-        if (windowHandle == IntPtr.Zero || !GetWindowRect(windowHandle, out var rect))
-        {
-            throw new InvalidOperationException("无法获取演示窗口尺寸。");
-        }
-
-        var width = Math.Max(1, rect.Right - rect.Left);
-        var height = Math.Max(1, rect.Bottom - rect.Top);
-        using var bitmap = new System.Drawing.Bitmap(
-            width,
-            height,
-            System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-        using var graphics = System.Drawing.Graphics.FromImage(bitmap);
-        graphics.CopyFromScreen(
-            rect.Left,
-            rect.Top,
-            0,
-            0,
-            new System.Drawing.Size(width, height),
-            System.Drawing.CopyPixelOperation.SourceCopy);
-
-        var outputWidth = Math.Max(1, (int)Math.Round(window.Width));
-        var outputHeight = Math.Max(1, (int)Math.Round(window.Height));
-        using var output = new System.Drawing.Bitmap(
+        var visual = GetCaptureRoot(window);
+        var outputWidth = Math.Max(1, (int)Math.Round(visual.ActualWidth));
+        var outputHeight = Math.Max(1, (int)Math.Round(visual.ActualHeight));
+        var bitmap = new RenderTargetBitmap(
             outputWidth,
             outputHeight,
-            System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-        output.SetResolution(96, 96);
-        using (var outputGraphics = System.Drawing.Graphics.FromImage(output))
+            96,
+            96,
+            PixelFormats.Pbgra32);
+        var background = new DrawingVisual();
+        using (var drawingContext = background.RenderOpen())
         {
-            outputGraphics.CompositingQuality =
-                System.Drawing.Drawing2D.CompositingQuality.HighQuality;
-            outputGraphics.InterpolationMode =
-                System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-            outputGraphics.PixelOffsetMode =
-                System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
-            outputGraphics.DrawImage(
-                bitmap,
-                new System.Drawing.Rectangle(0, 0, outputWidth, outputHeight),
-                new System.Drawing.Rectangle(0, 0, width, height),
-                System.Drawing.GraphicsUnit.Pixel);
+            drawingContext.DrawRectangle(
+                window.Background,
+                null,
+                new Rect(0, 0, outputWidth, outputHeight));
+            drawingContext.DrawRectangle(
+                CreateVisualBrush(visual),
+                null,
+                new Rect(0, 0, outputWidth, outputHeight));
+
+            if (capturedOverlays is null)
+            {
+                DrawNamedOverlay(window, visual, drawingContext, "ScreenshotSidebar");
+                DrawNamedOverlay(window, visual, drawingContext, "ScreenshotTitleBar");
+            }
+            else
+            {
+                foreach (var overlay in capturedOverlays)
+                {
+                    drawingContext.DrawImage(overlay.Image, overlay.Bounds);
+                }
+            }
         }
 
-        output.Save(outputPath, System.Drawing.Imaging.ImageFormat.Png);
+        bitmap.Render(background);
+
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        using var output = File.Create(outputPath);
+        encoder.Save(output);
     }
 
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool GetWindowRect(IntPtr windowHandle, out WindowRect rect);
+    private static FrameworkElement GetCaptureRoot(Window window) =>
+        window.FindName("ScreenshotRoot") as FrameworkElement
+        ?? window.Content as FrameworkElement
+        ?? throw new InvalidOperationException("演示窗口缺少可渲染的根内容。");
 
-    [StructLayout(LayoutKind.Sequential)]
-    private struct WindowRect
+    private static IReadOnlyList<CapturedOverlay> CaptureNamedOverlays(Window window)
     {
-        public int Left;
-        public int Top;
-        public int Right;
-        public int Bottom;
+        var captureRoot = GetCaptureRoot(window);
+        var overlays = new List<CapturedOverlay>();
+        foreach (var elementName in new[] { "ScreenshotSidebar", "ScreenshotTitleBar" })
+        {
+            if (window.FindName(elementName) is not FrameworkElement overlay
+                || overlay.ActualWidth <= 0
+                || overlay.ActualHeight <= 0)
+            {
+                continue;
+            }
+
+            var width = Math.Max(1, (int)Math.Round(overlay.ActualWidth));
+            var height = Math.Max(1, (int)Math.Round(overlay.ActualHeight));
+            var bitmap = new RenderTargetBitmap(
+                width,
+                height,
+                96,
+                96,
+                PixelFormats.Pbgra32);
+            var drawing = new DrawingVisual();
+            using (var drawingContext = drawing.RenderOpen())
+            {
+                drawingContext.DrawRectangle(
+                    CreateVisualBrush(overlay),
+                    null,
+                    new Rect(0, 0, width, height));
+            }
+
+            bitmap.Render(drawing);
+            var bounds = overlay.TransformToAncestor(captureRoot).TransformBounds(
+                new Rect(0, 0, overlay.ActualWidth, overlay.ActualHeight));
+            overlays.Add(new CapturedOverlay(bitmap, bounds));
+        }
+
+        return overlays;
     }
+
+    private static void DrawNamedOverlay(
+        Window window,
+        FrameworkElement captureRoot,
+        DrawingContext drawingContext,
+        string elementName)
+    {
+        if (window.FindName(elementName) is not FrameworkElement overlay
+            || overlay.ActualWidth <= 0
+            || overlay.ActualHeight <= 0)
+        {
+            return;
+        }
+
+        var bounds = overlay.TransformToAncestor(captureRoot).TransformBounds(
+            new Rect(0, 0, overlay.ActualWidth, overlay.ActualHeight));
+        drawingContext.DrawRectangle(
+            CreateVisualBrush(overlay),
+            null,
+            bounds);
+    }
+
+    private static VisualBrush CreateVisualBrush(FrameworkElement visual) =>
+        new(visual)
+        {
+            AlignmentX = AlignmentX.Left,
+            AlignmentY = AlignmentY.Top,
+            Stretch = Stretch.None,
+            Viewbox = new Rect(0, 0, visual.ActualWidth, visual.ActualHeight),
+            ViewboxUnits = BrushMappingMode.Absolute,
+        };
+
+    private sealed record CapturedOverlay(BitmapSource Image, Rect Bounds);
 }
