@@ -41,7 +41,12 @@ public sealed class SqliteSettingsStore : ISettingsStore
             StartModelOnAppStartup = bool.TryParse(values.GetValueOrDefault("StartModelOnAppStartup"), out var start) && start,
             MinimizeToTrayOnClose = !bool.TryParse(values.GetValueOrDefault("MinimizeToTrayOnClose"), out var minimize) || minimize,
             PreferredTranscriptionLanguageId = TranscriptionLanguageCatalog.NormalizeId(
-                values.GetValueOrDefault("PreferredTranscriptionLanguageId"))
+                values.GetValueOrDefault("PreferredTranscriptionLanguageId")),
+            ActiveRemoteApiProfileId = Guid.TryParse(
+                values.GetValueOrDefault("ActiveRemoteApiProfileId"),
+                out var activeRemoteApiProfileId)
+                ? activeRemoteApiProfileId
+                : null
         };
     }
 
@@ -56,7 +61,8 @@ public sealed class SqliteSettingsStore : ISettingsStore
             ["TranscriptRetentionPolicy"] = settings.TranscriptRetentionPolicy.ToString(),
             ["StartModelOnAppStartup"] = settings.StartModelOnAppStartup.ToString(),
             ["MinimizeToTrayOnClose"] = settings.MinimizeToTrayOnClose.ToString(),
-            ["PreferredTranscriptionLanguageId"] = settings.PreferredTranscriptionLanguageId
+            ["PreferredTranscriptionLanguageId"] = settings.PreferredTranscriptionLanguageId,
+            ["ActiveRemoteApiProfileId"] = settings.ActiveRemoteApiProfileId?.ToString() ?? string.Empty
         };
 
         foreach (var pair in values)

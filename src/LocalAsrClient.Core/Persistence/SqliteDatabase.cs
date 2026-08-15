@@ -76,6 +76,17 @@ public sealed class SqliteDatabase : IAsyncDisposable
             CREATE UNIQUE INDEX IF NOT EXISTS ux_vocabulary_profiles_active
             ON vocabulary_profiles(is_active)
             WHERE is_active = 1;
+
+            CREATE TABLE IF NOT EXISTS remote_api_profiles (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+                endpoint TEXT NOT NULL,
+                model TEXT NOT NULL,
+                protected_api_key TEXT NULL,
+                use_vocabulary INTEGER NOT NULL DEFAULT 0 CHECK(use_vocabulary IN (0, 1)),
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
