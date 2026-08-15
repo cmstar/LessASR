@@ -69,6 +69,34 @@
                            TextWrapping="Wrap"/>
             </Border>
 
+            <TextBlock Text="代理服务器" Style="{StaticResource LessAsr.FieldLabel}" Margin="0,14,0,6"/>
+            <Grid>
+                <TextBox x:Name="ProxyUrlBox"
+                         Text="{Binding ProxyUrl, UpdateSourceTrigger=PropertyChanged}"
+                         Style="{StaticResource LessAsr.TextBox}"
+                         IsEnabled="{Binding CanMutate}"
+                         ToolTip="支持 HTTP、HTTPS、SOCKS4、SOCKS4a 和 SOCKS5 代理"/>
+                <TextBlock Text="可为空，例如 socks5://127.0.0.1:1080"
+                           Foreground="{StaticResource LessAsr.Brush.TextTertiary}"
+                           VerticalAlignment="Center"
+                           Margin="11,0,0,0"
+                           IsHitTestVisible="False">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Text, ElementName=ProxyUrlBox}" Value="">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Grid>
+            <TextBlock Text="支持 HTTP、HTTPS、SOCKS4、SOCKS4a 和 SOCKS5；当前不支持认证代理。"
+                       Style="{StaticResource LessAsr.Text.Caption}"
+                       Margin="0,6,0,0"/>
+
             <TextBlock Text="API Key" Style="{StaticResource LessAsr.FieldLabel}" Margin="0,14,0,6"/>
             <Grid>
                 <Grid.ColumnDefinitions>

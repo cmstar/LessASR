@@ -1,5 +1,4 @@
 using System.IO;
-using System.Net.Http;
 
 using LocalAsrClient.App.Audio;
 
@@ -76,7 +75,7 @@ public sealed class AppServices : IAsyncDisposable
 
         ResilientWhisperServerClient transcribeClient,
 
-        HttpClient remoteHttpClient,
+        RemoteHttpClientPool remoteHttpClientPool,
 
         SqliteRemoteApiProfileRepository remoteApiProfileRepository,
 
@@ -122,7 +121,7 @@ public sealed class AppServices : IAsyncDisposable
 
         TranscribeClient = transcribeClient;
 
-        RemoteHttpClient = remoteHttpClient;
+        RemoteHttpClientPool = remoteHttpClientPool;
 
         RemoteApiProfileRepository = remoteApiProfileRepository;
 
@@ -170,7 +169,7 @@ public sealed class AppServices : IAsyncDisposable
 
     public ResilientWhisperServerClient TranscribeClient { get; }
 
-    public HttpClient RemoteHttpClient { get; }
+    public RemoteHttpClientPool RemoteHttpClientPool { get; }
 
     public SqliteRemoteApiProfileRepository RemoteApiProfileRepository { get; }
 
@@ -276,16 +275,7 @@ public sealed class AppServices : IAsyncDisposable
 
         var remoteApiProfileRepository = new SqliteRemoteApiProfileRepository(database);
         var secretProtector = new DpapiSecretProtector();
-        var remoteHttpClient = new HttpClient(new SocketsHttpHandler
-        {
-            AllowAutoRedirect = false,
-            PooledConnectionLifetime = TimeSpan.FromMinutes(2),
-            MaxConnectionsPerServer = 1
-        })
-        {
-            Timeout = TimeSpan.FromSeconds(120)
-        };
-        var remoteTranscriptionClient = new OpenAiCompatibleTranscriptionClient(remoteHttpClient);
+        var remoteHttpClientPool = new RemoteHttpClientPool();
 
 
 
@@ -367,7 +357,11 @@ public sealed class AppServices : IAsyncDisposable
             serverManager,
             backend,
             modeBackend,
-            profile => new RemoteOpenAiBackend(profile, secretProtector, remoteTranscriptionClient),
+            profile => new RemoteOpenAiBackend(
+                profile,
+                secretProtector,
+                new OpenAiCompatibleTranscriptionClient(
+                    remoteHttpClientPool.GetClient(profile.ProxyUrl))),
             () => orchestrator.State is DictationState.Recording
                 or DictationState.Transcribing
                 or DictationState.Injecting
@@ -565,7 +559,7 @@ public sealed class AppServices : IAsyncDisposable
 
             transcribeClient,
 
-            remoteHttpClient,
+            remoteHttpClientPool,
 
             remoteApiProfileRepository,
 
@@ -624,7 +618,7 @@ public sealed class AppServices : IAsyncDisposable
 
         TranscribeClient.Dispose();
 
-        RemoteHttpClient.Dispose();
+        RemoteHttpClientPool.Dispose();
 
         await ServerManager.StopAsync(CancellationToken.None);
 

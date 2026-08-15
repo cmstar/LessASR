@@ -71,6 +71,25 @@ public sealed class AsrServiceCoordinatorTests
     }
 
     [Fact]
+    public async Task CreateRemoteAsync_NormalizesAndPersistsItsProxyAddress()
+    {
+        var fixture = new Fixture();
+
+        var profile = await fixture.Coordinator.CreateRemoteAsync(
+            new RemoteApiProfileInput(
+                "Proxy API",
+                "https://api.example/v1/audio/transcriptions",
+                "whisper-1",
+                false,
+                null,
+                " socks5://127.0.0.1:1080 "),
+            CancellationToken.None);
+
+        Assert.Equal("socks5://127.0.0.1:1080/", profile.ProxyUrl);
+        Assert.Equal(profile.ProxyUrl, fixture.Repository.Get(profile.Id).ProxyUrl);
+    }
+
+    [Fact]
     public async Task DeleteRemoteAsync_WhenProfileIsActive_RejectsDeletion()
     {
         var fixture = new Fixture();
@@ -334,14 +353,14 @@ public sealed class AsrServiceCoordinatorTests
             Task.FromResult<IReadOnlyList<RemoteApiProfile>>(Profiles.ToArray());
         public Task<RemoteApiProfile?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
             Task.FromResult(Profiles.SingleOrDefault(profile => profile.Id == id));
-        public Task<RemoteApiProfile> CreateAsync(string name, string endpoint, string model, string? protectedApiKey, bool useVocabulary, CancellationToken cancellationToken)
+        public Task<RemoteApiProfile> CreateAsync(string name, string endpoint, string model, string? protectedApiKey, bool useVocabulary, CancellationToken cancellationToken, string? proxyUrl = null)
         {
             var now = DateTimeOffset.UtcNow;
-            var profile = new RemoteApiProfile(Guid.NewGuid(), name, endpoint, model, protectedApiKey, useVocabulary, now, now);
+            var profile = new RemoteApiProfile(Guid.NewGuid(), name, endpoint, model, protectedApiKey, useVocabulary, now, now, proxyUrl);
             Profiles.Add(profile);
             return Task.FromResult(profile);
         }
-        public Task UpdateAsync(Guid id, string name, string endpoint, string model, string? protectedApiKey, bool useVocabulary, CancellationToken cancellationToken)
+        public Task UpdateAsync(Guid id, string name, string endpoint, string model, string? protectedApiKey, bool useVocabulary, CancellationToken cancellationToken, string? proxyUrl = null)
         {
             var index = Profiles.FindIndex(profile => profile.Id == id);
             Profiles[index] = Profiles[index] with
@@ -351,6 +370,7 @@ public sealed class AsrServiceCoordinatorTests
                 Model = model,
                 ProtectedApiKey = protectedApiKey,
                 UseVocabulary = useVocabulary,
+                ProxyUrl = proxyUrl,
                 UpdatedAt = DateTimeOffset.UtcNow
             };
             return Task.CompletedTask;

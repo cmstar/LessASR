@@ -14,7 +14,8 @@ public interface IRemoteApiProfileRepository
         string model,
         string? protectedApiKey,
         bool useVocabulary,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        string? proxyUrl = null);
 
     Task UpdateAsync(
         Guid id,
@@ -23,7 +24,8 @@ public interface IRemoteApiProfileRepository
         string model,
         string? protectedApiKey,
         bool useVocabulary,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        string? proxyUrl = null);
 
     Task DeleteAsync(Guid id, CancellationToken cancellationToken);
 }

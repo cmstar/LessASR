@@ -263,7 +263,7 @@ public sealed class ServiceViewModel : INotifyPropertyChanged
     {
         var card = new RemoteServiceProfileViewModel(
             profile,
-            profile?.Id == _activeRemoteId,
+            profile is not null && profile.Id == _activeRemoteId,
             SaveRemoteAsync,
             ActivateRemoteAsync,
             TestRemoteAsync,
@@ -285,7 +285,8 @@ public sealed class ServiceViewModel : INotifyPropertyChanged
             card.Endpoint,
             card.Model,
             card.UseVocabulary,
-            apiKey);
+            apiKey,
+            card.ProxyUrl);
         if (card.Id is not Guid id)
         {
             return await _coordinator.CreateRemoteAsync(input, CancellationToken.None);
@@ -349,7 +350,8 @@ public sealed class ServiceViewModel : INotifyPropertyChanged
             profile.Endpoint,
             profile.Model,
             profile.UseVocabulary,
-            ApiKey: null);
+            ApiKey: null,
+            profile.ProxyUrl);
         await _coordinator.UpdateRemoteAsync(
             id,
             savedInput,

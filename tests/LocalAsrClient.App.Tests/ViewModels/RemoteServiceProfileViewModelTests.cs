@@ -75,6 +75,27 @@ public sealed class RemoteServiceProfileViewModelTests
     }
 
     [Fact]
+    public void EditingProxy_IsTrackedAndDiscardRestoresTheSavedAddress()
+    {
+        var profile = CreateProfile() with
+        {
+            ProxyUrl = "http://127.0.0.1:7890/"
+        };
+        var viewModel = CreateViewModel(profile);
+
+        viewModel.ProxyUrl = "socks5://127.0.0.1:1080";
+
+        Assert.True(viewModel.HasUnsavedChanges);
+        Assert.False(viewModel.CanTest);
+        Assert.False(viewModel.CanActivate);
+
+        viewModel.DiscardChanges();
+
+        Assert.Equal(profile.ProxyUrl, viewModel.ProxyUrl);
+        Assert.False(viewModel.HasUnsavedChanges);
+    }
+
+    [Fact]
     public async Task ClearApiKeyAsync_DoesNotPersistOrDiscardUnsavedFields()
     {
         var clearCallCount = 0;

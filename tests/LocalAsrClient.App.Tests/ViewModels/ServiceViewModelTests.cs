@@ -85,6 +85,51 @@ public sealed class ServiceViewModelTests
     }
 
     [Fact]
+    public async Task SaveRemoteProfile_PersistsItsOptionalProxyAddress()
+    {
+        var coordinator = new FakeCoordinator();
+        var viewModel = CreateViewModel(
+            new FakeSettingsStore(AppSettings.CreateDefault()),
+            coordinator,
+            new FakeManager());
+        await viewModel.LoadAsync();
+        viewModel.AddRemoteProfile();
+        var card = Assert.Single(viewModel.RemoteProfiles);
+        card.Name = "Proxy API";
+        card.Endpoint = "https://api.example/v1/audio/transcriptions";
+        card.Model = "whisper-1";
+        card.ProxyUrl = "socks5://127.0.0.1:1080";
+
+        await card.SaveAsync(enteredApiKey: "");
+
+        Assert.Equal(
+            "socks5://127.0.0.1:1080",
+            Assert.Single(await coordinator.GetRemoteProfilesAsync(CancellationToken.None)).ProxyUrl);
+    }
+
+    [Fact]
+    public async Task SaveNewRemoteProfile_WhileLocalIsActive_LeavesItReadyToActivate()
+    {
+        var viewModel = CreateViewModel(
+            new FakeSettingsStore(AppSettings.CreateDefault()),
+            new FakeCoordinator(),
+            new FakeManager());
+        await viewModel.LoadAsync();
+        viewModel.AddRemoteProfile();
+        var card = Assert.Single(viewModel.RemoteProfiles);
+        card.Name = "Office API";
+        card.Endpoint = "https://api.example/v1/audio/transcriptions";
+        card.Model = "whisper-1";
+
+        await card.SaveAsync(enteredApiKey: "");
+
+        Assert.False(card.IsActive);
+        Assert.True(card.CanActivate);
+        Assert.True(viewModel.IsLocalActive);
+        Assert.True(Assert.Single(viewModel.ModelProviders.Where(item => item.IsActive)).IsLocal);
+    }
+
+    [Fact]
     public async Task DeleteSelectedRemoteProfile_ReturnsSelectionToFixedLocalModel()
     {
         var profile = CreateProfile("Office API");
@@ -352,7 +397,16 @@ public sealed class ServiceViewModelTests
         public Task<RemoteApiProfile> CreateRemoteAsync(RemoteApiProfileInput input, CancellationToken cancellationToken)
         {
             var now = DateTimeOffset.UtcNow;
-            var profile = new RemoteApiProfile(Guid.NewGuid(), input.Name, input.Endpoint, input.Model, null, input.UseVocabulary, now, now);
+            var profile = new RemoteApiProfile(
+                Guid.NewGuid(),
+                input.Name,
+                input.Endpoint,
+                input.Model,
+                null,
+                input.UseVocabulary,
+                now,
+                now,
+                input.ProxyUrl);
             _profiles.Add(profile);
             return Task.FromResult(profile);
         }
@@ -366,6 +420,7 @@ public sealed class ServiceViewModelTests
                 Endpoint = input.Endpoint,
                 Model = input.Model,
                 UseVocabulary = input.UseVocabulary,
+                ProxyUrl = input.ProxyUrl,
                 ProtectedApiKey = apiKeyUpdateMode == ApiKeyUpdateMode.Clear
                     ? null
                     : existing.ProtectedApiKey

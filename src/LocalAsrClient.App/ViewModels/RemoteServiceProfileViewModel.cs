@@ -18,6 +18,7 @@ public sealed class RemoteServiceProfileViewModel : INotifyPropertyChanged
     private string _name;
     private string _endpoint;
     private string _model;
+    private string _proxyUrl;
     private bool _useVocabulary;
     private ApiKeyAvailability _apiKeyAvailability;
     private bool _hasApiKeyDraft;
@@ -29,6 +30,7 @@ public sealed class RemoteServiceProfileViewModel : INotifyPropertyChanged
     private string _savedName;
     private string _savedEndpoint;
     private string _savedModel;
+    private string _savedProxyUrl;
     private bool _savedUseVocabulary;
 
     public RemoteServiceProfileViewModel(
@@ -53,12 +55,14 @@ public sealed class RemoteServiceProfileViewModel : INotifyPropertyChanged
         _name = profile?.Name ?? "";
         _endpoint = profile?.Endpoint ?? "";
         _model = profile?.Model ?? "whisper-1";
+        _proxyUrl = profile?.ProxyUrl ?? "";
         _useVocabulary = profile?.UseVocabulary ?? false;
         _apiKeyAvailability = profile?.ApiKeyAvailability ?? ApiKeyAvailability.NotConfigured;
         _isActive = isActive;
         _savedName = _name;
         _savedEndpoint = _endpoint;
         _savedModel = _model;
+        _savedProxyUrl = _proxyUrl;
         _savedUseVocabulary = _useVocabulary;
     }
 
@@ -100,6 +104,12 @@ public sealed class RemoteServiceProfileViewModel : INotifyPropertyChanged
         set => SetField(ref _model, value);
     }
 
+    public string ProxyUrl
+    {
+        get => _proxyUrl;
+        set => SetField(ref _proxyUrl, value);
+    }
+
     public bool UseVocabulary
     {
         get => _useVocabulary;
@@ -119,6 +129,7 @@ public sealed class RemoteServiceProfileViewModel : INotifyPropertyChanged
     public bool HasUnsavedChanges => !string.Equals(Name, _savedName, StringComparison.Ordinal)
         || !string.Equals(Endpoint, _savedEndpoint, StringComparison.Ordinal)
         || !string.Equals(Model, _savedModel, StringComparison.Ordinal)
+        || !string.Equals(ProxyUrl, _savedProxyUrl, StringComparison.Ordinal)
         || UseVocabulary != _savedUseVocabulary
         || _hasApiKeyDraft;
     public bool CanMutate => !_isOperationInProgress && !_isInteractionLocked;
@@ -247,12 +258,14 @@ public sealed class RemoteServiceProfileViewModel : INotifyPropertyChanged
         _name = _savedName;
         _endpoint = _savedEndpoint;
         _model = _savedModel;
+        _proxyUrl = _savedProxyUrl;
         _useVocabulary = _savedUseVocabulary;
         _hasApiKeyDraft = false;
         OnPropertyChanged(nameof(Name));
         OnPropertyChanged(nameof(DisplayName));
         OnPropertyChanged(nameof(Endpoint));
         OnPropertyChanged(nameof(Model));
+        OnPropertyChanged(nameof(ProxyUrl));
         OnPropertyChanged(nameof(UseVocabulary));
         OnPropertyChanged(nameof(IsHttpEndpoint));
         OnPropertyChanged(nameof(EndpointWarningText));
@@ -307,11 +320,13 @@ public sealed class RemoteServiceProfileViewModel : INotifyPropertyChanged
         _name = profile.Name;
         _endpoint = profile.Endpoint;
         _model = profile.Model;
+        _proxyUrl = profile.ProxyUrl ?? "";
         _useVocabulary = profile.UseVocabulary;
         _apiKeyAvailability = profile.ApiKeyAvailability;
         _savedName = profile.Name;
         _savedEndpoint = profile.Endpoint;
         _savedModel = profile.Model;
+        _savedProxyUrl = _proxyUrl;
         _savedUseVocabulary = profile.UseVocabulary;
         OnPropertyChanged(nameof(Id));
         OnPropertyChanged(nameof(IsNew));
@@ -319,6 +334,7 @@ public sealed class RemoteServiceProfileViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(DisplayName));
         OnPropertyChanged(nameof(Endpoint));
         OnPropertyChanged(nameof(Model));
+        OnPropertyChanged(nameof(ProxyUrl));
         OnPropertyChanged(nameof(UseVocabulary));
         OnPropertyChanged(nameof(HasApiKey));
         OnPropertyChanged(nameof(ApiKeyStatusText));

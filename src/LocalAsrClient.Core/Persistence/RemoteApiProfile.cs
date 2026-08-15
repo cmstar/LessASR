@@ -15,7 +15,8 @@ public sealed record RemoteApiProfile(
     string? ProtectedApiKey,
     bool UseVocabulary,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt)
+    DateTimeOffset UpdatedAt,
+    string? ProxyUrl = null)
 {
     public ApiKeyAvailability ApiKeyAvailability { get; init; } =
         string.IsNullOrWhiteSpace(ProtectedApiKey)

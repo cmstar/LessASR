@@ -84,11 +84,40 @@ public sealed class SqliteDatabase : IAsyncDisposable
                 model TEXT NOT NULL,
                 protected_api_key TEXT NULL,
                 use_vocabulary INTEGER NOT NULL DEFAULT 0 CHECK(use_vocabulary IN (0, 1)),
+                proxy_url TEXT NULL,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
+        await EnsureRemoteProxyColumnAsync(cancellationToken);
+    }
+
+    private async Task EnsureRemoteProxyColumnAsync(CancellationToken cancellationToken)
+    {
+        var schemaCommand = _connection.CreateCommand();
+        schemaCommand.CommandText = "PRAGMA table_info(remote_api_profiles)";
+        var hasProxyColumn = false;
+        await using (var reader = await schemaCommand.ExecuteReaderAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                if (string.Equals(reader.GetString(1), "proxy_url", StringComparison.OrdinalIgnoreCase))
+                {
+                    hasProxyColumn = true;
+                    break;
+                }
+            }
+        }
+
+        if (hasProxyColumn)
+        {
+            return;
+        }
+
+        var migrationCommand = _connection.CreateCommand();
+        migrationCommand.CommandText = "ALTER TABLE remote_api_profiles ADD COLUMN proxy_url TEXT NULL";
+        await migrationCommand.ExecuteNonQueryAsync(cancellationToken);
     }
 
     public ValueTask DisposeAsync()

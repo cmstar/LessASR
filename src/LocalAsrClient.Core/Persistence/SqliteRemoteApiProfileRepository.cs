@@ -18,7 +18,7 @@ public sealed class SqliteRemoteApiProfileRepository : IRemoteApiProfileReposito
         var profiles = new List<RemoteApiProfile>();
         var command = _database.Connection.CreateCommand();
         command.CommandText = """
-            SELECT id, name, endpoint, model, protected_api_key, use_vocabulary, created_at, updated_at
+            SELECT id, name, endpoint, model, protected_api_key, use_vocabulary, proxy_url, created_at, updated_at
             FROM remote_api_profiles
             ORDER BY created_at, rowid
             """;
@@ -35,7 +35,7 @@ public sealed class SqliteRemoteApiProfileRepository : IRemoteApiProfileReposito
     {
         var command = _database.Connection.CreateCommand();
         command.CommandText = """
-            SELECT id, name, endpoint, model, protected_api_key, use_vocabulary, created_at, updated_at
+            SELECT id, name, endpoint, model, protected_api_key, use_vocabulary, proxy_url, created_at, updated_at
             FROM remote_api_profiles
             WHERE id = $id
             LIMIT 1
@@ -51,7 +51,8 @@ public sealed class SqliteRemoteApiProfileRepository : IRemoteApiProfileReposito
         string model,
         string? protectedApiKey,
         bool useVocabulary,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? proxyUrl = null)
     {
         var normalizedName = RequireName(name);
         var now = DateTimeOffset.UtcNow;
@@ -63,15 +64,16 @@ public sealed class SqliteRemoteApiProfileRepository : IRemoteApiProfileReposito
             protectedApiKey,
             useVocabulary,
             now,
-            now);
+            now,
+            NormalizeOptional(proxyUrl));
 
         try
         {
             var command = _database.Connection.CreateCommand();
             command.CommandText = """
                 INSERT INTO remote_api_profiles(
-                    id, name, endpoint, model, protected_api_key, use_vocabulary, created_at, updated_at)
-                VALUES($id, $name, $endpoint, $model, $protectedApiKey, $useVocabulary, $createdAt, $updatedAt)
+                    id, name, endpoint, model, protected_api_key, use_vocabulary, proxy_url, created_at, updated_at)
+                VALUES($id, $name, $endpoint, $model, $protectedApiKey, $useVocabulary, $proxyUrl, $createdAt, $updatedAt)
                 """;
             BindProfile(command, profile);
             await command.ExecuteNonQueryAsync(cancellationToken);
@@ -91,7 +93,8 @@ public sealed class SqliteRemoteApiProfileRepository : IRemoteApiProfileReposito
         string model,
         string? protectedApiKey,
         bool useVocabulary,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? proxyUrl = null)
     {
         var normalizedName = RequireName(name);
         try
@@ -104,6 +107,7 @@ public sealed class SqliteRemoteApiProfileRepository : IRemoteApiProfileReposito
                     model = $model,
                     protected_api_key = $protectedApiKey,
                     use_vocabulary = $useVocabulary,
+                    proxy_url = $proxyUrl,
                     updated_at = $updatedAt
                 WHERE id = $id
                 """;
@@ -113,6 +117,7 @@ public sealed class SqliteRemoteApiProfileRepository : IRemoteApiProfileReposito
             command.Parameters.AddWithValue("$model", model.Trim());
             command.Parameters.AddWithValue("$protectedApiKey", (object?)protectedApiKey ?? DBNull.Value);
             command.Parameters.AddWithValue("$useVocabulary", useVocabulary ? 1 : 0);
+            command.Parameters.AddWithValue("$proxyUrl", (object?)NormalizeOptional(proxyUrl) ?? DBNull.Value);
             command.Parameters.AddWithValue(
                 "$updatedAt",
                 DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture));
@@ -144,6 +149,7 @@ public sealed class SqliteRemoteApiProfileRepository : IRemoteApiProfileReposito
         command.Parameters.AddWithValue("$model", profile.Model);
         command.Parameters.AddWithValue("$protectedApiKey", (object?)profile.ProtectedApiKey ?? DBNull.Value);
         command.Parameters.AddWithValue("$useVocabulary", profile.UseVocabulary ? 1 : 0);
+        command.Parameters.AddWithValue("$proxyUrl", (object?)profile.ProxyUrl ?? DBNull.Value);
         command.Parameters.AddWithValue(
             "$createdAt",
             profile.CreatedAt.ToString("O", CultureInfo.InvariantCulture));
@@ -161,8 +167,9 @@ public sealed class SqliteRemoteApiProfileRepository : IRemoteApiProfileReposito
             reader.GetString(3),
             reader.IsDBNull(4) ? null : reader.GetString(4),
             reader.GetInt32(5) == 1,
-            DateTimeOffset.Parse(reader.GetString(6), CultureInfo.InvariantCulture),
-            DateTimeOffset.Parse(reader.GetString(7), CultureInfo.InvariantCulture));
+            DateTimeOffset.Parse(reader.GetString(7), CultureInfo.InvariantCulture),
+            DateTimeOffset.Parse(reader.GetString(8), CultureInfo.InvariantCulture),
+            reader.IsDBNull(6) ? null : reader.GetString(6));
     }
 
     private static string RequireName(string name)
@@ -175,4 +182,7 @@ public sealed class SqliteRemoteApiProfileRepository : IRemoteApiProfileReposito
 
         return normalizedName;
     }
+
+    private static string? NormalizeOptional(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

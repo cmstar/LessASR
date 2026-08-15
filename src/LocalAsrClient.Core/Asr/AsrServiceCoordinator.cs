@@ -16,7 +16,8 @@ public sealed record RemoteApiProfileInput(
     string Endpoint,
     string Model,
     bool UseVocabulary,
-    string? ApiKey);
+    string? ApiKey,
+    string? ProxyUrl = null);
 
 public interface IAsrServiceCoordinator
 {
@@ -104,7 +105,7 @@ public sealed class AsrServiceCoordinator : IAsrServiceCoordinator
         CancellationToken cancellationToken)
     {
         ThrowIfBusy();
-        ValidateInput(input);
+        var proxyUrl = ValidateInput(input);
         await _mutationLock.WaitAsync(cancellationToken);
         try
         {
@@ -116,7 +117,8 @@ public sealed class AsrServiceCoordinator : IAsrServiceCoordinator
                 input.Model,
                 protectedApiKey,
                 input.UseVocabulary,
-                cancellationToken);
+                cancellationToken,
+                proxyUrl);
             return ToClientProfile(profile);
         }
         finally
@@ -132,7 +134,7 @@ public sealed class AsrServiceCoordinator : IAsrServiceCoordinator
         CancellationToken cancellationToken)
     {
         ThrowIfBusy();
-        ValidateInput(input);
+        var proxyUrl = ValidateInput(input);
         await _mutationLock.WaitAsync(cancellationToken);
         try
         {
@@ -153,7 +155,8 @@ public sealed class AsrServiceCoordinator : IAsrServiceCoordinator
                 input.Model,
                 protectedApiKey,
                 input.UseVocabulary,
-                cancellationToken);
+                cancellationToken,
+                proxyUrl);
 
             var settings = await _settingsStore.LoadAsync(cancellationToken);
             if (settings.ActiveRemoteApiProfileId == id)
@@ -286,13 +289,15 @@ public sealed class AsrServiceCoordinator : IAsrServiceCoordinator
         return lease;
     }
 
-    private static void ValidateInput(RemoteApiProfileInput input)
+    private static string? ValidateInput(RemoteApiProfileInput input)
     {
         _ = RemoteEndpointPolicy.ParseAndValidate(input.Endpoint);
         if (string.IsNullOrWhiteSpace(input.Model))
         {
             throw new InvalidOperationException("远程 API 模型名称不能为空。");
         }
+
+        return RemoteProxyPolicy.ParseOptionalAndValidate(input.ProxyUrl)?.AbsoluteUri;
     }
 
     private string? ProtectOptional(string? apiKey) =>
