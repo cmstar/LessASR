@@ -6,6 +6,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using LocalAsrClient.App.Bootstrap;
 using LocalAsrClient.App.ViewModels;
+using LocalAsrClient.App.Views;
 using LocalAsrClient.Core.Dictation;
 
 namespace LocalAsrClient.App.DemoMode;
@@ -76,9 +77,9 @@ public static class DemoScreenshotExporter
             await WaitForLayoutAsync(window, cancellationToken);
             if (scrollOffset > 0)
             {
-                var scrollViewer = FindVisibleScrollableViewer(window)
-                    ?? throw new InvalidOperationException("没有找到可滚动的演示页面。");
-                scrollViewer.ScrollToVerticalOffset(scrollOffset);
+                var serviceView = FindVisibleServiceView(window)
+                    ?? throw new InvalidOperationException("没有找到服务页演示视图。");
+                serviceView.ScrollToPageOffset(scrollOffset);
                 await WaitForLayoutAsync(window, cancellationToken);
             }
             CaptureVisual(window, outputPath);
@@ -90,19 +91,17 @@ public static class DemoScreenshotExporter
         }
     }
 
-    private static System.Windows.Controls.ScrollViewer? FindVisibleScrollableViewer(DependencyObject parent)
+    private static ServiceView? FindVisibleServiceView(DependencyObject parent)
     {
         for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
         {
             var child = VisualTreeHelper.GetChild(parent, index);
-            if (child is System.Windows.Controls.ScrollViewer scrollViewer
-                && scrollViewer.IsVisible
-                && scrollViewer.ScrollableHeight > 0)
+            if (child is ServiceView serviceView && serviceView.IsVisible)
             {
-                return scrollViewer;
+                return serviceView;
             }
 
-            var nested = FindVisibleScrollableViewer(child);
+            var nested = FindVisibleServiceView(child);
             if (nested is not null)
             {
                 return nested;

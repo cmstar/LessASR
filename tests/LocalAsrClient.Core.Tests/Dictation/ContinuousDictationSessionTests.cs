@@ -95,6 +95,22 @@ public sealed class ContinuousDictationSessionTests
     }
 
     [Fact]
+    public async Task ActivityGate_RemainsHeldUntilQueuedTranscriptionCompletes()
+    {
+        var gate = new AsrActivityGate();
+        var fixture = new SessionFixture(gate);
+        fixture.Backend.TranscribeDelay = TimeSpan.FromMilliseconds(150);
+
+        await fixture.Session.ToggleRecordingAsync(CancellationToken.None);
+        await fixture.Session.ToggleRecordingAsync(CancellationToken.None);
+
+        Assert.Null(await gate.TryEnterAsync(CancellationToken.None));
+        await fixture.WaitForQueueDrainAsync(TimeSpan.FromSeconds(2));
+        await using var lease = Assert.IsType<AsrActivityLease>(
+            await gate.TryEnterAsync(CancellationToken.None));
+    }
+
+    [Fact]
     public async Task CancelCurrentSegmentAsync_RemovesWaitingInputWithoutQueueing()
     {
         var fixture = new SessionFixture();
@@ -139,6 +155,27 @@ public sealed class ContinuousDictationSessionTests
     }
 
     [Fact]
+    public async Task BuildHistory_WhenSegmentsUseDifferentModels_MarksMixedSource()
+    {
+        var fixture = new SessionFixture();
+        fixture.Backend.ModelId = "local-model";
+        await fixture.Session.ToggleRecordingAsync(CancellationToken.None);
+        await fixture.Session.ToggleRecordingAsync(CancellationToken.None);
+        await fixture.WaitForQueueDrainAsync(TimeSpan.FromSeconds(2));
+
+        fixture.Backend.ModelId = "remote-model";
+        fixture.Backend.TranscribeText = "第二段";
+        await fixture.Session.ToggleRecordingAsync(CancellationToken.None);
+        await fixture.Session.ToggleRecordingAsync(CancellationToken.None);
+        await fixture.WaitForQueueDrainAsync(TimeSpan.FromSeconds(2));
+
+        var history = fixture.Session.BuildHistory();
+
+        Assert.Equal("多个服务", history.BackendId);
+        Assert.Equal("mixed", history.ModelId);
+    }
+
+    [Fact]
     public async Task QueueWorker_OnFailure_MarksSegmentFailed()
     {
         var fixture = new SessionFixture();
@@ -155,7 +192,7 @@ public sealed class ContinuousDictationSessionTests
 
     private sealed class SessionFixture
     {
-        public SessionFixture()
+        public SessionFixture(AsrActivityGate? activityGate = null)
         {
             Recorder = new StubRecorder();
             Backend = new StubBackend();
@@ -169,7 +206,7 @@ public sealed class ContinuousDictationSessionTests
                 new NoOpTextPostProcessor(),
                 Stats,
                 Clock);
-            Session = new ContinuousDictationSession(Recorder, Pipeline);
+            Session = new ContinuousDictationSession(Recorder, Pipeline, activityGate);
             Session.Changed += snapshot => LastSnapshot = snapshot;
         }
 

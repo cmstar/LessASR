@@ -72,6 +72,34 @@ public sealed class SqliteRepositoryTests
     }
 
     [Fact]
+    public async Task SettingsStore_UpdateAsync_SerializesReadModifyWriteAndPreservesIndependentChanges()
+    {
+        await using var database = await SqliteDatabase.CreateInMemoryAsync();
+        var store = new SqliteSettingsStore(database);
+        var profileId = Guid.NewGuid();
+        using var firstSelectorEntered = new ManualResetEventSlim();
+        using var releaseFirstSelector = new ManualResetEventSlim();
+
+        var firstUpdate = Task.Run(() => store.UpdateAsync(settings =>
+        {
+            firstSelectorEntered.Set();
+            Assert.True(releaseFirstSelector.Wait(TimeSpan.FromSeconds(2)));
+            return settings with { PreferredTranscriptionLanguageId = "zh-Hans" };
+        }, CancellationToken.None));
+
+        Assert.True(firstSelectorEntered.Wait(TimeSpan.FromSeconds(2)));
+        var secondUpdate = store.UpdateAsync(
+            settings => settings with { ActiveRemoteApiProfileId = profileId },
+            CancellationToken.None);
+        releaseFirstSelector.Set();
+        await Task.WhenAll(firstUpdate, secondUpdate);
+
+        var loaded = await store.LoadAsync(CancellationToken.None);
+        Assert.Equal("zh-Hans", loaded.PreferredTranscriptionLanguageId);
+        Assert.Equal(profileId, loaded.ActiveRemoteApiProfileId);
+    }
+
+    [Fact]
     public async Task StatsRepository_AccumulatesDailyStats()
     {
         await using var database = await SqliteDatabase.CreateInMemoryAsync();

@@ -144,8 +144,8 @@ public sealed class ContinuousDictationCoordinator : IDisposable
         }
 
         _isClosing = true;
-        var historyText = _session.BuildHistoryText();
-        _ = PersistHistoryAndTerminateAsync(historyText);
+        var history = _session.BuildHistory();
+        _ = PersistHistoryAndTerminateAsync(history);
     }
 
     private void OnWindowClosed(object? sender, EventArgs e)
@@ -178,13 +178,13 @@ public sealed class ContinuousDictationCoordinator : IDisposable
         _ = _session.TerminateAsync(CancellationToken.None);
     }
 
-    private async Task PersistHistoryAndTerminateAsync(string historyText)
+    private async Task PersistHistoryAndTerminateAsync(ContinuousDictationHistory history)
     {
         try
         {
-            if (!string.IsNullOrWhiteSpace(historyText))
+            if (!string.IsNullOrWhiteSpace(history.Text))
             {
-                await WriteHistoryAsync(historyText, CancellationToken.None);
+                await WriteHistoryAsync(history, CancellationToken.None);
             }
 
             await _session.TerminateAsync(CancellationToken.None);
@@ -217,7 +217,9 @@ public sealed class ContinuousDictationCoordinator : IDisposable
         }
     }
 
-    private async Task WriteHistoryAsync(string text, CancellationToken cancellationToken)
+    private async Task WriteHistoryAsync(
+        ContinuousDictationHistory history,
+        CancellationToken cancellationToken)
     {
         var settings = await _settingsStore.LoadAsync(cancellationToken);
         if (settings.TranscriptRetentionPolicy == TranscriptRetentionPolicy.Disabled)
@@ -225,19 +227,19 @@ public sealed class ContinuousDictationCoordinator : IDisposable
             return;
         }
 
-        var characterCount = TextMetrics.CountCharacters(text);
-        var wordCount = TextMetrics.CountWords(text);
+        var characterCount = TextMetrics.CountCharacters(history.Text);
+        var wordCount = TextMetrics.CountWords(history.Text);
         await _historyRepository.AddAsync(
             new TextHistoryEntry(
                 Guid.NewGuid(),
                 _clock.Now,
-                text,
+                history.Text,
                 characterCount,
                 wordCount,
                 TimeSpan.Zero,
                 TimeSpan.Zero,
-                _asrBackend.Name,
-                _asrBackend.ModelId),
+                history.BackendId,
+                history.ModelId),
             cancellationToken);
         await _historyRepository.PruneAsync(_clock.Now, settings.TranscriptRetentionPolicy, cancellationToken);
     }

@@ -64,6 +64,7 @@
                 <PasswordBox x:Name="ApiKeyBox"
                              Style="{StaticResource LessAsr.PasswordBox}"
                              IsEnabled="{Binding CanMutate}"
+                             PasswordChanged="ApiKeyBox_PasswordChanged"
                              AutomationProperties.Name="API Key"/>
                 <Button Grid.Column="1"
                         Content="清除已保存 Key"
@@ -86,15 +87,32 @@
                        Style="{StaticResource LessAsr.Text.Caption}"
                        Margin="0,14,0,0"/>
 
+            <Border Background="{StaticResource LessAsr.Brush.WarningSoft}"
+                    CornerRadius="8"
+                    Padding="10,7"
+                    Margin="0,10,0,0"
+                    Visibility="{Binding HasUnsavedChanges, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <TextBlock Text="有未保存修改；请先保存，再测试或设为当前服务。"
+                           Foreground="{StaticResource LessAsr.Brush.Warning}"
+                           TextWrapping="Wrap"/>
+            </Border>
+
             <WrapPanel Margin="0,10,0,0">
                 <Button Content="保存" Click="Save_Click" IsEnabled="{Binding CanMutate}" Style="{StaticResource LessAsr.PrimaryButton}" Margin="0,0,8,8"/>
                 <Button Content="测试" Click="Test_Click" IsEnabled="{Binding CanTest}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="0,0,8,8"/>
                 <Button Content="设为当前" Click="Activate_Click" IsEnabled="{Binding CanActivate}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="0,0,8,8"/>
+                <Button Content="放弃修改"
+                        Click="DiscardChanges_Click"
+                        IsEnabled="{Binding CanDiscardChanges}"
+                        Visibility="{Binding ShowDiscardChanges, Converter={StaticResource BooleanToVisibilityConverter}}"
+                        Style="{StaticResource LessAsr.SecondaryButton}"
+                        Margin="0,0,8,8"/>
                 <Button Content="移除" Click="Delete_Click" IsEnabled="{Binding CanDelete}" Style="{StaticResource LessAsr.DestructiveButton}" Margin="0,0,8,8"/>
             </WrapPanel>
 
             <TextBlock Text="{Binding LastMessage}"
                        Foreground="{StaticResource LessAsr.Brush.Success}"
+                       TextWrapping="Wrap"
                        Visibility="{Binding LastMessage, Converter={StaticResource StringNotEmptyToVisibilityConverter}}"/>
             <TextBlock Text="{Binding LastError}"
                        Foreground="{StaticResource LessAsr.Brush.Error}"

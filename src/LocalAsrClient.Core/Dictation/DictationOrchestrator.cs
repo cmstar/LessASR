@@ -17,8 +17,10 @@ public sealed class DictationOrchestrator
     private readonly IVocabularyRepository _vocabularyRepository;
     private readonly IClock _clock;
     private readonly ITextPostProcessor _postProcessor;
+    private readonly AsrActivityGate _activityGate;
     private static readonly TimeSpan MinRecordingDuration = TimeSpan.FromMilliseconds(300);
     private readonly SemaphoreSlim _toggleLock = new(1, 1);
+    private AsrActivityLease? _activityLease;
     private DictationState _state = DictationState.Idle;
 
     public DictationState State => _state;
@@ -54,7 +56,8 @@ public sealed class DictationOrchestrator
         ISettingsStore settingsStore,
         IVocabularyRepository vocabularyRepository,
         IClock clock,
-        ITextPostProcessor postProcessor)
+        ITextPostProcessor postProcessor,
+        AsrActivityGate? activityGate = null)
     {
         _recorder = recorder;
         _asrBackend = asrBackend;
@@ -65,6 +68,7 @@ public sealed class DictationOrchestrator
         _vocabularyRepository = vocabularyRepository;
         _clock = clock;
         _postProcessor = postProcessor;
+        _activityGate = activityGate ?? new AsrActivityGate();
     }
 
     public event Action<DictationStatus>? StatusChanged;
@@ -86,6 +90,7 @@ public sealed class DictationOrchestrator
             return;
         }
 
+        var releaseActivity = false;
         try
         {
             if (_state != DictationState.Recording)
@@ -93,12 +98,18 @@ public sealed class DictationOrchestrator
                 return;
             }
 
+            releaseActivity = true;
             await _recorder.StopAsync(cancellationToken);
             _state = DictationState.Idle;
             Publish("已取消");
         }
         finally
         {
+            if (releaseActivity)
+            {
+                await ReleaseActivityLeaseAsync();
+            }
+
             _toggleLock.Release();
         }
     }
@@ -136,6 +147,14 @@ public sealed class DictationOrchestrator
 
     private async Task StartRecordingAsync(CancellationToken cancellationToken)
     {
+        _activityLease = await _activityGate.TryEnterAsync(cancellationToken);
+        if (_activityLease is null)
+        {
+            _state = DictationState.Error;
+            Publish("服务配置更新中，请稍后再试");
+            return;
+        }
+
         if (_asrBackend.Status != AsrBackendStatus.Ready)
         {
             _state = DictationState.EnsuringModelReady;
@@ -148,13 +167,22 @@ public sealed class DictationOrchestrator
             {
                 _state = DictationState.Error;
                 Publish("模型加载失败", ErrorMessage: ex.Message);
+                await ReleaseActivityLeaseAsync();
                 return;
             }
         }
 
         _state = DictationState.Recording;
         Publish("聆听中");
-        await _recorder.StartAsync(cancellationToken);
+        try
+        {
+            await _recorder.StartAsync(cancellationToken);
+        }
+        catch
+        {
+            await ReleaseActivityLeaseAsync();
+            throw;
+        }
     }
 
     private async Task StopAndTranscribeAsync(CancellationToken cancellationToken)
@@ -175,6 +203,8 @@ public sealed class DictationOrchestrator
             var language = TranscriptionLanguageCatalog.ResolveLanguage(settings.PreferredTranscriptionLanguageId);
             var activeVocabulary = await _vocabularyRepository.GetActiveAsync(cancellationToken);
             var initialPrompt = WhisperVocabulary.CreateInitialPrompt(activeVocabulary?.EntriesText);
+            var backendId = _asrBackend.Name;
+            var modelId = _asrBackend.ModelId;
 
             var asrResult = await _asrBackend.TranscribeAsync(new AsrRequest(
                 new InMemoryAudioInput(recording.WavData, "wav", recording.SampleRate, recording.Channels),
@@ -186,7 +216,14 @@ public sealed class DictationOrchestrator
 
             if (string.IsNullOrWhiteSpace(finalText))
             {
-                await PersistResultAsync(string.Empty, recording.Duration, asrResult.ProcessingDuration ?? TimeSpan.Zero, succeeded: false, cancellationToken);
+                await PersistResultAsync(
+                    string.Empty,
+                    recording.Duration,
+                    asrResult.ProcessingDuration ?? TimeSpan.Zero,
+                    succeeded: false,
+                    cancellationToken,
+                    backendId,
+                    modelId);
                 _state = DictationState.ResultNeedsAction;
                 Publish("识别文本为空");
                 return;
@@ -195,7 +232,14 @@ public sealed class DictationOrchestrator
             _state = DictationState.Injecting;
             var injection = await _textInjector.TryInjectAsync(finalText, cancellationToken);
 
-            await PersistResultAsync(finalText, recording.Duration, asrResult.ProcessingDuration ?? TimeSpan.Zero, injection.Succeeded, cancellationToken);
+            await PersistResultAsync(
+                finalText,
+                recording.Duration,
+                asrResult.ProcessingDuration ?? TimeSpan.Zero,
+                injection.Succeeded,
+                cancellationToken,
+                backendId,
+                modelId);
 
             if (injection.Succeeded)
             {
@@ -238,6 +282,20 @@ public sealed class DictationOrchestrator
             _state = DictationState.Error;
             Publish("输入失败", ErrorMessage: ex.Message);
         }
+        finally
+        {
+            await ReleaseActivityLeaseAsync();
+        }
+    }
+
+    private async ValueTask ReleaseActivityLeaseAsync()
+    {
+        var lease = _activityLease;
+        _activityLease = null;
+        if (lease is not null)
+        {
+            await lease.DisposeAsync();
+        }
     }
 
     private async Task PersistResultAsync(
@@ -245,7 +303,9 @@ public sealed class DictationOrchestrator
         TimeSpan recordingDuration,
         TimeSpan processingDuration,
         bool succeeded,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? backendId = null,
+        string? modelId = null)
     {
         var characterCount = TextMetrics.CountCharacters(text);
         var wordCount = TextMetrics.CountWords(text);
@@ -269,8 +329,8 @@ public sealed class DictationOrchestrator
                 wordCount,
                 recordingDuration,
                 processingDuration,
-                _asrBackend.Name,
-                _asrBackend.ModelId), cancellationToken);
+                backendId ?? _asrBackend.Name,
+                modelId ?? _asrBackend.ModelId), cancellationToken);
             await _historyRepository.PruneAsync(_clock.Now, settings.TranscriptRetentionPolicy, cancellationToken);
         }
 

@@ -3,7 +3,9 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:infra="clr-namespace:LocalAsrClient.App.Infrastructure"
              xmlns:views="clr-namespace:LocalAsrClient.App.Views">
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <ScrollViewer x:Name="PageScrollViewer"
+                  VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="20,0,20,24">
             <Grid Margin="0,0,0,20">
                 <Grid.ColumnDefinitions>
@@ -103,6 +105,17 @@
                         <Button Content="测试" Command="{Binding TestLocalCommand}" IsEnabled="{Binding CanMutate}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="0,0,8,8"/>
                         <Button Content="停止" Command="{Binding StopLocalCommand}" IsEnabled="{Binding CanOperateLocal}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="0,0,8,8"/>
                     </WrapPanel>
+
+                    <TextBlock Text="{Binding LastMessage}"
+                               Foreground="{StaticResource LessAsr.Brush.Success}"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,0"
+                               Visibility="{Binding LastMessage, Converter={StaticResource StringNotEmptyToVisibilityConverter}}"/>
+                    <TextBlock Text="{Binding LastError}"
+                               Foreground="{StaticResource LessAsr.Brush.Error}"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,0"
+                               Visibility="{Binding LastError, Converter={StaticResource StringNotEmptyToVisibilityConverter}}"/>
                 </StackPanel>
             </Border>
 
@@ -115,14 +128,6 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
-            <Border Style="{StaticResource LessAsr.Card}"
-                    Visibility="{Binding LastMessage, Converter={StaticResource StringNotEmptyToVisibilityConverter}}">
-                <TextBlock Text="{Binding LastMessage}" Foreground="{StaticResource LessAsr.Brush.Success}" TextWrapping="Wrap"/>
-            </Border>
-            <Border Style="{StaticResource LessAsr.Card}" Background="{StaticResource LessAsr.Brush.ErrorSoft}" Margin="0,12,0,0"
-                    Visibility="{Binding LastError, Converter={StaticResource StringNotEmptyToVisibilityConverter}}">
-                <TextBlock Text="{Binding LastError}" Foreground="{StaticResource LessAsr.Brush.Error}" TextWrapping="Wrap"/>
-            </Border>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

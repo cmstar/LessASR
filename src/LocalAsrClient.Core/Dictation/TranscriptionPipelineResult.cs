@@ -5,4 +5,6 @@ public sealed record TranscriptionPipelineResult(
     string Text,
     string? ErrorMessage,
     TimeSpan RecordingDuration,
-    TimeSpan ProcessingDuration);
+    TimeSpan ProcessingDuration,
+    string BackendId,
+    string ModelId);

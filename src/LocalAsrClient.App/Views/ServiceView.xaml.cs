@@ -6,4 +6,7 @@ public partial class ServiceView : System.Windows.Controls.UserControl
     {
         InitializeComponent();
     }
+
+    internal void ScrollToPageOffset(double offset) =>
+        PageScrollViewer.ScrollToVerticalOffset(offset);
 }

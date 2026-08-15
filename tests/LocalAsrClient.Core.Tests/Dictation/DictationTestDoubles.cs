@@ -33,6 +33,7 @@ public sealed class StubBackend : IAsrBackend
     public string TranscribeText { get; set; } = "测试文本";
     public Exception? TranscribeThrows { get; set; }
     public TimeSpan TranscribeDelay { get; set; }
+    public Action? AfterTranscribe { get; set; }
 
     public Exception? EnsureReadyThrows { get; set; }
 
@@ -62,7 +63,9 @@ public sealed class StubBackend : IAsrBackend
             await Task.Delay(TranscribeDelay, cancellationToken);
         }
 
-        return new AsrResult(TranscribeText, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), null);
+        var result = new AsrResult(TranscribeText, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), null);
+        AfterTranscribe?.Invoke();
+        return result;
     }
 }
 

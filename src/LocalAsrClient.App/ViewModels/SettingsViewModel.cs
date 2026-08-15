@@ -130,7 +130,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
                 return;
             }
 
-            await _settingsStore.SaveAsync(latestSettings with
+            await _settingsStore.UpdateAsync(settings => settings with
             {
                 TranscriptRetentionPolicy = TranscriptRetentionPolicy,
                 MinimizeToTrayOnClose = MinimizeToTrayOnClose,

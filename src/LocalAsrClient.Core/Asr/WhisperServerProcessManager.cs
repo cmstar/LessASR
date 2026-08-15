@@ -17,21 +17,65 @@ public interface IWhisperServerManager
     Task HealthCheckAsync(CancellationToken cancellationToken);
 }
 
+public interface IWhisperServerHealthProbe
+{
+    Task<bool> IsHealthyAsync(Uri baseUri, CancellationToken cancellationToken);
+}
+
+public interface IWhisperServerProcess : IDisposable
+{
+    event Action<IWhisperServerProcess>? Exited;
+    event Action<string>? OutputReceived;
+    event Action<string>? ErrorReceived;
+
+    bool HasExited { get; }
+    int ExitCode { get; }
+    void SuppressExitNotification();
+    void Kill();
+    Task WaitForExitAsync(CancellationToken cancellationToken);
+    void BeginOutputRead();
+}
+
+public interface IWhisperServerProcessFactory
+{
+    IWhisperServerProcess Start(ProcessStartInfo startInfo);
+}
+
 public sealed class WhisperServerProcessManager : IWhisperServerManager
 {
     private readonly SemaphoreSlim _startLock = new(1, 1);
+    private readonly object _lifecycleLock = new();
     private readonly IAppLog? _log;
+    private readonly IWhisperServerHealthProbe _healthProbe;
+    private readonly IWhisperServerProcessFactory _processFactory;
     private readonly object _outputLock = new();
     private readonly StringBuilder _processOutput = new();
     private WhisperServerOptions _options;
     private WhisperServerOptions _configuredOptions;
-    private Process? _process;
+    private IWhisperServerProcess? _process;
+    private CancellationTokenSource? _startupCancellation;
+    private int _pendingStopCount;
 
     public WhisperServerProcessManager(WhisperServerOptions options, IAppLog? log = null)
+        : this(
+            options,
+            log,
+            new HttpWhisperServerHealthProbe(),
+            new SystemWhisperServerProcessFactory())
+    {
+    }
+
+    public WhisperServerProcessManager(
+        WhisperServerOptions options,
+        IAppLog? log,
+        IWhisperServerHealthProbe healthProbe,
+        IWhisperServerProcessFactory processFactory)
     {
         _options = options;
         _configuredOptions = options;
         _log = log;
+        _healthProbe = healthProbe;
+        _processFactory = processFactory;
     }
 
     public event Action<WhisperServerStatus>? StatusChanged;
@@ -57,8 +101,21 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
     public async Task EnsureStartedAsync(CancellationToken cancellationToken)
     {
         await _startLock.WaitAsync(cancellationToken);
+        CancellationTokenSource? startupCancellation = null;
         try
         {
+            lock (_lifecycleLock)
+            {
+                if (_pendingStopCount > 0)
+                {
+                    throw new OperationCanceledException("whisper-server 启动已被停止操作取消。");
+                }
+
+                startupCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                _startupCancellation = startupCancellation;
+            }
+
+            var startupToken = startupCancellation.Token;
             if (_process is { HasExited: false } && Status == WhisperServerStatus.Ready)
             {
                 return;
@@ -66,7 +123,7 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
 
             if (_process is { HasExited: false } && Status == WhisperServerStatus.Starting)
             {
-                await WaitUntilReadyAsync(cancellationToken);
+                await WaitUntilReadyAsync(startupToken);
                 SetStatus(WhisperServerStatus.Ready);
                 return;
             }
@@ -78,13 +135,13 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
 
             ValidatePaths();
 
-            if (await TryProbeAsync(cancellationToken))
+            if (await TryProbeAsync(startupToken))
             {
                 SetStatus(WhisperServerStatus.Ready);
                 return;
             }
 
-            StopManagedProcess();
+            await StopManagedProcessAsync(startupToken);
             SetStatus(WhisperServerStatus.Starting);
             var arguments = WhisperServerStartupArguments.Build(_options);
             ResetProcessOutput();
@@ -103,15 +160,16 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
                 StandardErrorEncoding = Encoding.UTF8,
             };
 
-            _process = Process.Start(startInfo)
-                ?? throw new InvalidOperationException("无法启动 whisper-server。");
-
-            _process.EnableRaisingEvents = true;
+            _process = _processFactory.Start(startInfo);
             _process.Exited += OnManagedProcessExited;
             AttachProcessOutputHandlers(_process);
 
-            await WaitUntilReadyAsync(cancellationToken);
+            await WaitUntilReadyAsync(startupToken);
             SetStatus(WhisperServerStatus.Ready);
+        }
+        catch (OperationCanceledException) when (IsStopRequested())
+        {
+            throw;
         }
         catch
         {
@@ -120,15 +178,50 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
         }
         finally
         {
+            lock (_lifecycleLock)
+            {
+                if (ReferenceEquals(_startupCancellation, startupCancellation))
+                {
+                    _startupCancellation = null;
+                }
+            }
+
+            startupCancellation?.Dispose();
             _startLock.Release();
         }
     }
 
-    public Task StopAsync(CancellationToken cancellationToken)
+    public async Task StopAsync(CancellationToken cancellationToken)
     {
-        StopManagedProcess();
-        ApplyConfiguredOptions();
-        return Task.CompletedTask;
+        CancellationTokenSource? startupCancellation;
+        lock (_lifecycleLock)
+        {
+            _pendingStopCount++;
+            startupCancellation = _startupCancellation;
+        }
+
+        startupCancellation?.Cancel();
+
+        var lockTaken = false;
+        try
+        {
+            await _startLock.WaitAsync(cancellationToken);
+            lockTaken = true;
+            await StopManagedProcessAsync(cancellationToken);
+            ApplyConfiguredOptions();
+        }
+        finally
+        {
+            lock (_lifecycleLock)
+            {
+                _pendingStopCount--;
+            }
+
+            if (lockTaken)
+            {
+                _startLock.Release();
+            }
+        }
     }
 
     private void ApplyConfiguredOptions()
@@ -159,18 +252,26 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
         }
     }
 
-    private void StopManagedProcess()
+    private async Task StopManagedProcessAsync(CancellationToken cancellationToken)
     {
         var process = _process;
-        _process = null;
-
         if (process is { HasExited: false })
         {
-            process.EnableRaisingEvents = false;
-            process.Kill(entireProcessTree: true);
+            process.SuppressExitNotification();
+            process.Kill();
+            await process.WaitForExitAsync(cancellationToken);
         }
 
-        process?.Dispose();
+        if (process is not null)
+        {
+            if (ReferenceEquals(_process, process))
+            {
+                _process = null;
+            }
+
+            process.Dispose();
+        }
+
         SetStatus(WhisperServerStatus.Stopped);
     }
 
@@ -227,21 +328,7 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
 
     private async Task<bool> TryProbeAsync(CancellationToken cancellationToken)
     {
-        using var httpClient = new HttpClient { BaseAddress = _options.BaseUri, Timeout = TimeSpan.FromSeconds(2) };
-
-        try
-        {
-            using var response = await httpClient.GetAsync("/", cancellationToken);
-            return (int)response.StatusCode < 500;
-        }
-        catch (HttpRequestException)
-        {
-            return false;
-        }
-        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            return false;
-        }
+        return await _healthProbe.IsHealthyAsync(_options.BaseUri, cancellationToken);
     }
 
     private void ResetProcessOutput()
@@ -252,31 +339,26 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
         }
     }
 
-    private void AttachProcessOutputHandlers(Process process)
+    private void AttachProcessOutputHandlers(IWhisperServerProcess process)
     {
-        process.OutputDataReceived += (_, e) =>
-        {
-            if (e.Data is not null)
-            {
-                AppendProcessOutput(e.Data);
-            }
-        };
-        process.ErrorDataReceived += (_, e) =>
-        {
-            if (e.Data is not null)
-            {
-                AppendProcessOutput(e.Data);
-            }
-        };
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
+        process.OutputReceived += AppendProcessOutput;
+        process.ErrorReceived += AppendProcessOutput;
+        process.BeginOutputRead();
     }
 
-    private void OnManagedProcessExited(object? sender, EventArgs e)
+    private void OnManagedProcessExited(IWhisperServerProcess process)
     {
-        if (ReferenceEquals(_process, sender))
+        if (ReferenceEquals(_process, process))
         {
             SetStatus(WhisperServerStatus.Failed);
+        }
+    }
+
+    private bool IsStopRequested()
+    {
+        lock (_lifecycleLock)
+        {
+            return _pendingStopCount > 0;
         }
     }
 
@@ -305,5 +387,94 @@ public sealed class WhisperServerProcessManager : IWhisperServerManager
         {
             return _processOutput.ToString();
         }
+    }
+}
+
+internal sealed class HttpWhisperServerHealthProbe : IWhisperServerHealthProbe
+{
+    public async Task<bool> IsHealthyAsync(Uri baseUri, CancellationToken cancellationToken)
+    {
+        using var httpClient = new HttpClient { BaseAddress = baseUri, Timeout = TimeSpan.FromSeconds(2) };
+
+        try
+        {
+            using var response = await httpClient.GetAsync("/", cancellationToken);
+            return (int)response.StatusCode < 500;
+        }
+        catch (HttpRequestException)
+        {
+            return false;
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return false;
+        }
+    }
+}
+
+internal sealed class SystemWhisperServerProcessFactory : IWhisperServerProcessFactory
+{
+    public IWhisperServerProcess Start(ProcessStartInfo startInfo)
+    {
+        var process = Process.Start(startInfo)
+            ?? throw new InvalidOperationException("无法启动 whisper-server。");
+        return new SystemWhisperServerProcess(process);
+    }
+}
+
+internal sealed class SystemWhisperServerProcess : IWhisperServerProcess
+{
+    private readonly Process _process;
+
+    public SystemWhisperServerProcess(Process process)
+    {
+        _process = process;
+        _process.EnableRaisingEvents = true;
+        _process.Exited += (_, _) => Exited?.Invoke(this);
+        _process.OutputDataReceived += (_, e) =>
+        {
+            if (e.Data is not null)
+            {
+                OutputReceived?.Invoke(e.Data);
+            }
+        };
+        _process.ErrorDataReceived += (_, e) =>
+        {
+            if (e.Data is not null)
+            {
+                ErrorReceived?.Invoke(e.Data);
+            }
+        };
+    }
+
+    public event Action<IWhisperServerProcess>? Exited;
+    public event Action<string>? OutputReceived;
+    public event Action<string>? ErrorReceived;
+
+    public bool HasExited => _process.HasExited;
+    public int ExitCode => _process.ExitCode;
+
+    public void SuppressExitNotification()
+    {
+        _process.EnableRaisingEvents = false;
+    }
+
+    public void Kill()
+    {
+        _process.Kill(entireProcessTree: true);
+    }
+
+    public Task WaitForExitAsync(CancellationToken cancellationToken) =>
+        _process.WaitForExitAsync(cancellationToken);
+
+    public void BeginOutputRead()
+    {
+        _process.BeginOutputReadLine();
+        _process.BeginErrorReadLine();
+    }
+
+    public void Dispose()
+    {
+        _process.Dispose();
     }
 }

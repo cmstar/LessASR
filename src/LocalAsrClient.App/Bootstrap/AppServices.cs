@@ -84,6 +84,8 @@ public sealed class AppServices : IAsyncDisposable
 
         AsrServiceCoordinator serviceCoordinator,
 
+        AsrActivityGate activityGate,
+
         WhisperServerProcessManager serverManager,
 
         IDiagnosticEventSink diagnosticSink,
@@ -127,6 +129,8 @@ public sealed class AppServices : IAsyncDisposable
         BackendRouter = backendRouter;
 
         ServiceCoordinator = serviceCoordinator;
+
+        ActivityGate = activityGate;
 
         ServerManager = serverManager;
 
@@ -173,6 +177,8 @@ public sealed class AppServices : IAsyncDisposable
     public SwitchableAsrBackend BackendRouter { get; }
 
     public AsrServiceCoordinator ServiceCoordinator { get; }
+
+    public AsrActivityGate ActivityGate { get; }
 
     public WhisperServerProcessManager ServerManager { get; }
 
@@ -266,6 +272,7 @@ public sealed class AppServices : IAsyncDisposable
         };
 
         var backend = new SwitchableAsrBackend(modeBackend);
+        var activityGate = new AsrActivityGate();
 
         var remoteApiProfileRepository = new SqliteRemoteApiProfileRepository(database);
         var secretProtector = new DpapiSecretProtector();
@@ -307,7 +314,10 @@ public sealed class AppServices : IAsyncDisposable
             statsRepository,
             clock);
 
-        var continuousSession = new ContinuousDictationSession(continuousRecorder, transcriptionPipeline);
+        var continuousSession = new ContinuousDictationSession(
+            continuousRecorder,
+            transcriptionPipeline,
+            activityGate);
 
         var continuousCoordinator = new ContinuousDictationCoordinator(
             continuousSession,
@@ -345,11 +355,14 @@ public sealed class AppServices : IAsyncDisposable
 
             clock,
 
-            new TranscriptionScriptPostProcessor(settingsStore));
+            new TranscriptionScriptPostProcessor(settingsStore),
+
+            activityGate);
 
         var serviceCoordinator = new AsrServiceCoordinator(
             remoteApiProfileRepository,
             settingsStore,
+            vocabularyRepository,
             secretProtector,
             serverManager,
             backend,
@@ -359,7 +372,9 @@ public sealed class AppServices : IAsyncDisposable
                 or DictationState.Transcribing
                 or DictationState.Injecting
                 or DictationState.EnsuringModelReady
-                || continuousSession.IsBusy);
+                || continuousSession.IsBusy,
+            activityGate,
+            () => transcribeClient.Refresh(serverManager.BaseUri));
 
         if (startupOptions.RuntimeMode == AppRuntimeMode.Standard)
         {
@@ -557,6 +572,8 @@ public sealed class AppServices : IAsyncDisposable
             backend,
 
             serviceCoordinator,
+
+            activityGate,
 
             serverManager,
 

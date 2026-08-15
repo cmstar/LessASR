@@ -35,6 +35,8 @@ public sealed class TranscriptionPipeline
         RecordingResult recording,
         CancellationToken cancellationToken)
     {
+        var backendId = _asrBackend.Name;
+        var modelId = _asrBackend.ModelId;
         try
         {
             var settings = await _settingsStore.LoadAsync(cancellationToken);
@@ -56,13 +58,16 @@ public sealed class TranscriptionPipeline
             await RecordStatsAsync(finalText, recording.Duration, processingDuration, succeeded, cancellationToken);
 
             return succeeded
-                ? new TranscriptionPipelineResult(true, finalText, null, recording.Duration, processingDuration)
-                : new TranscriptionPipelineResult(false, string.Empty, "识别文本为空", recording.Duration, processingDuration);
+                ? new TranscriptionPipelineResult(
+                    true, finalText, null, recording.Duration, processingDuration, backendId, modelId)
+                : new TranscriptionPipelineResult(
+                    false, string.Empty, "识别文本为空", recording.Duration, processingDuration, backendId, modelId);
         }
         catch (Exception ex)
         {
             await RecordStatsAsync(string.Empty, recording.Duration, TimeSpan.Zero, succeeded: false, cancellationToken);
-            return new TranscriptionPipelineResult(false, string.Empty, ex.Message, recording.Duration, TimeSpan.Zero);
+            return new TranscriptionPipelineResult(
+                false, string.Empty, ex.Message, recording.Duration, TimeSpan.Zero, backendId, modelId);
         }
     }
 

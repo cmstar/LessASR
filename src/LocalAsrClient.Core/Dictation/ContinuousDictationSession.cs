@@ -1,4 +1,5 @@
 using LocalAsrClient.Core.Abstractions;
+using LocalAsrClient.Core.Asr;
 
 namespace LocalAsrClient.Core.Dictation;
 
@@ -10,23 +11,29 @@ public sealed class ContinuousDictationSession
     private readonly List<ContinuousDictationSegment> _segments = new();
     private readonly IAudioRecorder _recorder;
     private readonly TranscriptionPipeline _pipeline;
+    private readonly AsrActivityGate _activityGate;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly object _queueLock = new();
     private readonly Queue<(Guid SegmentId, RecordingResult Recording)> _pendingTranscriptions = new();
     private CancellationTokenSource? _workerCts;
     private Task? _workerTask;
-    private bool _isRecordingActive;
+    private volatile bool _isRecordingActive;
+    private int _transcribingCount;
+    private AsrActivityLease? _activityLease;
 
     public event Action<ContinuousDictationSnapshot>? Changed;
 
     public bool IsRecordingActive => _isRecordingActive;
-    public bool IsBusy => _isRecordingActive || _segments.Any(segment =>
-        segment.State is ContinuousSegmentState.WaitingInput or ContinuousSegmentState.Transcribing);
+    public bool IsBusy => _isRecordingActive || Volatile.Read(ref _transcribingCount) > 0;
 
-    public ContinuousDictationSession(IAudioRecorder recorder, TranscriptionPipeline pipeline)
+    public ContinuousDictationSession(
+        IAudioRecorder recorder,
+        TranscriptionPipeline pipeline,
+        AsrActivityGate? activityGate = null)
     {
         _recorder = recorder;
         _pipeline = pipeline;
+        _activityGate = activityGate ?? new AsrActivityGate();
     }
 
     public async Task ToggleRecordingAsync(CancellationToken cancellationToken)
@@ -42,6 +49,7 @@ public sealed class ContinuousDictationSession
             {
                 await CommitCurrentSegmentInternalAsync(startNext: false, cancellationToken);
                 _isRecordingActive = false;
+                await ReleaseActivityLeaseIfIdleAsync();
             }
 
             Publish();
@@ -70,6 +78,7 @@ public sealed class ContinuousDictationSession
             }
 
             _isRecordingActive = false;
+            await ReleaseActivityLeaseIfIdleAsync();
             Publish();
         }
         finally
@@ -80,7 +89,9 @@ public sealed class ContinuousDictationSession
 
     public async Task TerminateAsync(CancellationToken cancellationToken)
     {
-        _workerCts?.Cancel();
+        var workerCts = _workerCts;
+        var workerTask = _workerTask;
+        workerCts?.Cancel();
         if (_isRecordingActive)
         {
             try
@@ -93,16 +104,39 @@ public sealed class ContinuousDictationSession
             }
         }
 
-        _segments.Clear();
-        lock (_queueLock)
+        if (workerTask is not null)
         {
-            _pendingTranscriptions.Clear();
+            try
+            {
+                await workerTask;
+            }
+            catch (OperationCanceledException)
+            {
+                // 正常的会话终止。
+            }
         }
 
-        _isRecordingActive = false;
-        _workerCts = null;
-        _workerTask = null;
-        Publish();
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            _segments.Clear();
+            lock (_queueLock)
+            {
+                _pendingTranscriptions.Clear();
+            }
+
+            _isRecordingActive = false;
+            Volatile.Write(ref _transcribingCount, 0);
+            _workerCts = null;
+            _workerTask = null;
+            workerCts?.Dispose();
+            await ReleaseActivityLeaseIfIdleAsync();
+            Publish();
+        }
+        finally
+        {
+            _gate.Release();
+        }
     }
 
     public void UpdateSegmentText(Guid segmentId, string text)
@@ -115,7 +149,35 @@ public sealed class ContinuousDictationSession
         }
     }
 
-    public string BuildHistoryText() => ContinuousDictationTextMerge.MergeCompletedSegments(_segments);
+    public string BuildHistoryText() => BuildHistory().Text;
+
+    public ContinuousDictationHistory BuildHistory()
+    {
+        _gate.Wait();
+        try
+        {
+            var completed = _segments
+                .Where(segment => segment.State == ContinuousSegmentState.Completed)
+                .ToArray();
+            var sources = completed
+                .Where(segment => !string.IsNullOrWhiteSpace(segment.BackendId)
+                    && !string.IsNullOrWhiteSpace(segment.ModelId))
+                .Select(segment => (segment.BackendId!, segment.ModelId!))
+                .Distinct()
+                .ToArray();
+            var source = sources.Length == 1
+                ? sources[0]
+                : ("多个服务", "mixed");
+            return new ContinuousDictationHistory(
+                ContinuousDictationTextMerge.MergeCompletedSegments(completed),
+                source.Item1,
+                source.Item2);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
 
     public async Task CommitSegmentBoundaryAsync(CancellationToken cancellationToken)
     {
@@ -148,9 +210,27 @@ public sealed class ContinuousDictationSession
 
     private async Task StartRecordingInternalAsync(CancellationToken cancellationToken)
     {
-        _segments.Add(new ContinuousDictationSegment(Guid.NewGuid(), ContinuousSegmentState.WaitingInput, "", null));
-        _isRecordingActive = true;
-        await _recorder.StartAsync(cancellationToken);
+        if (_activityLease is null)
+        {
+            _activityLease = await _activityGate.TryEnterAsync(cancellationToken);
+            if (_activityLease is null)
+            {
+                throw new InvalidOperationException("服务配置更新中，请稍后再试。");
+            }
+        }
+
+        try
+        {
+            _segments.Add(new ContinuousDictationSegment(Guid.NewGuid(), ContinuousSegmentState.WaitingInput, "", null));
+            _isRecordingActive = true;
+            await _recorder.StartAsync(cancellationToken);
+        }
+        catch
+        {
+            _isRecordingActive = false;
+            await ReleaseActivityLeaseIfIdleAsync();
+            throw;
+        }
     }
 
     private async Task<bool> CommitCurrentSegmentInternalAsync(bool startNext, CancellationToken cancellationToken)
@@ -177,6 +257,7 @@ public sealed class ContinuousDictationSession
 
         var segmentId = _segments[waitingIndex].Id;
         _segments[waitingIndex] = _segments[waitingIndex] with { State = ContinuousSegmentState.Transcribing };
+        Interlocked.Increment(ref _transcribingCount);
         EnqueueTranscription(segmentId, recording);
 
         if (startNext)
@@ -194,8 +275,7 @@ public sealed class ContinuousDictationSession
         return false;
     }
 
-    private int GetPendingTranscriptionCount() =>
-        _segments.Count(s => s.State == ContinuousSegmentState.Transcribing);
+    private int GetPendingTranscriptionCount() => Volatile.Read(ref _transcribingCount);
 
     private void EnqueueTranscription(Guid segmentId, RecordingResult recording)
     {
@@ -240,28 +320,65 @@ public sealed class ContinuousDictationSession
                 continue;
             }
 
-            var result = await _pipeline.TranscribeAsync(job.Value.Recording, cancellationToken);
-            await _gate.WaitAsync(cancellationToken);
             try
             {
-                var index = _segments.FindIndex(s => s.Id == job.Value.SegmentId);
-                if (index >= 0)
+                var result = await _pipeline.TranscribeAsync(job.Value.Recording, cancellationToken);
+                await _gate.WaitAsync(cancellationToken);
+                try
                 {
-                    _segments[index] = result.Succeeded
-                        ? _segments[index] with { State = ContinuousSegmentState.Completed, Text = result.Text }
-                        : _segments[index] with
-                        {
-                            State = ContinuousSegmentState.Failed,
-                            ErrorMessage = result.ErrorMessage
-                        };
-                }
+                    var index = _segments.FindIndex(s => s.Id == job.Value.SegmentId);
+                    if (index >= 0)
+                    {
+                        _segments[index] = result.Succeeded
+                            ? _segments[index] with
+                            {
+                                State = ContinuousSegmentState.Completed,
+                                Text = result.Text,
+                                BackendId = result.BackendId,
+                                ModelId = result.ModelId
+                            }
+                            : _segments[index] with
+                            {
+                                State = ContinuousSegmentState.Failed,
+                                ErrorMessage = result.ErrorMessage
+                            };
+                    }
 
-                Publish();
+                }
+                finally
+                {
+                    _gate.Release();
+                }
             }
             finally
             {
-                _gate.Release();
+                Interlocked.Decrement(ref _transcribingCount);
+                await _gate.WaitAsync(CancellationToken.None);
+                try
+                {
+                    Publish();
+                }
+                finally
+                {
+                    _gate.Release();
+                }
+
+                await ReleaseActivityLeaseIfIdleAsync();
             }
+        }
+    }
+
+    private async ValueTask ReleaseActivityLeaseIfIdleAsync()
+    {
+        if (IsBusy)
+        {
+            return;
+        }
+
+        var lease = Interlocked.Exchange(ref _activityLease, null);
+        if (lease is not null)
+        {
+            await lease.DisposeAsync();
         }
     }
 

@@ -33,36 +33,49 @@ public sealed class AsrServiceCoordinator : IAsrServiceCoordinator
 {
     private readonly IRemoteApiProfileRepository _repository;
     private readonly ISettingsStore _settingsStore;
+    private readonly IVocabularyRepository _vocabularyRepository;
     private readonly ISecretProtector _secretProtector;
     private readonly IWhisperServerManager _localManager;
     private readonly SwitchableAsrBackend _router;
     private readonly IAsrBackend _localBackend;
     private readonly Func<RemoteApiProfile, IAsrBackend> _remoteBackendFactory;
     private readonly Func<bool> _isDictationBusy;
+    private readonly AsrActivityGate _activityGate;
+    private readonly Action _refreshLocalClient;
     private readonly SemaphoreSlim _mutationLock = new(1, 1);
 
     public AsrServiceCoordinator(
         IRemoteApiProfileRepository repository,
         ISettingsStore settingsStore,
+        IVocabularyRepository vocabularyRepository,
         ISecretProtector secretProtector,
         IWhisperServerManager localManager,
         SwitchableAsrBackend router,
         IAsrBackend localBackend,
         Func<RemoteApiProfile, IAsrBackend> remoteBackendFactory,
-        Func<bool> isDictationBusy)
+        Func<bool> isDictationBusy,
+        AsrActivityGate activityGate,
+        Action refreshLocalClient)
     {
         _repository = repository;
         _settingsStore = settingsStore;
+        _vocabularyRepository = vocabularyRepository;
         _secretProtector = secretProtector;
         _localManager = localManager;
         _router = router;
         _localBackend = localBackend;
         _remoteBackendFactory = remoteBackendFactory;
         _isDictationBusy = isDictationBusy;
+        _activityGate = activityGate;
+        _refreshLocalClient = refreshLocalClient;
     }
 
-    public Task<IReadOnlyList<RemoteApiProfile>> GetRemoteProfilesAsync(CancellationToken cancellationToken) =>
-        _repository.GetAllAsync(cancellationToken);
+    public async Task<IReadOnlyList<RemoteApiProfile>> GetRemoteProfilesAsync(
+        CancellationToken cancellationToken)
+    {
+        var profiles = await _repository.GetAllAsync(cancellationToken);
+        return profiles.Select(ToClientProfile).ToArray();
+    }
 
     public async Task InitializeAsync(CancellationToken cancellationToken)
     {
@@ -76,8 +89,9 @@ public sealed class AsrServiceCoordinator : IAsrServiceCoordinator
         var profile = await _repository.GetByIdAsync(activeId, cancellationToken);
         if (profile is null)
         {
-            await _settingsStore.SaveAsync(
-                settings with { ActiveRemoteApiProfileId = null }, cancellationToken);
+            await _settingsStore.UpdateAsync(
+                current => current with { ActiveRemoteApiProfileId = null },
+                cancellationToken);
             _router.Replace(_localBackend);
             return;
         }
@@ -91,14 +105,24 @@ public sealed class AsrServiceCoordinator : IAsrServiceCoordinator
     {
         ThrowIfBusy();
         ValidateInput(input);
-        var protectedApiKey = ProtectOptional(input.ApiKey);
-        return await _repository.CreateAsync(
-            input.Name,
-            input.Endpoint,
-            input.Model,
-            protectedApiKey,
-            input.UseVocabulary,
-            cancellationToken);
+        await _mutationLock.WaitAsync(cancellationToken);
+        try
+        {
+            await using var activityLease = await AcquireMutationLeaseAsync(cancellationToken);
+            var protectedApiKey = ProtectOptional(input.ApiKey);
+            var profile = await _repository.CreateAsync(
+                input.Name,
+                input.Endpoint,
+                input.Model,
+                protectedApiKey,
+                input.UseVocabulary,
+                cancellationToken);
+            return ToClientProfile(profile);
+        }
+        finally
+        {
+            _mutationLock.Release();
+        }
     }
 
     public async Task UpdateRemoteAsync(
@@ -112,7 +136,7 @@ public sealed class AsrServiceCoordinator : IAsrServiceCoordinator
         await _mutationLock.WaitAsync(cancellationToken);
         try
         {
-            ThrowIfBusy();
+            await using var activityLease = await AcquireMutationLeaseAsync(cancellationToken);
             var existing = await GetRequiredProfileAsync(id, cancellationToken);
             var protectedApiKey = apiKeyUpdateMode switch
             {
@@ -150,7 +174,7 @@ public sealed class AsrServiceCoordinator : IAsrServiceCoordinator
         await _mutationLock.WaitAsync(cancellationToken);
         try
         {
-            ThrowIfBusy();
+            await using var activityLease = await AcquireMutationLeaseAsync(cancellationToken);
             var settings = await _settingsStore.LoadAsync(cancellationToken);
             if (settings.ActiveRemoteApiProfileId == id)
             {
@@ -171,7 +195,7 @@ public sealed class AsrServiceCoordinator : IAsrServiceCoordinator
         await _mutationLock.WaitAsync(cancellationToken);
         try
         {
-            ThrowIfBusy();
+            await using var activityLease = await AcquireMutationLeaseAsync(cancellationToken);
             var profile = await GetRequiredProfileAsync(id, cancellationToken);
             var remoteBackend = _remoteBackendFactory(profile);
             await remoteBackend.EnsureReadyAsync(cancellationToken);
@@ -180,10 +204,12 @@ public sealed class AsrServiceCoordinator : IAsrServiceCoordinator
             if (settings.ActiveRemoteApiProfileId is null)
             {
                 await _localManager.StopAsync(cancellationToken);
+                _refreshLocalClient();
             }
 
-            await _settingsStore.SaveAsync(
-                settings with { ActiveRemoteApiProfileId = id }, cancellationToken);
+            await _settingsStore.UpdateAsync(
+                current => current with { ActiveRemoteApiProfileId = id },
+                cancellationToken);
             _router.Replace(remoteBackend);
         }
         finally
@@ -198,10 +224,10 @@ public sealed class AsrServiceCoordinator : IAsrServiceCoordinator
         await _mutationLock.WaitAsync(cancellationToken);
         try
         {
-            ThrowIfBusy();
-            var settings = await _settingsStore.LoadAsync(cancellationToken);
-            await _settingsStore.SaveAsync(
-                settings with { ActiveRemoteApiProfileId = null }, cancellationToken);
+            await using var activityLease = await AcquireMutationLeaseAsync(cancellationToken);
+            await _settingsStore.UpdateAsync(
+                current => current with { ActiveRemoteApiProfileId = null },
+                cancellationToken);
             _router.Replace(_localBackend);
         }
         finally
@@ -213,14 +239,21 @@ public sealed class AsrServiceCoordinator : IAsrServiceCoordinator
     public async Task<AsrResult> TestRemoteAsync(Guid id, CancellationToken cancellationToken)
     {
         var profile = await GetRequiredProfileAsync(id, cancellationToken);
+        var settings = await _settingsStore.LoadAsync(cancellationToken);
+        var language = TranscriptionLanguageCatalog.ResolveLanguage(
+            settings.PreferredTranscriptionLanguageId);
+        var activeVocabulary = profile.UseVocabulary
+            ? await _vocabularyRepository.GetActiveAsync(cancellationToken)
+            : null;
+        var initialPrompt = WhisperVocabulary.CreateInitialPrompt(activeVocabulary?.EntriesText);
         var backend = _remoteBackendFactory(profile);
         await backend.EnsureReadyAsync(cancellationToken);
         return await backend.TranscribeAsync(
             new AsrRequest(
                 new InMemoryAudioInput(CreateSilentWav(), "wav", 16000, 1),
-                Language: null,
+                Language: language,
                 Options: new Dictionary<string, string>(),
-                InitialPrompt: null),
+                InitialPrompt: initialPrompt),
             cancellationToken);
     }
 
@@ -236,6 +269,21 @@ public sealed class AsrServiceCoordinator : IAsrServiceCoordinator
         {
             throw new InvalidOperationException("听写进行中，暂不能更改服务配置。");
         }
+    }
+
+    private async ValueTask<AsrActivityLease> AcquireMutationLeaseAsync(
+        CancellationToken cancellationToken)
+    {
+        ThrowIfBusy();
+        var lease = await _activityGate.TryEnterAsync(cancellationToken);
+        if (lease is null)
+        {
+            throw new InvalidOperationException(_isDictationBusy()
+                ? "听写进行中，暂不能更改服务配置。"
+                : "另一项服务操作正在进行，请稍后再试。");
+        }
+
+        return lease;
     }
 
     private static void ValidateInput(RemoteApiProfileInput input)
@@ -258,6 +306,29 @@ public sealed class AsrServiceCoordinator : IAsrServiceCoordinator
         }
 
         return _secretProtector.Protect(apiKey.Trim());
+    }
+
+    private RemoteApiProfile ToClientProfile(RemoteApiProfile profile)
+    {
+        var availability = ApiKeyAvailability.NotConfigured;
+        if (!string.IsNullOrWhiteSpace(profile.ProtectedApiKey))
+        {
+            try
+            {
+                _ = _secretProtector.Unprotect(profile.ProtectedApiKey);
+                availability = ApiKeyAvailability.Available;
+            }
+            catch
+            {
+                availability = ApiKeyAvailability.Unavailable;
+            }
+        }
+
+        return profile with
+        {
+            ProtectedApiKey = null,
+            ApiKeyAvailability = availability
+        };
     }
 
     private static byte[] CreateSilentWav()

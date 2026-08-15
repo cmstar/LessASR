@@ -19,6 +19,7 @@ public sealed class ServiceViewModel : INotifyPropertyChanged
     private readonly Action _refreshLocalClient;
     private readonly Func<bool> _isDictationBusy;
     private readonly Func<RemoteApiProfile, bool> _confirmDelete;
+    private readonly AsrActivityGate _activityGate;
     private Guid? _activeRemoteId;
     private string _modelPath = "";
     private string _whisperServerPath = "";
@@ -37,7 +38,8 @@ public sealed class ServiceViewModel : INotifyPropertyChanged
             services.ServerManager,
             services.RefreshTranscribeHttpClient,
             () => services.IsDictationBusy,
-            confirmDelete)
+            confirmDelete,
+            services.ActivityGate)
     {
         services.Orchestrator.StatusChanged += _ => RefreshAvailabilityOnUiThread();
         services.ContinuousDictationSession.Changed += _ => RefreshAvailabilityOnUiThread();
@@ -49,7 +51,8 @@ public sealed class ServiceViewModel : INotifyPropertyChanged
         IWhisperServerManager localManager,
         Action refreshLocalClient,
         Func<bool> isDictationBusy,
-        Func<RemoteApiProfile, bool>? confirmDelete = null)
+        Func<RemoteApiProfile, bool>? confirmDelete = null,
+        AsrActivityGate? activityGate = null)
     {
         _settingsStore = settingsStore;
         _coordinator = coordinator;
@@ -57,6 +60,7 @@ public sealed class ServiceViewModel : INotifyPropertyChanged
         _refreshLocalClient = refreshLocalClient;
         _isDictationBusy = isDictationBusy;
         _confirmDelete = confirmDelete ?? (_ => true);
+        _activityGate = activityGate ?? new AsrActivityGate();
         _localManager.StatusChanged += OnLocalStatusChanged;
         AddRemoteCommand = new RelayCommand(AddRemoteProfile);
         BrowseModelPathCommand = new RelayCommand(BrowseModelPath);
@@ -180,17 +184,16 @@ public sealed class ServiceViewModel : INotifyPropertyChanged
                 throw new InvalidOperationException("whisper-server 线程数必须大于 0。");
             }
 
-            var settings = await _settingsStore.LoadAsync(CancellationToken.None);
-            settings = settings with
+            AppSettings? savedSettings = null;
+            await _settingsStore.UpdateAsync(settings => savedSettings = settings with
             {
                 ModelPath = ModelPath,
                 WhisperServerPath = WhisperServerPath,
                 WhisperServerPort = WhisperServerPort,
                 WhisperServerThreadCount = _useAutoThreadCount ? null : WhisperServerThreadCount,
                 StartModelOnAppStartup = StartModelOnAppStartup
-            };
-            await _settingsStore.SaveAsync(settings, CancellationToken.None);
-            _localManager.UpdateOptions(ToOptions(settings));
+            }, CancellationToken.None);
+            _localManager.UpdateOptions(ToOptions(savedSettings!));
 
             if (restart && IsLocalActive)
             {
@@ -246,6 +249,8 @@ public sealed class ServiceViewModel : INotifyPropertyChanged
         ActivateRemoteAsync,
         TestRemoteAsync,
         DeleteRemoteAsync,
+        ClearRemoteApiKeyAsync,
+        RunRemoteOperationAsync,
         DiscardRemoteAsync);
 
     private async Task<RemoteApiProfile> SaveRemoteAsync(
@@ -266,7 +271,13 @@ public sealed class ServiceViewModel : INotifyPropertyChanged
 
         await _coordinator.UpdateRemoteAsync(id, input, apiKeyUpdateMode, CancellationToken.None);
         var profiles = await _coordinator.GetRemoteProfilesAsync(CancellationToken.None);
-        return profiles.Single(profile => profile.Id == id);
+        var saved = profiles.Single(profile => profile.Id == id);
+        if (_activeRemoteId == id)
+        {
+            OnPropertyChanged(nameof(ActiveServiceStatusText));
+        }
+
+        return saved;
     }
 
     private async Task ActivateRemoteAsync(Guid id)
@@ -298,10 +309,50 @@ public sealed class ServiceViewModel : INotifyPropertyChanged
         RemoteProfiles.Remove(card);
     }
 
+    private async Task ClearRemoteApiKeyAsync(Guid id)
+    {
+        var profile = (await _coordinator.GetRemoteProfilesAsync(CancellationToken.None))
+            .Single(item => item.Id == id);
+        var savedInput = new RemoteApiProfileInput(
+            profile.Name,
+            profile.Endpoint,
+            profile.Model,
+            profile.UseVocabulary,
+            ApiKey: null);
+        await _coordinator.UpdateRemoteAsync(
+            id,
+            savedInput,
+            ApiKeyUpdateMode.Clear,
+            CancellationToken.None);
+    }
+
     private Task DiscardRemoteAsync(RemoteServiceProfileViewModel card)
     {
         RemoteProfiles.Remove(card);
         return Task.CompletedTask;
+    }
+
+    private async Task RunRemoteOperationAsync(Func<Task> action)
+    {
+        if (!CanMutate)
+        {
+            throw new InvalidOperationException("另一个服务操作正在进行，请稍后再试。");
+        }
+
+        _isOperationInProgress = true;
+        OnPropertyChanged(nameof(IsOperationInProgress));
+        RefreshAvailability();
+        try
+        {
+            await action();
+        }
+        finally
+        {
+            _isOperationInProgress = false;
+            OnPropertyChanged(nameof(IsOperationInProgress));
+            RefreshAvailability();
+            RaiseServiceStateChanged();
+        }
     }
 
     private async Task ActivateLocalAsync()
@@ -317,7 +368,7 @@ public sealed class ServiceViewModel : INotifyPropertyChanged
 
             SetMessage("已切换到本地 Whisper；将在下次听写或手动启动时加载。 ");
             RaiseServiceStateChanged();
-        });
+        }, acquireActivityLease: false);
     }
 
     private Task StartLocalAsync() => RunLocalOperationAsync(async () =>
@@ -357,7 +408,9 @@ public sealed class ServiceViewModel : INotifyPropertyChanged
         }
     });
 
-    private async Task RunLocalOperationAsync(Func<Task> action)
+    private async Task RunLocalOperationAsync(
+        Func<Task> action,
+        bool acquireActivityLease = true)
     {
         if (!CanMutate)
         {
@@ -371,6 +424,14 @@ public sealed class ServiceViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(IsOperationInProgress));
         try
         {
+            await using var activityLease = acquireActivityLease
+                ? await _activityGate.TryEnterAsync(CancellationToken.None)
+                : null;
+            if (acquireActivityLease && activityLease is null)
+            {
+                throw new InvalidOperationException("听写进行中，暂不能更改本地服务。");
+            }
+
             await action();
         }
         catch (Exception ex)
@@ -440,11 +501,10 @@ public sealed class ServiceViewModel : INotifyPropertyChanged
         var dispatcher = System.Windows.Application.Current?.Dispatcher;
         if (dispatcher is not null && !dispatcher.CheckAccess())
         {
-            _ = dispatcher.BeginInvoke(RefreshAvailability);
+            _ = dispatcher.BeginInvoke(RaiseServiceStateChanged);
             return;
         }
 
-        RefreshAvailability();
         RaiseServiceStateChanged();
     }
 

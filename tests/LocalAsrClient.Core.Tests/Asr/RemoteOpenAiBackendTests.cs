@@ -54,6 +54,22 @@ public sealed class RemoteOpenAiBackendTests
         Assert.Equal(0, client.CallCount);
     }
 
+    [Fact]
+    public async Task EnsureReadyAsync_WhenSavedKeyCannotBeDecrypted_AsksUserToReenterIt()
+    {
+        var client = new StubClient();
+        var backend = new RemoteOpenAiBackend(
+            Profile(useVocabulary: false, protectedApiKey: "unavailable"),
+            new ThrowingSecretProtector(),
+            client);
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            backend.EnsureReadyAsync(CancellationToken.None));
+
+        Assert.Contains("重新输入", error.Message, StringComparison.Ordinal);
+        Assert.Equal(0, client.CallCount);
+    }
+
     private static RemoteApiProfile Profile(bool useVocabulary, string? protectedApiKey) => new(
         Guid.NewGuid(),
         "远程服务",
@@ -112,5 +128,13 @@ public sealed class RemoteOpenAiBackendTests
             Prompt = prompt;
             return Task.FromResult(new AsrResult("识别结果", null, TimeSpan.Zero, null));
         }
+    }
+
+    private sealed class ThrowingSecretProtector : ISecretProtector
+    {
+        public string Protect(string plaintext) => throw new NotSupportedException();
+
+        public string Unprotect(string protectedValue) =>
+            throw new InvalidOperationException("decrypt failed");
     }
 }

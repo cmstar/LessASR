@@ -17,6 +17,7 @@ public sealed class AsrServiceCoordinatorTests
         Assert.Equal(["stop", "save:remote"], fixture.Events);
         Assert.Equal(profile.Id, fixture.Settings.Settings.ActiveRemoteApiProfileId);
         Assert.Equal("Office API", fixture.Router.Name);
+        Assert.Equal(1, fixture.RefreshLocalClientCalls);
     }
 
     [Fact]
@@ -102,6 +103,21 @@ public sealed class AsrServiceCoordinatorTests
     }
 
     [Fact]
+    public async Task ActivateRemoteAsync_WhenDictationOwnsActivityGate_IsRejectedWithoutStoppingLocal()
+    {
+        var fixture = new Fixture();
+        var profile = fixture.AddProfile("Office API");
+        await using var dictation = Assert.IsType<AsrActivityLease>(
+            await fixture.ActivityGate.TryEnterAsync(CancellationToken.None));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            fixture.Coordinator.ActivateRemoteAsync(profile.Id, CancellationToken.None));
+
+        Assert.Empty(fixture.Events);
+        Assert.Null(fixture.Settings.Settings.ActiveRemoteApiProfileId);
+    }
+
+    [Fact]
     public async Task TestRemoteAsync_UsesSilentWavWithoutActivatingProfile()
     {
         var fixture = new Fixture();
@@ -119,6 +135,58 @@ public sealed class AsrServiceCoordinatorTests
         Assert.True(audio.Data.Length > 44);
     }
 
+    [Fact]
+    public async Task GetRemoteProfilesAsync_WhenSavedKeyCannotBeDecrypted_ReturnsUnavailableWithoutCiphertext()
+    {
+        var fixture = new Fixture();
+        fixture.AddProfile("Office API", protectedApiKey: "broken-ciphertext");
+        fixture.Protector.ThrowOnUnprotect = true;
+
+        var profile = Assert.Single(
+            await fixture.Coordinator.GetRemoteProfilesAsync(CancellationToken.None));
+
+        Assert.Null(profile.ProtectedApiKey);
+        Assert.Equal(ApiKeyAvailability.Unavailable, profile.ApiKeyAvailability);
+    }
+
+    [Fact]
+    public async Task TestRemoteAsync_UsesCurrentPreferredLanguage()
+    {
+        var fixture = new Fixture();
+        var profile = fixture.AddProfile("Office API");
+        fixture.Settings.Settings = fixture.Settings.Settings with
+        {
+            PreferredTranscriptionLanguageId = "zh-Hans"
+        };
+
+        await fixture.Coordinator.TestRemoteAsync(profile.Id, CancellationToken.None);
+
+        Assert.Equal("zh", fixture.LastRemoteRequest?.Language);
+    }
+
+    [Theory]
+    [InlineData(true, "初音ミク, LessASR")]
+    [InlineData(false, null)]
+    public async Task TestRemoteAsync_UsesCurrentVocabularyOnlyWhenProfileEnablesIt(
+        bool useVocabulary,
+        string? expectedPrompt)
+    {
+        var fixture = new Fixture();
+        var profile = fixture.AddProfile("Office API", useVocabulary: useVocabulary);
+        var now = new DateTimeOffset(2026, 8, 15, 12, 0, 0, TimeSpan.Zero);
+        fixture.Vocabularies.ActiveProfile = new VocabularyProfile(
+            Guid.NewGuid(),
+            "编程",
+            "LessASR\n初音ミク",
+            true,
+            now,
+            now);
+
+        await fixture.Coordinator.TestRemoteAsync(profile.Id, CancellationToken.None);
+
+        Assert.Equal(expectedPrompt, fixture.LastRemoteRequest?.InitialPrompt);
+    }
+
     private sealed class Fixture
     {
         public Fixture()
@@ -130,31 +198,41 @@ public sealed class AsrServiceCoordinatorTests
             Coordinator = new AsrServiceCoordinator(
                 Repository,
                 Settings,
-                new PrefixSecretProtector(),
+                Vocabularies,
+                Protector,
                 Manager,
                 Router,
                 Local,
                 CreateBackend,
-                () => IsBusy);
+                () => IsBusy,
+                ActivityGate,
+                () => RefreshLocalClientCalls++);
         }
 
         public List<string> Events { get; } = [];
         public FakeRepository Repository { get; } = new();
         public FakeSettingsStore Settings { get; } = new();
+        public FakeVocabularyRepository Vocabularies { get; } = new();
+        public PrefixSecretProtector Protector { get; } = new();
         public FakeManager Manager { get; }
+        public AsrActivityGate ActivityGate { get; } = new();
         public RecordingBackend Local { get; }
         public SwitchableAsrBackend Router { get; }
         public AsrServiceCoordinator Coordinator { get; }
         public bool IsBusy { get; set; }
+        public int RefreshLocalClientCalls { get; private set; }
         public string RemoteResult { get; set; } = "ok";
         public AsrRequest? LastRemoteRequest { get; private set; }
 
-        public RemoteApiProfile AddProfile(string name, string? protectedApiKey = null)
+        public RemoteApiProfile AddProfile(
+            string name,
+            string? protectedApiKey = null,
+            bool useVocabulary = false)
         {
             var now = DateTimeOffset.UtcNow;
             var profile = new RemoteApiProfile(
                 Guid.NewGuid(), name, "https://api.example/v1/audio/transcriptions", "whisper-1",
-                protectedApiKey, false, now, now);
+                protectedApiKey, useVocabulary, now, now);
             Repository.Profiles.Add(profile);
             return profile;
         }
@@ -214,8 +292,38 @@ public sealed class AsrServiceCoordinatorTests
 
     private sealed class PrefixSecretProtector : ISecretProtector
     {
+        public bool ThrowOnUnprotect { get; set; }
         public string Protect(string plaintext) => $"protected:{plaintext}";
-        public string Unprotect(string protectedValue) => protectedValue.Replace("protected:", "", StringComparison.Ordinal);
+        public string Unprotect(string protectedValue) => ThrowOnUnprotect
+            ? throw new InvalidOperationException("decrypt failed")
+            : protectedValue.Replace("protected:", "", StringComparison.Ordinal);
+    }
+
+    private sealed class FakeVocabularyRepository : IVocabularyRepository
+    {
+        public VocabularyProfile? ActiveProfile { get; set; }
+
+        public Task<VocabularyProfile?> GetActiveAsync(CancellationToken cancellationToken) =>
+            Task.FromResult(ActiveProfile);
+
+        public Task<IReadOnlyList<VocabularyProfile>> GetAllAsync(CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<VocabularyProfile> CreateAsync(string name, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task UpdateAsync(
+            Guid id,
+            string name,
+            string entriesText,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task SetActiveAsync(Guid? id, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task DeleteAsync(Guid id, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
     }
 
     private sealed class FakeRepository : IRemoteApiProfileRepository

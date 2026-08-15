@@ -6,6 +6,7 @@ namespace LocalAsrClient.Core.Persistence;
 public sealed class SqliteSettingsStore : ISettingsStore
 {
     private readonly SqliteDatabase _database;
+    private readonly SemaphoreSlim _gate = new(1, 1);
 
     public SqliteSettingsStore(SqliteDatabase database)
     {
@@ -13,6 +14,19 @@ public sealed class SqliteSettingsStore : ISettingsStore
     }
 
     public async Task<AppSettings> LoadAsync(CancellationToken cancellationToken)
+    {
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            return await LoadCoreAsync(cancellationToken);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    private async Task<AppSettings> LoadCoreAsync(CancellationToken cancellationToken)
     {
         var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var command = _database.Connection.CreateCommand();
@@ -52,6 +66,36 @@ public sealed class SqliteSettingsStore : ISettingsStore
 
     public async Task SaveAsync(AppSettings settings, CancellationToken cancellationToken)
     {
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            await SaveCoreAsync(settings, cancellationToken);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    public async Task UpdateAsync(
+        Func<AppSettings, AppSettings> update,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(update);
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            var settings = await LoadCoreAsync(cancellationToken);
+            await SaveCoreAsync(update(settings), cancellationToken);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    private async Task SaveCoreAsync(AppSettings settings, CancellationToken cancellationToken)
+    {
         var values = new Dictionary<string, string>
         {
             ["ModelPath"] = settings.ModelPath,
@@ -65,17 +109,29 @@ public sealed class SqliteSettingsStore : ISettingsStore
             ["ActiveRemoteApiProfileId"] = settings.ActiveRemoteApiProfileId?.ToString() ?? string.Empty
         };
 
-        foreach (var pair in values)
+        await using var transaction = await _database.Connection.BeginTransactionAsync(cancellationToken);
+        try
         {
-            var command = _database.Connection.CreateCommand();
-            command.CommandText = """
-                INSERT INTO settings(key, value)
-                VALUES($key, $value)
-                ON CONFLICT(key) DO UPDATE SET value = excluded.value
-                """;
-            command.Parameters.AddWithValue("$key", pair.Key);
-            command.Parameters.AddWithValue("$value", pair.Value);
-            await command.ExecuteNonQueryAsync(cancellationToken);
+            foreach (var pair in values)
+            {
+                var command = _database.Connection.CreateCommand();
+                command.Transaction = (Microsoft.Data.Sqlite.SqliteTransaction)transaction;
+                command.CommandText = """
+                    INSERT INTO settings(key, value)
+                    VALUES($key, $value)
+                    ON CONFLICT(key) DO UPDATE SET value = excluded.value
+                    """;
+                command.Parameters.AddWithValue("$key", pair.Key);
+                command.Parameters.AddWithValue("$value", pair.Value);
+                await command.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await transaction.RollbackAsync(CancellationToken.None);
+            throw;
         }
     }
 }

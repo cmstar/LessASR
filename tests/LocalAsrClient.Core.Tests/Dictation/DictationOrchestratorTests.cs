@@ -66,6 +66,41 @@ public sealed class DictationOrchestratorTests
     }
 
     [Fact]
+    public async Task ToggleAsync_PersistsBackendSnapshotUsedForTranscription()
+    {
+        var fixture = new Fixture();
+        fixture.Backend.Status = AsrBackendStatus.Ready;
+        fixture.Backend.ModelId = "local-model";
+        fixture.Backend.AfterTranscribe = () => fixture.Backend.ModelId = "remote-model";
+
+        await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+        await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+
+        var entry = Assert.Single(fixture.History.Entries);
+        Assert.Equal("local-model", entry.ModelId);
+    }
+
+    [Fact]
+    public async Task ToggleAsync_HoldsActivityGateUntilTranscriptionCompletes()
+    {
+        var gate = new AsrActivityGate();
+        var fixture = new Fixture(gate);
+        fixture.Backend.Status = AsrBackendStatus.Ready;
+        fixture.Backend.TranscribeDelay = TimeSpan.FromMilliseconds(150);
+
+        await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+        Assert.Null(await gate.TryEnterAsync(CancellationToken.None));
+
+        var transcribe = fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+        await Task.Delay(30);
+        Assert.Null(await gate.TryEnterAsync(CancellationToken.None));
+        await transcribe;
+
+        await using var lease = Assert.IsType<AsrActivityLease>(
+            await gate.TryEnterAsync(CancellationToken.None));
+    }
+
+    [Fact]
     public async Task ToggleAsync_WhenInjectionFailsLeavesResultNeedsAction()
     {
         var fixture = new Fixture();
@@ -191,6 +226,21 @@ public sealed class DictationOrchestratorTests
     }
 
     [Fact]
+    public async Task CancelRecordingAsync_WhenRecorderStopFails_ReleasesActivityGate()
+    {
+        var activityGate = new AsrActivityGate();
+        var fixture = new Fixture(activityGate);
+        await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+        fixture.Recorder.StopException = new IOException("stop failed");
+
+        await Assert.ThrowsAsync<IOException>(() =>
+            fixture.Orchestrator.CancelRecordingAsync(CancellationToken.None));
+
+        await using var lease = Assert.IsType<AsrActivityLease>(
+            await activityGate.TryEnterAsync(CancellationToken.None));
+    }
+
+    [Fact]
     public async Task ToggleAsync_WhenRecordingTooShort_SkipsTranscription()
     {
         var fixture = new Fixture();
@@ -258,7 +308,7 @@ public sealed class DictationOrchestratorTests
 
     private sealed class Fixture
     {
-        public Fixture()
+        public Fixture(AsrActivityGate? activityGate = null)
         {
             Recorder = new StubRecorder();
             Backend = new StubBackend();
@@ -276,7 +326,9 @@ public sealed class DictationOrchestratorTests
                 History,
                 Settings,
                 Vocabularies,
-                Clock);
+                Clock,
+                new NoOpTextPostProcessor(),
+                activityGate);
             Orchestrator.StatusChanged += status => LastStatus = status;
         }
 
@@ -296,6 +348,7 @@ public sealed class DictationOrchestratorTests
     {
         public bool Started { get; private set; }
         public TimeSpan DurationOverride { get; set; } = TimeSpan.FromSeconds(2);
+        public Exception? StopException { get; set; }
 
         public Task StartAsync(CancellationToken cancellationToken)
         {
@@ -305,6 +358,11 @@ public sealed class DictationOrchestratorTests
 
         public Task<RecordingResult> StopAsync(CancellationToken cancellationToken)
         {
+            if (StopException is not null)
+            {
+                return Task.FromException<RecordingResult>(StopException);
+            }
+
             return Task.FromResult(new RecordingResult(new byte[1000], DurationOverride, 16000, 1));
         }
     }

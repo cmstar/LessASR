@@ -10,6 +10,14 @@ public partial class RemoteServiceCard : System.Windows.Controls.UserControl
         InitializeComponent();
     }
 
+    private void ApiKeyBox_PasswordChanged(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is RemoteServiceProfileViewModel viewModel)
+        {
+            viewModel.SetApiKeyDraftPresent(ApiKeyBox.Password.Length > 0);
+        }
+    }
+
     private async void Save_Click(object sender, RoutedEventArgs e)
     {
         if (DataContext is not RemoteServiceProfileViewModel viewModel)
@@ -46,6 +54,15 @@ public partial class RemoteServiceCard : System.Windows.Controls.UserControl
         if (DataContext is RemoteServiceProfileViewModel viewModel)
         {
             await viewModel.ActivateAsync();
+        }
+    }
+
+    private void DiscardChanges_Click(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is RemoteServiceProfileViewModel viewModel)
+        {
+            viewModel.DiscardChanges();
+            ApiKeyBox.Clear();
         }
     }
 

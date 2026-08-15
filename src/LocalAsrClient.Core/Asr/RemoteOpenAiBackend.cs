@@ -57,9 +57,20 @@ public sealed class RemoteOpenAiBackend : IAsrBackend
             throw new InvalidOperationException("远程 API 模型名称不能为空。");
         }
 
-        var apiKey = string.IsNullOrWhiteSpace(_profile.ProtectedApiKey)
-            ? null
-            : _secretProtector.Unprotect(_profile.ProtectedApiKey);
+        string? apiKey;
+        try
+        {
+            apiKey = string.IsNullOrWhiteSpace(_profile.ProtectedApiKey)
+                ? null
+                : _secretProtector.Unprotect(_profile.ProtectedApiKey);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                "保存的 API Key 无法解密，请重新输入或清除后再试。",
+                ex);
+        }
+
         return new ValidatedConfiguration(endpoint, model, apiKey);
     }
 

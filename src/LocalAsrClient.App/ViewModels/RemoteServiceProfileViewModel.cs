@@ -11,18 +11,25 @@ public sealed class RemoteServiceProfileViewModel : INotifyPropertyChanged
     private readonly Func<Guid, Task> _activate;
     private readonly Func<Guid, Task<AsrResult>> _test;
     private readonly Func<Guid, Task> _delete;
+    private readonly Func<Guid, Task> _clearApiKey;
+    private readonly Func<Func<Task>, Task> _runPageOperation;
     private readonly Func<RemoteServiceProfileViewModel, Task> _discard;
     private Guid? _id;
     private string _name;
     private string _endpoint;
     private string _model;
     private bool _useVocabulary;
-    private bool _hasApiKey;
+    private ApiKeyAvailability _apiKeyAvailability;
+    private bool _hasApiKeyDraft;
     private bool _isActive;
     private bool _isOperationInProgress;
     private bool _isInteractionLocked;
     private string _lastMessage = "";
     private string _lastError = "";
+    private string _savedName;
+    private string _savedEndpoint;
+    private string _savedModel;
+    private bool _savedUseVocabulary;
 
     public RemoteServiceProfileViewModel(
         RemoteApiProfile? profile,
@@ -31,20 +38,28 @@ public sealed class RemoteServiceProfileViewModel : INotifyPropertyChanged
         Func<Guid, Task> activate,
         Func<Guid, Task<AsrResult>> test,
         Func<Guid, Task> delete,
+        Func<Guid, Task> clearApiKey,
+        Func<Func<Task>, Task> runPageOperation,
         Func<RemoteServiceProfileViewModel, Task>? discard = null)
     {
         _save = save;
         _activate = activate;
         _test = test;
         _delete = delete;
+        _clearApiKey = clearApiKey;
+        _runPageOperation = runPageOperation;
         _discard = discard ?? (_ => Task.CompletedTask);
         _id = profile?.Id;
         _name = profile?.Name ?? "";
         _endpoint = profile?.Endpoint ?? "";
         _model = profile?.Model ?? "whisper-1";
         _useVocabulary = profile?.UseVocabulary ?? false;
-        _hasApiKey = !string.IsNullOrWhiteSpace(profile?.ProtectedApiKey);
+        _apiKeyAvailability = profile?.ApiKeyAvailability ?? ApiKeyAvailability.NotConfigured;
         _isActive = isActive;
+        _savedName = _name;
+        _savedEndpoint = _endpoint;
+        _savedModel = _model;
+        _savedUseVocabulary = _useVocabulary;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -91,18 +106,30 @@ public sealed class RemoteServiceProfileViewModel : INotifyPropertyChanged
         set => SetField(ref _useVocabulary, value);
     }
 
-    public bool HasApiKey => _hasApiKey;
-    public string ApiKeyStatusText => HasApiKey
-        ? "已配置 · 基于系统 DPAPI 保存"
-        : "未配置 · API Key 可为空";
+    public bool HasApiKey => _apiKeyAvailability != ApiKeyAvailability.NotConfigured;
+    public string ApiKeyStatusText => _apiKeyAvailability switch
+    {
+        ApiKeyAvailability.Available => "已配置 · 基于系统 DPAPI 保存",
+        ApiKeyAvailability.Unavailable => "需要重新输入 API Key · 当前 Windows 用户无法解密",
+        _ => "未配置 · API Key 可为空"
+    };
 
     public bool IsActive => _isActive;
     public bool IsOperationInProgress => _isOperationInProgress;
+    public bool HasUnsavedChanges => !string.Equals(Name, _savedName, StringComparison.Ordinal)
+        || !string.Equals(Endpoint, _savedEndpoint, StringComparison.Ordinal)
+        || !string.Equals(Model, _savedModel, StringComparison.Ordinal)
+        || UseVocabulary != _savedUseVocabulary
+        || _hasApiKeyDraft;
     public bool CanMutate => !_isOperationInProgress && !_isInteractionLocked;
-    public bool CanActivate => CanMutate && !IsActive && !IsNew;
-    public bool CanTest => CanMutate && !IsNew;
+    public bool CanActivate => CanMutate && !IsActive && !IsNew && !HasUnsavedChanges
+        && _apiKeyAvailability != ApiKeyAvailability.Unavailable;
+    public bool CanTest => CanMutate && !IsNew && !HasUnsavedChanges
+        && _apiKeyAvailability != ApiKeyAvailability.Unavailable;
     public bool CanDelete => CanMutate && !IsActive;
     public bool CanClearApiKey => CanMutate && HasApiKey && !IsNew;
+    public bool ShowDiscardChanges => !IsNew && HasUnsavedChanges;
+    public bool CanDiscardChanges => CanMutate && ShowDiscardChanges;
     public bool IsHttpEndpoint => Uri.TryCreate(Endpoint, UriKind.Absolute, out var endpoint)
         && endpoint.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase);
     public string EndpointWarningText => IsHttpEndpoint
@@ -125,10 +152,13 @@ public sealed class RemoteServiceProfileViewModel : INotifyPropertyChanged
         });
     }
 
-    public async Task ClearApiKeyAsync() => _ = await RunAsync(async () =>
+    public async Task ClearApiKeyAsync() => _ = await RunRequiredIdAsync(async id =>
     {
-        var saved = await _save(this, null, ApiKeyUpdateMode.Clear);
-        ApplySavedProfile(saved);
+        await _clearApiKey(id);
+        _apiKeyAvailability = ApiKeyAvailability.NotConfigured;
+        OnPropertyChanged(nameof(HasApiKey));
+        OnPropertyChanged(nameof(ApiKeyStatusText));
+        RaiseAvailabilityChanged();
         SetMessage("API Key 已清除。");
     });
 
@@ -138,11 +168,21 @@ public sealed class RemoteServiceProfileViewModel : INotifyPropertyChanged
         SetMessage("已设为当前服务。");
     });
 
-    public async Task TestAsync() => _ = await RunRequiredIdAsync(async id =>
+    public async Task TestAsync()
     {
-        _ = await _test(id);
-        SetMessage("测试成功，API 已返回有效响应。");
-    });
+        if (!CanTest)
+        {
+            SetError(HasUnsavedChanges ? "请先保存当前修改，再测试配置。" : "请先保存配置。");
+            return;
+        }
+
+        _ = await RunRequiredIdAsync(async id =>
+        {
+            SetMessage("正在测试…");
+            _ = await _test(id);
+            SetMessage("测试通过。");
+        });
+    }
 
     public async Task DeleteAsync()
     {
@@ -178,6 +218,51 @@ public sealed class RemoteServiceProfileViewModel : INotifyPropertyChanged
         RaiseAvailabilityChanged();
     }
 
+    public void SetApiKeyDraftPresent(bool isPresent)
+    {
+        if (_hasApiKeyDraft == isPresent)
+        {
+            return;
+        }
+
+        _hasApiKeyDraft = isPresent;
+        if (isPresent)
+        {
+            SetMessage("");
+            SetError("");
+        }
+
+        OnPropertyChanged(nameof(HasUnsavedChanges));
+        OnPropertyChanged(nameof(ShowDiscardChanges));
+        RaiseAvailabilityChanged();
+    }
+
+    public void DiscardChanges()
+    {
+        if (!CanDiscardChanges)
+        {
+            return;
+        }
+
+        _name = _savedName;
+        _endpoint = _savedEndpoint;
+        _model = _savedModel;
+        _useVocabulary = _savedUseVocabulary;
+        _hasApiKeyDraft = false;
+        OnPropertyChanged(nameof(Name));
+        OnPropertyChanged(nameof(DisplayName));
+        OnPropertyChanged(nameof(Endpoint));
+        OnPropertyChanged(nameof(Model));
+        OnPropertyChanged(nameof(UseVocabulary));
+        OnPropertyChanged(nameof(IsHttpEndpoint));
+        OnPropertyChanged(nameof(EndpointWarningText));
+        OnPropertyChanged(nameof(HasUnsavedChanges));
+        OnPropertyChanged(nameof(ShowDiscardChanges));
+        SetError("");
+        SetMessage("已放弃未保存修改。");
+        RaiseAvailabilityChanged();
+    }
+
     private async Task<bool> RunRequiredIdAsync(Func<Guid, Task> action)
     {
         if (_id is not Guid id)
@@ -198,13 +283,15 @@ public sealed class RemoteServiceProfileViewModel : INotifyPropertyChanged
 
         SetOperationInProgress(true);
         SetError("");
+        SetMessage("");
         try
         {
-            await action();
+            await _runPageOperation(action);
             return true;
         }
         catch (Exception ex)
         {
+            SetMessage("");
             SetError(ex.Message);
             return false;
         }
@@ -221,7 +308,11 @@ public sealed class RemoteServiceProfileViewModel : INotifyPropertyChanged
         _endpoint = profile.Endpoint;
         _model = profile.Model;
         _useVocabulary = profile.UseVocabulary;
-        _hasApiKey = !string.IsNullOrWhiteSpace(profile.ProtectedApiKey);
+        _apiKeyAvailability = profile.ApiKeyAvailability;
+        _savedName = profile.Name;
+        _savedEndpoint = profile.Endpoint;
+        _savedModel = profile.Model;
+        _savedUseVocabulary = profile.UseVocabulary;
         OnPropertyChanged(nameof(Id));
         OnPropertyChanged(nameof(IsNew));
         OnPropertyChanged(nameof(Name));
@@ -233,6 +324,8 @@ public sealed class RemoteServiceProfileViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(ApiKeyStatusText));
         OnPropertyChanged(nameof(IsHttpEndpoint));
         OnPropertyChanged(nameof(EndpointWarningText));
+        OnPropertyChanged(nameof(HasUnsavedChanges));
+        OnPropertyChanged(nameof(ShowDiscardChanges));
         RaiseAvailabilityChanged();
     }
 
@@ -262,6 +355,8 @@ public sealed class RemoteServiceProfileViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(CanTest));
         OnPropertyChanged(nameof(CanDelete));
         OnPropertyChanged(nameof(CanClearApiKey));
+        OnPropertyChanged(nameof(ShowDiscardChanges));
+        OnPropertyChanged(nameof(CanDiscardChanges));
     }
 
     private bool SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
@@ -273,6 +368,11 @@ public sealed class RemoteServiceProfileViewModel : INotifyPropertyChanged
 
         field = value;
         OnPropertyChanged(propertyName);
+        SetMessage("");
+        SetError("");
+        OnPropertyChanged(nameof(HasUnsavedChanges));
+        OnPropertyChanged(nameof(ShowDiscardChanges));
+        RaiseAvailabilityChanged();
         return true;
     }
 

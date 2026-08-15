@@ -47,18 +47,130 @@ public sealed class RemoteServiceProfileViewModelTests
     [Fact]
     public async Task ClearApiKeyAsync_UsesExplicitClearMode()
     {
-        ApiKeyUpdateMode? capturedMode = null;
         var profile = CreateProfile(protectedApiKey: "ciphertext");
-        var viewModel = CreateViewModel(profile, onSave: (_, _, mode) =>
-        {
-            capturedMode = mode;
-            return Task.FromResult(profile with { ProtectedApiKey = null });
-        });
+        var clearedId = Guid.Empty;
+        var viewModel = CreateViewModel(
+            profile,
+            onClearApiKey: id =>
+            {
+                clearedId = id;
+                return Task.CompletedTask;
+            });
 
         await viewModel.ClearApiKeyAsync();
 
-        Assert.Equal(ApiKeyUpdateMode.Clear, capturedMode);
+        Assert.Equal(profile.Id, clearedId);
         Assert.Equal("未配置 · API Key 可为空", viewModel.ApiKeyStatusText);
+    }
+
+    [Fact]
+    public void EditingSavedFields_DisablesTestAndActivationUntilSaved()
+    {
+        var viewModel = CreateViewModel(CreateProfile());
+
+        viewModel.Endpoint = "https://draft.example/v1/audio/transcriptions";
+
+        Assert.False(viewModel.CanTest);
+        Assert.False(viewModel.CanActivate);
+    }
+
+    [Fact]
+    public async Task ClearApiKeyAsync_DoesNotPersistOrDiscardUnsavedFields()
+    {
+        var clearCallCount = 0;
+        var profile = CreateProfile(protectedApiKey: "ciphertext");
+        var viewModel = CreateViewModel(
+            profile,
+            onClearApiKey: _ =>
+            {
+                clearCallCount++;
+                return Task.CompletedTask;
+            });
+        viewModel.Endpoint = "https://draft.example/v1/audio/transcriptions";
+
+        await viewModel.ClearApiKeyAsync();
+
+        Assert.Equal(1, clearCallCount);
+        Assert.Equal("https://draft.example/v1/audio/transcriptions", viewModel.Endpoint);
+        Assert.False(viewModel.HasApiKey);
+    }
+
+    [Fact]
+    public void DiscardChanges_RestoresTheLastSavedSnapshot()
+    {
+        var profile = CreateProfile();
+        var viewModel = CreateViewModel(profile);
+        viewModel.Name = "Draft name";
+        viewModel.Endpoint = "https://draft.example/v1/audio/transcriptions";
+        viewModel.Model = "draft-model";
+        viewModel.UseVocabulary = !profile.UseVocabulary;
+        viewModel.SetApiKeyDraftPresent(true);
+
+        viewModel.DiscardChanges();
+
+        Assert.Equal(profile.Name, viewModel.Name);
+        Assert.Equal(profile.Endpoint, viewModel.Endpoint);
+        Assert.Equal(profile.Model, viewModel.Model);
+        Assert.Equal(profile.UseVocabulary, viewModel.UseVocabulary);
+        Assert.False(viewModel.HasUnsavedChanges);
+        Assert.True(viewModel.CanTest);
+    }
+
+    [Fact]
+    public async Task TestAsync_ShowsProgressAndEditingInvalidatesTheSuccessfulResult()
+    {
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var viewModel = CreateViewModel(
+            CreateProfile(),
+            onTest: async _ =>
+            {
+                started.SetResult();
+                await release.Task;
+                return new AsrResult(string.Empty, null, null, null);
+            });
+
+        var test = viewModel.TestAsync();
+        await started.Task;
+
+        Assert.Equal("正在测试…", viewModel.LastMessage);
+
+        release.SetResult();
+        await test;
+        Assert.Equal("测试通过。", viewModel.LastMessage);
+
+        viewModel.Model = "draft-model";
+
+        Assert.Equal("", viewModel.LastMessage);
+        Assert.False(viewModel.CanTest);
+    }
+
+    [Fact]
+    public async Task EnteringAnApiKeyDraft_DisablesSavedProfileActionsAndInvalidatesTheTestResult()
+    {
+        var viewModel = CreateViewModel(CreateProfile());
+        await viewModel.TestAsync();
+        Assert.Equal("测试通过。", viewModel.LastMessage);
+
+        viewModel.SetApiKeyDraftPresent(true);
+
+        Assert.True(viewModel.HasUnsavedChanges);
+        Assert.False(viewModel.CanTest);
+        Assert.False(viewModel.CanActivate);
+        Assert.Equal("", viewModel.LastMessage);
+    }
+
+    [Fact]
+    public async Task TestAsync_WhenRequestFails_ReplacesProgressWithTheError()
+    {
+        var viewModel = CreateViewModel(
+            CreateProfile(),
+            onTest: _ => throw new InvalidOperationException("认证失败"));
+
+        await viewModel.TestAsync();
+
+        Assert.Equal("", viewModel.LastMessage);
+        Assert.Equal("认证失败", viewModel.LastError);
     }
 
     [Fact]
@@ -76,6 +188,22 @@ public sealed class RemoteServiceProfileViewModelTests
     }
 
     [Fact]
+    public void UnavailableApiKey_AsksForReentryAndDisablesSavedProfileActions()
+    {
+        var profile = CreateProfile(protectedApiKey: "ciphertext") with
+        {
+            ApiKeyAvailability = ApiKeyAvailability.Unavailable
+        };
+
+        var viewModel = CreateViewModel(profile);
+
+        Assert.Contains("重新输入", viewModel.ApiKeyStatusText, StringComparison.Ordinal);
+        Assert.False(viewModel.CanTest);
+        Assert.False(viewModel.CanActivate);
+        Assert.True(viewModel.CanClearApiKey);
+    }
+
+    [Fact]
     public void NewProfile_DefaultsVocabularyToDisabled()
     {
         var viewModel = CreateViewModel(profile: null);
@@ -87,14 +215,18 @@ public sealed class RemoteServiceProfileViewModelTests
 
     private static RemoteServiceProfileViewModel CreateViewModel(
         RemoteApiProfile? profile,
-        Func<RemoteServiceProfileViewModel, string?, ApiKeyUpdateMode, Task<RemoteApiProfile>>? onSave = null) =>
+        Func<RemoteServiceProfileViewModel, string?, ApiKeyUpdateMode, Task<RemoteApiProfile>>? onSave = null,
+        Func<Guid, Task<AsrResult>>? onTest = null,
+        Func<Guid, Task>? onClearApiKey = null) =>
         new(
             profile,
             isActive: false,
             onSave ?? ((_, _, _) => Task.FromResult(profile ?? CreateProfile())),
             _ => Task.CompletedTask,
-            _ => Task.FromResult(new AsrResult(string.Empty, null, null, null)),
+            onTest ?? (_ => Task.FromResult(new AsrResult(string.Empty, null, null, null))),
             _ => Task.CompletedTask,
+            onClearApiKey ?? (_ => Task.CompletedTask),
+            action => action(),
             _ => Task.CompletedTask);
 
     private static RemoteApiProfile CreateProfile(string? protectedApiKey = null)

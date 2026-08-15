@@ -31,6 +31,32 @@ public sealed class TranscriptionPipelineTests
     }
 
     [Fact]
+    public async Task TranscribeAsync_ReturnsBackendSnapshotUsedForRequest()
+    {
+        var backend = new StubBackend
+        {
+            Status = AsrBackendStatus.Ready,
+            ModelId = "local-model",
+            AfterTranscribe = () => { }
+        };
+        backend.AfterTranscribe = () => backend.ModelId = "remote-model";
+        var pipeline = new TranscriptionPipeline(
+            backend,
+            new StubSettingsStore(),
+            new StubVocabularyRepository(),
+            new NoOpTextPostProcessor(),
+            new StubStatsRepository(),
+            new StubClock());
+
+        var result = await pipeline.TranscribeAsync(
+            new RecordingResult(new byte[16], TimeSpan.FromSeconds(1), 16000, 1),
+            CancellationToken.None);
+
+        Assert.Equal("Whisper Server", result.BackendId);
+        Assert.Equal("local-model", result.ModelId);
+    }
+
+    [Fact]
     public async Task TranscribeAsync_OnEmptyText_RecordsFailedStats()
     {
         var backend = new StubBackend { Status = AsrBackendStatus.Ready, TranscribeText = "  " };

@@ -37,14 +37,25 @@ public sealed class DpapiSecretProtector : ISecretProtector
             throw new InvalidOperationException("保存的 API Key 无法解析，请重新输入。", ex);
         }
 
-        var plaintextBytes = UnprotectBytes(protectedBytes);
+        byte[]? plaintextBytes = null;
         try
         {
+            plaintextBytes = UnprotectBytes(protectedBytes);
             return Encoding.UTF8.GetString(plaintextBytes);
+        }
+        catch (Exception ex) when (ex is Win32Exception or CryptographicException)
+        {
+            throw new InvalidOperationException(
+                "保存的 API Key 无法用当前 Windows 用户解密，请重新输入。",
+                ex);
         }
         finally
         {
-            CryptographicOperations.ZeroMemory(plaintextBytes);
+            if (plaintextBytes is not null)
+            {
+                CryptographicOperations.ZeroMemory(plaintextBytes);
+            }
+
             CryptographicOperations.ZeroMemory(protectedBytes);
         }
     }
