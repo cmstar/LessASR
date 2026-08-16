@@ -42,14 +42,16 @@ public sealed class SqliteDatabase : IAsyncDisposable
             );
 
             CREATE TABLE IF NOT EXISTS daily_stats (
-                date TEXT PRIMARY KEY,
+                date TEXT NOT NULL,
+                backend_id TEXT NOT NULL,
                 input_count INTEGER NOT NULL,
                 success_count INTEGER NOT NULL,
                 failed_count INTEGER NOT NULL,
                 recording_seconds REAL NOT NULL,
                 processing_seconds REAL NOT NULL,
                 character_count INTEGER NOT NULL,
-                word_count INTEGER NOT NULL
+                word_count INTEGER NOT NULL,
+                PRIMARY KEY(date, backend_id)
             );
 
             CREATE TABLE IF NOT EXISTS transcript_history (
@@ -90,7 +92,61 @@ public sealed class SqliteDatabase : IAsyncDisposable
             );
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
+        await EnsureDailyStatsProviderColumnAsync(cancellationToken);
         await EnsureRemoteProxyColumnAsync(cancellationToken);
+    }
+
+    private async Task EnsureDailyStatsProviderColumnAsync(CancellationToken cancellationToken)
+    {
+        var schemaCommand = _connection.CreateCommand();
+        schemaCommand.CommandText = "PRAGMA table_info(daily_stats)";
+        var hasProviderColumn = false;
+        await using (var reader = await schemaCommand.ExecuteReaderAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                if (string.Equals(reader.GetString(1), "backend_id", StringComparison.OrdinalIgnoreCase))
+                {
+                    hasProviderColumn = true;
+                    break;
+                }
+            }
+        }
+
+        if (hasProviderColumn)
+        {
+            return;
+        }
+
+        await using var transaction = (SqliteTransaction)await _connection.BeginTransactionAsync(cancellationToken);
+        var migrationCommand = _connection.CreateCommand();
+        migrationCommand.Transaction = transaction;
+        migrationCommand.CommandText = """
+            CREATE TABLE daily_stats_migrated (
+                date TEXT NOT NULL,
+                backend_id TEXT NOT NULL,
+                input_count INTEGER NOT NULL,
+                success_count INTEGER NOT NULL,
+                failed_count INTEGER NOT NULL,
+                recording_seconds REAL NOT NULL,
+                processing_seconds REAL NOT NULL,
+                character_count INTEGER NOT NULL,
+                word_count INTEGER NOT NULL,
+                PRIMARY KEY(date, backend_id)
+            );
+
+            INSERT INTO daily_stats_migrated(
+                date, backend_id, input_count, success_count, failed_count,
+                recording_seconds, processing_seconds, character_count, word_count)
+            SELECT date, '未区分模型', input_count, success_count, failed_count,
+                   recording_seconds, processing_seconds, character_count, word_count
+            FROM daily_stats;
+
+            DROP TABLE daily_stats;
+            ALTER TABLE daily_stats_migrated RENAME TO daily_stats;
+            """;
+        await migrationCommand.ExecuteNonQueryAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
     }
 
     private async Task EnsureRemoteProxyColumnAsync(CancellationToken cancellationToken)
@@ -128,6 +184,7 @@ public sealed class SqliteDatabase : IAsyncDisposable
 
 public sealed record DailyStatsDelta(
     DateOnly Date,
+    string ProviderName,
     bool Succeeded,
     TimeSpan RecordingDuration,
     TimeSpan ProcessingDuration,
@@ -136,6 +193,7 @@ public sealed record DailyStatsDelta(
 
 public sealed record DailyStatsSnapshot(
     DateOnly Date,
+    string ProviderName,
     int InputCount,
     int SuccessCount,
     int FailedCount,

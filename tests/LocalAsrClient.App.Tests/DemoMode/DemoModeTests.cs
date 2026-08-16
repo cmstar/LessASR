@@ -81,10 +81,14 @@ public sealed class DemoModeTests
         var remoteProfiles = await new SqliteRemoteApiProfileRepository(database)
             .GetAllAsync(CancellationToken.None);
 
-        Assert.Equal(StatsViewModel.SummaryDayCount, stats.Count);
+        Assert.Equal(
+            StatsViewModel.SummaryDayCount,
+            stats.Select(snapshot => snapshot.Date).Distinct().Count());
         Assert.All(
-            stats.TakeLast(StatsViewModel.TrendDayCount),
+            stats.Where(snapshot => snapshot.Date >= DateOnly.FromDateTime(now.Date).AddDays(-(StatsViewModel.TrendDayCount - 1))),
             snapshot => Assert.True(snapshot.InputCount > 0));
+        Assert.Contains(stats, snapshot => snapshot.ProviderName == "本地 Whisper");
+        Assert.Contains(stats, snapshot => snapshot.ProviderName == "局域网 Whisper");
         Assert.True(history.Count >= DemoDataSeeder.MinimumHistoryEntryCount);
         Assert.True(history.Count > 12);
         Assert.Equal(TranscriptRetentionPolicy.OneMonth, settings.TranscriptRetentionPolicy);

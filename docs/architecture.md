@@ -56,7 +56,7 @@ OpenAI-compatible API (远程进程或服务)
 3. Core 从最新设置取得语言，并通过 `IVocabularyRepository` 查询当前使用中的词汇表，构造可选 prompt；`SwitchableAsrBackend` 将请求路由到唯一的当前服务。本地后端确保 whisper-server 就绪；远程后端校验配置后直接调用用户填写的完整端点。
 4. 识别文本经 `TranscriptionScriptPostProcessor`（简繁 OpenCC；简中 / 繁中时规范化 CJK 标点）后由 `ITextInjector` 注入。
 5. 注入失败时进入 `ResultNeedsAction`，浮窗展示结果供复制。
-6. 成功或失败后写入 `IStatsRepository`；若启用则写入 `ITextHistoryRepository`。
+6. 成功或失败后将请求时快照的模型配置名称写入 `IStatsRepository`；若启用文本历史，则连同配置名称与模型名写入 `ITextHistoryRepository`。
 
 ### 连续听写
 
@@ -68,6 +68,8 @@ OpenAI-compatible API (远程进程或服务)
 6. 连续窗口已开时，右 Ctrl 与 Esc 由 Coordinator 路由，单句 `DictationOrchestrator` 与听写浮窗不参与。
 
 单句或连续听写完成“写入 + 保留期清理”后，`NotifyingTextHistoryRepository` 发布变更通知；用户确认删除单条历史后也由该包装器发布通知。主窗口收到通知后重新查询完整的最近历史并更新分组。进入历史页时还会主动刷新一次，避免展示启动时缓存。
+
+`daily_stats` 以 `(date, backend_id)` 为复合主键，`backend_id` 保存请求执行时的模型配置名称。统计页仅在每日明细中按配置拆行；首页指标、30 天汇总和 7 天趋势在 ViewModel 中按日期重新合计。旧版仅以日期为主键的统计表在数据库初始化时事务迁移，原有行以“未区分模型”保留。
 
 设置页缩短文本历史保留期时，先通过 `ITextHistoryRepository.CountPrunableAsync` 计算超出新期限的记录数量；数量大于零时使用通用危险确认窗口提示用户。只有确认后才保存新策略并立即调用 `PruneAsync`，取消时设置与历史均保持不变；使用统计存储不参与该流程。
 

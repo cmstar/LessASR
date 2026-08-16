@@ -16,10 +16,10 @@ public sealed class SqliteStatsRepository : IStatsRepository
         var command = _database.Connection.CreateCommand();
         command.CommandText = """
             INSERT INTO daily_stats(
-                date, input_count, success_count, failed_count, recording_seconds,
+                date, backend_id, input_count, success_count, failed_count, recording_seconds,
                 processing_seconds, character_count, word_count)
-            VALUES($date, 1, $success, $failed, $recording, $processing, $characters, $words)
-            ON CONFLICT(date) DO UPDATE SET
+            VALUES($date, $backendId, 1, $success, $failed, $recording, $processing, $characters, $words)
+            ON CONFLICT(date, backend_id) DO UPDATE SET
                 input_count = input_count + 1,
                 success_count = success_count + $success,
                 failed_count = failed_count + $failed,
@@ -29,6 +29,7 @@ public sealed class SqliteStatsRepository : IStatsRepository
                 word_count = word_count + $words
             """;
         command.Parameters.AddWithValue("$date", delta.Date.ToString("yyyy-MM-dd"));
+        command.Parameters.AddWithValue("$backendId", delta.ProviderName);
         command.Parameters.AddWithValue("$success", delta.Succeeded ? 1 : 0);
         command.Parameters.AddWithValue("$failed", delta.Succeeded ? 0 : 1);
         command.Parameters.AddWithValue("$recording", delta.RecordingDuration.TotalSeconds);
@@ -42,11 +43,11 @@ public sealed class SqliteStatsRepository : IStatsRepository
     {
         var command = _database.Connection.CreateCommand();
         command.CommandText = """
-            SELECT date, input_count, success_count, failed_count, recording_seconds,
+            SELECT date, backend_id, input_count, success_count, failed_count, recording_seconds,
                    processing_seconds, character_count, word_count
             FROM daily_stats
             WHERE date >= $start AND date <= $end
-            ORDER BY date
+            ORDER BY date, backend_id COLLATE NOCASE
             """;
         command.Parameters.AddWithValue("$start", start.ToString("yyyy-MM-dd"));
         command.Parameters.AddWithValue("$end", end.ToString("yyyy-MM-dd"));
@@ -57,13 +58,14 @@ public sealed class SqliteStatsRepository : IStatsRepository
         {
             result.Add(new DailyStatsSnapshot(
                 DateOnly.Parse(reader.GetString(0)),
-                reader.GetInt32(1),
+                reader.GetString(1),
                 reader.GetInt32(2),
                 reader.GetInt32(3),
-                reader.GetDouble(4),
+                reader.GetInt32(4),
                 reader.GetDouble(5),
-                reader.GetInt32(6),
-                reader.GetInt32(7)));
+                reader.GetDouble(6),
+                reader.GetInt32(7),
+                reader.GetInt32(8)));
         }
 
         return result;

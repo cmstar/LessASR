@@ -1,5 +1,6 @@
 using LocalAsrClient.Core.Persistence;
 using LocalAsrClient.Core.Asr;
+using Microsoft.Data.Sqlite;
 
 namespace LocalAsrClient.Core.Tests.Persistence;
 
@@ -108,6 +109,7 @@ public sealed class SqliteRepositoryTests
         var date = new DateOnly(2026, 6, 7);
         await repository.RecordAsync(new DailyStatsDelta(
             Date: date,
+            ProviderName: "Office API",
             Succeeded: true,
             RecordingDuration: TimeSpan.FromSeconds(3),
             ProcessingDuration: TimeSpan.FromSeconds(2),
@@ -116,6 +118,7 @@ public sealed class SqliteRepositoryTests
 
         await repository.RecordAsync(new DailyStatsDelta(
             Date: date,
+            ProviderName: "Office API",
             Succeeded: false,
             RecordingDuration: TimeSpan.FromSeconds(1),
             ProcessingDuration: TimeSpan.Zero,
@@ -125,6 +128,7 @@ public sealed class SqliteRepositoryTests
         var stats = await repository.GetRangeAsync(date, date, CancellationToken.None);
 
         var day = Assert.Single(stats);
+        Assert.Equal("Office API", day.ProviderName);
         Assert.Equal(2, day.InputCount);
         Assert.Equal(1, day.SuccessCount);
         Assert.Equal(1, day.FailedCount);
@@ -132,6 +136,108 @@ public sealed class SqliteRepositoryTests
         Assert.Equal(2, day.ProcessingSeconds);
         Assert.Equal(12, day.CharacterCount);
         Assert.Equal(5, day.WordCount);
+    }
+
+    [Fact]
+    public async Task StatsRepository_SplitsOneDayByProviderName()
+    {
+        await using var database = await SqliteDatabase.CreateInMemoryAsync();
+        var repository = new SqliteStatsRepository(database);
+        var date = new DateOnly(2026, 8, 16);
+
+        await repository.RecordAsync(new DailyStatsDelta(
+            date,
+            "本地 Whisper",
+            true,
+            TimeSpan.FromSeconds(3),
+            TimeSpan.FromSeconds(1),
+            12,
+            5), CancellationToken.None);
+        await repository.RecordAsync(new DailyStatsDelta(
+            date,
+            "Groq turbo",
+            true,
+            TimeSpan.FromSeconds(4),
+            TimeSpan.FromSeconds(2),
+            20,
+            8), CancellationToken.None);
+        await repository.RecordAsync(new DailyStatsDelta(
+            date,
+            "Groq turbo",
+            false,
+            TimeSpan.FromSeconds(1),
+            TimeSpan.Zero,
+            0,
+            0), CancellationToken.None);
+
+        var stats = await repository.GetRangeAsync(date, date, CancellationToken.None);
+
+        Assert.Equal(2, stats.Count);
+        var local = Assert.Single(stats, day => day.ProviderName == "本地 Whisper");
+        Assert.Equal(1, local.InputCount);
+        Assert.Equal(12, local.CharacterCount);
+        var remote = Assert.Single(stats, day => day.ProviderName == "Groq turbo");
+        Assert.Equal(2, remote.InputCount);
+        Assert.Equal(1, remote.SuccessCount);
+        Assert.Equal(1, remote.FailedCount);
+        Assert.Equal(20, remote.CharacterCount);
+    }
+
+    [Fact]
+    public async Task DatabaseInitialization_MigratesLegacyDailyStatsWithoutLosingTotals()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"lessasr-stats-{Guid.NewGuid():N}");
+        var path = Path.Combine(directory, "legacy.db");
+        Directory.CreateDirectory(directory);
+
+        try
+        {
+            await using (var connection = new SqliteConnection($"Data Source={path}"))
+            {
+                await connection.OpenAsync();
+                var command = connection.CreateCommand();
+                command.CommandText = """
+                    CREATE TABLE daily_stats (
+                        date TEXT PRIMARY KEY,
+                        input_count INTEGER NOT NULL,
+                        success_count INTEGER NOT NULL,
+                        failed_count INTEGER NOT NULL,
+                        recording_seconds REAL NOT NULL,
+                        processing_seconds REAL NOT NULL,
+                        character_count INTEGER NOT NULL,
+                        word_count INTEGER NOT NULL
+                    );
+                    INSERT INTO daily_stats VALUES ('2026-08-15', 3, 2, 1, 24, 5, 88, 40);
+                    """;
+                await command.ExecuteNonQueryAsync();
+            }
+
+            await using (var database = await SqliteDatabase.OpenAsync(path, CancellationToken.None))
+            {
+                var repository = new SqliteStatsRepository(database);
+                var date = new DateOnly(2026, 8, 15);
+                var snapshot = Assert.Single(await repository.GetRangeAsync(date, date, CancellationToken.None));
+
+                Assert.Equal("未区分模型", snapshot.ProviderName);
+                Assert.Equal(3, snapshot.InputCount);
+                Assert.Equal(88, snapshot.CharacterCount);
+
+                await repository.RecordAsync(new DailyStatsDelta(
+                    date,
+                    "本地 Whisper",
+                    true,
+                    TimeSpan.FromSeconds(2),
+                    TimeSpan.FromSeconds(1),
+                    10,
+                    4), CancellationToken.None);
+                Assert.Equal(2, (await repository.GetRangeAsync(date, date, CancellationToken.None)).Count);
+            }
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            Directory.Delete(directory, recursive: true);
+        }
     }
 
     [Fact]

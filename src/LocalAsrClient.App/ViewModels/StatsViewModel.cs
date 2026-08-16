@@ -44,18 +44,21 @@ public sealed class StatsViewModel : INotifyPropertyChanged
         var snapshots = days
             .Where(day => day.Date >= start && day.Date <= today)
             .OrderBy(day => day.Date)
+            .ThenBy(day => day.ProviderName, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
         Days.Clear();
-        foreach (var day in snapshots.OrderByDescending(day => day.Date))
+        foreach (var day in snapshots
+                     .OrderByDescending(day => day.Date)
+                     .ThenBy(day => day.ProviderName, StringComparer.OrdinalIgnoreCase))
         {
             Days.Add(day);
         }
 
-        var todaySnapshot = snapshots.FirstOrDefault(day => day.Date == today);
-        TodayInputCount = todaySnapshot?.InputCount ?? 0;
-        TodayCharacterCount = todaySnapshot?.CharacterCount ?? 0;
-        TodayRecordingDurationText = FormatDuration(todaySnapshot?.RecordingSeconds ?? 0);
+        var todaySnapshots = snapshots.Where(day => day.Date == today).ToArray();
+        TodayInputCount = todaySnapshots.Sum(day => day.InputCount);
+        TodayCharacterCount = todaySnapshots.Sum(day => day.CharacterCount);
+        TodayRecordingDurationText = FormatDuration(todaySnapshots.Sum(day => Math.Max(0, day.RecordingSeconds)));
         ThirtyDayInputCount = snapshots.Sum(day => day.InputCount);
         ThirtyDayCharacterCount = snapshots.Sum(day => day.CharacterCount);
         var thirtyDayRecordingSeconds = snapshots.Sum(day => Math.Max(0, day.RecordingSeconds));
@@ -78,12 +81,14 @@ public sealed class StatsViewModel : INotifyPropertyChanged
     private void BuildLastSevenDays(IReadOnlyCollection<DailyStatsSnapshot> snapshots, DateOnly today)
     {
         var start = today.AddDays(-(TrendDayCount - 1));
-        var byDate = snapshots.ToDictionary(snapshot => snapshot.Date);
+        var byDate = snapshots
+            .GroupBy(snapshot => snapshot.Date)
+            .ToDictionary(group => group.Key, group => group.Sum(snapshot => snapshot.CharacterCount));
         var counts = Enumerable.Range(0, TrendDayCount)
             .Select(offset =>
             {
                 var date = start.AddDays(offset);
-                return (Date: date, Count: byDate.GetValueOrDefault(date)?.CharacterCount ?? 0);
+                return (Date: date, Count: byDate.GetValueOrDefault(date));
             })
             .ToArray();
         var maximum = Math.Max(1, counts.Max(point => point.Count));

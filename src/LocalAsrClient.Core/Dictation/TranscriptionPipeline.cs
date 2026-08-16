@@ -55,7 +55,13 @@ public sealed class TranscriptionPipeline
             var processingDuration = asrResult.ProcessingDuration ?? TimeSpan.Zero;
             var succeeded = !string.IsNullOrWhiteSpace(finalText);
 
-            await RecordStatsAsync(finalText, recording.Duration, processingDuration, succeeded, cancellationToken);
+            await RecordStatsAsync(
+                backendId,
+                finalText,
+                recording.Duration,
+                processingDuration,
+                succeeded,
+                cancellationToken);
 
             return succeeded
                 ? new TranscriptionPipelineResult(
@@ -65,13 +71,20 @@ public sealed class TranscriptionPipeline
         }
         catch (Exception ex)
         {
-            await RecordStatsAsync(string.Empty, recording.Duration, TimeSpan.Zero, succeeded: false, cancellationToken);
+            await RecordStatsAsync(
+                backendId,
+                string.Empty,
+                recording.Duration,
+                TimeSpan.Zero,
+                succeeded: false,
+                cancellationToken);
             return new TranscriptionPipelineResult(
                 false, string.Empty, ex.Message, recording.Duration, TimeSpan.Zero, backendId, modelId);
         }
     }
 
     private async Task RecordStatsAsync(
+        string providerName,
         string text,
         TimeSpan recordingDuration,
         TimeSpan processingDuration,
@@ -81,6 +94,7 @@ public sealed class TranscriptionPipeline
         await _statsRepository.RecordAsync(
             new DailyStatsDelta(
                 _clock.Today,
+                providerName,
                 succeeded,
                 recordingDuration,
                 processingDuration,

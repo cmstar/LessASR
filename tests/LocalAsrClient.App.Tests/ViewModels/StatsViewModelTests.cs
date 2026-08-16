@@ -65,8 +65,32 @@ public sealed class StatsViewModelTests
         Assert.True(viewModel.LastSevenDays[6].BarHeight > viewModel.LastSevenDays[3].BarHeight);
     }
 
+    [Fact]
+    public void LoadMultipleProvidersOnSameDayKeepsDailyRowsButAggregatesSummaryAndTrend()
+    {
+        var today = new DateOnly(2026, 8, 16);
+        var viewModel = new StatsViewModel();
+
+        viewModel.Load(
+        [
+            Snapshot(today, "本地 Whisper", inputCount: 2, successCount: 2, characterCount: 120, recordingSeconds: 30),
+            Snapshot(today, "Groq turbo", inputCount: 3, successCount: 2, characterCount: 180, recordingSeconds: 45)
+        ],
+        today);
+
+        Assert.Equal(2, viewModel.Days.Count);
+        Assert.Equal(["Groq turbo", "本地 Whisper"], viewModel.Days.Select(day => day.ProviderName));
+        Assert.Equal(5, viewModel.TodayInputCount);
+        Assert.Equal(300, viewModel.TodayCharacterCount);
+        Assert.Equal("1 分 15 秒", viewModel.TodayRecordingDurationText);
+        Assert.Equal(5, viewModel.ThirtyDayInputCount);
+        Assert.Equal(300, viewModel.ThirtyDayCharacterCount);
+        Assert.Equal(300, viewModel.LastSevenDays[^1].CharacterCount);
+    }
+
     private static DailyStatsSnapshot Snapshot(
         DateOnly date,
+        string providerName = "本地 Whisper",
         int inputCount = 0,
         int successCount = 0,
         int characterCount = 0,
@@ -74,6 +98,7 @@ public sealed class StatsViewModelTests
     {
         return new DailyStatsSnapshot(
             date,
+            providerName,
             inputCount,
             successCount,
             inputCount - successCount,

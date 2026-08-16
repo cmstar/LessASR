@@ -47,6 +47,7 @@ public static class DemoDataSeeder
                 await statsRepository.RecordAsync(
                     new DailyStatsDelta(
                         date,
+                        attempt % 4 == 0 ? "局域网 Whisper" : "本地 Whisper",
                         succeeded,
                         TimeSpan.FromSeconds(18 + characters * 0.42),
                         TimeSpan.FromSeconds(succeeded ? 1.2 + attempt * 0.11 : 3.5),
@@ -76,7 +77,7 @@ public static class DemoDataSeeder
                     TextMetrics.CountWords(text),
                     TimeSpan.FromSeconds(20 + text.Length * 0.45),
                     TimeSpan.FromSeconds(1.4 + index * 0.05),
-                    "demo-asr",
+                    index % 4 == 0 ? "局域网 Whisper" : "本地 Whisper",
                     "ggml-large-v3-turbo"),
                 cancellationToken);
         }

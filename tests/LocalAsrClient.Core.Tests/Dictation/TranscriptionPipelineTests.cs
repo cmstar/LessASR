@@ -28,6 +28,7 @@ public sealed class TranscriptionPipelineTests
         Assert.Equal("你好", result.Text);
         Assert.Single(stats.Recorded);
         Assert.True(stats.Recorded[0].Succeeded);
+        Assert.Equal("Whisper Server", stats.Recorded[0].ProviderName);
     }
 
     [Fact]

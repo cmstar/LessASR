@@ -312,6 +312,7 @@ public sealed class DictationOrchestrator
 
         await _statsRepository.RecordAsync(new DailyStatsDelta(
             _clock.Today,
+            backendId ?? _asrBackend.Name,
             succeeded,
             recordingDuration,
             processingDuration,

@@ -47,6 +47,7 @@ public sealed class DictationOrchestratorTests
         Assert.Equal("测试文本", fixture.Injector.Text);
         Assert.Equal(DictationState.Idle, fixture.LastStatus.State);
         Assert.Equal(1, fixture.Stats.Recorded.Count);
+        Assert.Equal("Whisper Server", fixture.Stats.Recorded[0].ProviderName);
         Assert.Single(fixture.History.Entries);
     }
 
