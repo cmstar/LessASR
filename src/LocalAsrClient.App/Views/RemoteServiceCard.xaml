@@ -1,6 +1,7 @@
 <UserControl x:Class="LocalAsrClient.App.Views.RemoteServiceCard"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:LocalAsrClient.App.Controls"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
     <Border Style="{StaticResource LessAsr.Card}" Margin="0,0,0,12">
         <StackPanel>
@@ -60,11 +61,12 @@
                 </StackPanel>
             </Grid>
 
-            <TextBlock Text="完整转写端点" Style="{StaticResource LessAsr.FieldLabel}" Margin="0,14,0,6"/>
+            <controls:HelpLabel Title="完整转写端点"
+                                HelpText="填写 OpenAI 兼容的完整音频转写端点，例如 https://api.openai.com/v1/audio/transcriptions。"
+                                Margin="0,14,0,6"/>
             <TextBox Text="{Binding Endpoint, UpdateSourceTrigger=PropertyChanged}"
                      Style="{StaticResource LessAsr.TextBox}"
-                     IsEnabled="{Binding CanMutate}"
-                     ToolTip="例如 https://api.openai.com/v1/audio/transcriptions"/>
+                     IsEnabled="{Binding CanMutate}"/>
             <Border Background="{StaticResource LessAsr.Brush.WarningSoft}"
                     CornerRadius="8"
                     Padding="10,7"
@@ -75,13 +77,14 @@
                            TextWrapping="Wrap"/>
             </Border>
 
-            <TextBlock Text="代理服务器" Style="{StaticResource LessAsr.FieldLabel}" Margin="0,14,0,6"/>
+            <controls:HelpLabel Title="代理服务器"
+                                HelpText="支持 HTTP、HTTPS、SOCKS4、SOCKS4a 和 SOCKS5 代理；当前不支持需要用户名或密码的认证代理。可留空，例如 socks5://127.0.0.1:1080。"
+                                Margin="0,14,0,6"/>
             <Grid>
                 <TextBox x:Name="ProxyUrlBox"
                          Text="{Binding ProxyUrl, UpdateSourceTrigger=PropertyChanged}"
                          Style="{StaticResource LessAsr.TextBox}"
-                         IsEnabled="{Binding CanMutate}"
-                         ToolTip="支持 HTTP、HTTPS、SOCKS4、SOCKS4a 和 SOCKS5 代理"/>
+                         IsEnabled="{Binding CanMutate}"/>
                 <TextBlock Text="可为空，例如 socks5://127.0.0.1:1080"
                            Foreground="{StaticResource LessAsr.Brush.TextTertiary}"
                            VerticalAlignment="Center"
@@ -99,9 +102,6 @@
                     </TextBlock.Style>
                 </TextBlock>
             </Grid>
-            <TextBlock Text="支持 HTTP、HTTPS、SOCKS4、SOCKS4a 和 SOCKS5；当前不支持认证代理。"
-                       Style="{StaticResource LessAsr.Text.Caption}"
-                       Margin="0,6,0,0"/>
 
             <TextBlock Text="API Key" Style="{StaticResource LessAsr.FieldLabel}" Margin="0,14,0,6"/>
             <Grid>
@@ -128,13 +128,20 @@
                         Margin="8,0,0,0"/>
             </Grid>
 
-            <CheckBox Content="启用词汇表"
-                      IsChecked="{Binding UseVocabulary}"
-                      IsEnabled="{Binding CanMutate}"
-                      Margin="0,14,0,0"/>
-            <TextBlock Text="启用后，当前词汇表会作为 prompt 随音频发送至 API。"
-                       Style="{StaticResource LessAsr.Text.Caption}"
-                       Margin="24,5,0,0"/>
+            <Grid Margin="0,14,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <controls:HelpLabel Title="启用词汇表"
+                                    HelpText="启用后，当前词汇表会作为 prompt 随音频发送至 API。"
+                                    VerticalAlignment="Center"/>
+                <ui:ToggleSwitch Grid.Column="1"
+                                 IsChecked="{Binding UseVocabulary}"
+                                 IsEnabled="{Binding CanMutate}"
+                                 VerticalAlignment="Center"
+                                 AutomationProperties.Name="启用词汇表"/>
+            </Grid>
 
             <TextBlock Text="测试会发送一段短静音音频，可能产生 API 费用，但不会切换当前服务。"
                        Style="{StaticResource LessAsr.Text.Caption}"

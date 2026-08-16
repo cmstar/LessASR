@@ -43,4 +43,14 @@
     <SolidColorBrush x:Key="LessAsr.Brush.ErrorHover" Color="{StaticResource LessAsr.Color.ErrorHover}"/>
     <SolidColorBrush x:Key="LessAsr.Brush.ErrorPressed" Color="{StaticResource LessAsr.Color.ErrorPressed}"/>
     <SolidColorBrush x:Key="LessAsr.Brush.ErrorSoft" Color="{StaticResource LessAsr.Color.ErrorSoft}"/>
+
+    <!-- Keep WPF-UI toggle switches aligned with the LessASR accent palette. -->
+    <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="{StaticResource LessAsr.Color.Accent}"/>
+    <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="{StaticResource LessAsr.Color.AccentHover}"/>
+    <SolidColorBrush x:Key="ToggleSwitchFillOnPressed" Color="{StaticResource LessAsr.Color.AccentPressed}"/>
+    <SolidColorBrush x:Key="ToggleSwitchFillOnDisabled" Color="{StaticResource LessAsr.Color.Accent}" Opacity="0.45"/>
+    <SolidColorBrush x:Key="ToggleSwitchStrokeOn" Color="{StaticResource LessAsr.Color.Accent}"/>
+    <SolidColorBrush x:Key="ToggleSwitchStrokeOnPointerOver" Color="{StaticResource LessAsr.Color.AccentHover}"/>
+    <SolidColorBrush x:Key="ToggleSwitchStrokeOnPressed" Color="{StaticResource LessAsr.Color.AccentPressed}"/>
+    <SolidColorBrush x:Key="ToggleSwitchStrokeOnDisabled" Color="{StaticResource LessAsr.Color.Accent}" Opacity="0.45"/>
 </ResourceDictionary>

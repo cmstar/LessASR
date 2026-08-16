@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        xmlns:controls="clr-namespace:LocalAsrClient.App.Controls"
         xmlns:vm="clr-namespace:LocalAsrClient.App.ViewModels"
         xmlns:infra="clr-namespace:LocalAsrClient.App.Infrastructure"
         xmlns:views="clr-namespace:LocalAsrClient.App.Views"
@@ -583,7 +584,8 @@
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <TextBlock Text="识别词汇" Style="{StaticResource LessAsr.FieldLabel}" Margin="0"/>
+                                            <controls:HelpLabel Title="识别词汇"
+                                                                HelpText="每行一个词或短语，最多 100 项，每项最多 30 个字符；列表越靠上优先级越高。支持混合语言，启用后从下一次听写开始生效，无需重启识别服务。使用中文或日文词条时，请选择 Whisper 多语言模型；纯英文 .en 模型无法可靠识别这些词条。"/>
                                             <TextBlock Grid.Column="1"
                                                        Text="{Binding Vocabulary.EntryCountText}"
                                                        Style="{StaticResource LessAsr.Text.Secondary}"/>
@@ -605,19 +607,6 @@
                                                    TextWrapping="Wrap"
                                                    Margin="0,8,0,0"
                                                    Visibility="{Binding Vocabulary.ValidationError, Converter={StaticResource StringNotEmptyToVisibilityConverter}}"/>
-                                        <TextBlock Text="每行一个词或短语，最多 100 项，每项最多 30 个字符；列表越靠上优先级越高。"
-                                                   Style="{StaticResource LessAsr.Text.Caption}"
-                                                   TextWrapping="Wrap"
-                                                   Margin="0,8,0,0"/>
-                                        <TextBlock Text="支持混合语言。启用后，从下一次听写开始生效，无需重启识别服务。"
-                                                   Style="{StaticResource LessAsr.Text.Caption}"
-                                                   TextWrapping="Wrap"
-                                                   Margin="0,4,0,0"/>
-                                        <TextBlock Text="请使用 Whisper 多语言模型；纯英文 .en 模型无法可靠识别中文或日文词条。"
-                                                   Style="{StaticResource LessAsr.Text.Caption}"
-                                                   TextWrapping="Wrap"
-                                                   Margin="0,4,0,0"/>
-
                                         <Border Background="{StaticResource LessAsr.Brush.WarningSoft}"
                                                 CornerRadius="8"
                                                 Padding="10,7"
@@ -687,9 +676,10 @@
                         <Border Style="{StaticResource LessAsr.Card}" Margin="0,0,0,12">
                             <StackPanel>
                                 <TextBlock Text="识别" Style="{StaticResource LessAsr.Text.SectionTitle}" Margin="0,0,0,14"/>
-                                <TextBlock Text="首选语言" Style="{StaticResource LessAsr.FieldLabel}"/>
+                                <controls:HelpLabel Title="首选语言"
+                                                    HelpText="保存后从下一次听写开始生效。"
+                                                    Margin="0,0,0,6"/>
                                 <ComboBox ItemsSource="{Binding Settings.TranscriptionLanguageOptions}" DisplayMemberPath="DisplayName" SelectedValuePath="Id" SelectedValue="{Binding Settings.PreferredTranscriptionLanguageId}" Style="{StaticResource LessAsr.ComboBox}" Width="260" HorizontalAlignment="Left"/>
-                                <TextBlock Text="保存后下次听写生效。" Style="{StaticResource LessAsr.Text.Caption}" Margin="0,6,0,0"/>
                             </StackPanel>
                         </Border>
 
@@ -698,24 +688,47 @@
                             <Border Style="{StaticResource LessAsr.Card}">
                                 <StackPanel>
                                     <TextBlock Text="数据与隐私" Style="{StaticResource LessAsr.Text.SectionTitle}" Margin="0,0,0,14"/>
-                                    <TextBlock Text="历史保留时间" Style="{StaticResource LessAsr.FieldLabel}"/>
+                                    <controls:HelpLabel Title="历史保留时间"
+                                                        HelpText="缩短保留时间时，会在保存前确认删除超出新保留期限的旧记录。"
+                                                        Margin="0,0,0,6"/>
                                     <ComboBox SelectedValue="{Binding Settings.TranscriptRetentionPolicy}" SelectedValuePath="Tag" Style="{StaticResource LessAsr.ComboBox}" Margin="0,0,0,12">
                                         <ComboBoxItem Content="关闭" Tag="{x:Static persistence:TranscriptRetentionPolicy.Disabled}"/>
                                         <ComboBoxItem Content="1 天" Tag="{x:Static persistence:TranscriptRetentionPolicy.OneDay}"/>
                                         <ComboBoxItem Content="7 天" Tag="{x:Static persistence:TranscriptRetentionPolicy.SevenDays}"/>
                                         <ComboBoxItem Content="1 个月" Tag="{x:Static persistence:TranscriptRetentionPolicy.OneMonth}"/>
                                     </ComboBox>
-                                    <TextBlock Text="缩短保留时间时，会在保存前确认删除旧记录。" Style="{StaticResource LessAsr.Text.Secondary}"/>
-                                    <TextBlock Text="音频不会被保存。" Style="{StaticResource LessAsr.Text.Secondary}" Margin="0,4,0,0"/>
-                                    <TextBlock Text="{Binding Settings.DataDirectoryPath, StringFormat=数据目录：{0}}" Style="{StaticResource LessAsr.Text.Caption}" Margin="0,8,0,0"/>
-                                    <TextBlock Text="{Binding Settings.LogsDirectoryPath, StringFormat=日志目录：{0}}" Style="{StaticResource LessAsr.Text.Caption}" Margin="0,4,0,0"/>
+                                    <TextBlock Text="仅保存听写文本，不保存音频。" Style="{StaticResource LessAsr.Text.Caption}"/>
+                                    <Expander Header="存储位置"
+                                              Margin="0,8,0,0"
+                                              AutomationProperties.Name="查看数据和日志存储位置">
+                                        <StackPanel Margin="0,6,0,0">
+                                            <TextBlock Text="{Binding Settings.DataDirectoryPath, StringFormat=数据目录：{0}}"
+                                                       Style="{StaticResource LessAsr.Text.Caption}"
+                                                       TextWrapping="Wrap"/>
+                                            <TextBlock Text="{Binding Settings.LogsDirectoryPath, StringFormat=日志目录：{0}}"
+                                                       Style="{StaticResource LessAsr.Text.Caption}"
+                                                       TextWrapping="Wrap"
+                                                       Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Expander>
                                 </StackPanel>
                             </Border>
                             <Border Grid.Column="2" Style="{StaticResource LessAsr.Card}">
                                 <StackPanel>
                                     <TextBlock Text="应用行为" Style="{StaticResource LessAsr.Text.SectionTitle}" Margin="0,0,0,14"/>
-                                    <CheckBox Content="关闭窗口时最小化到系统托盘" IsChecked="{Binding Settings.MinimizeToTrayOnClose}"/>
-                                    <TextBlock Text="取消后，关闭主窗口将直接退出程序。" Style="{StaticResource LessAsr.Text.Caption}" Margin="24,6,0,0"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <controls:HelpLabel Title="关闭窗口时最小化到系统托盘"
+                                                            HelpText="关闭后，主窗口会隐藏到系统托盘；关闭此开关后，关闭主窗口将直接退出程序。"
+                                                            VerticalAlignment="Center"/>
+                                        <ui:ToggleSwitch Grid.Column="1"
+                                                         IsChecked="{Binding Settings.MinimizeToTrayOnClose}"
+                                                         VerticalAlignment="Center"
+                                                         AutomationProperties.Name="关闭窗口时最小化到系统托盘"/>
+                                    </Grid>
                                 </StackPanel>
                             </Border>
                         </Grid>

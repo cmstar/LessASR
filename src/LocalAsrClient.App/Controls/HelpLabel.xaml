@@ -1,0 +1,33 @@
+<UserControl x:Class="LocalAsrClient.App.Controls.HelpLabel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             x:Name="Root"
+             Focusable="False">
+    <StackPanel Orientation="Horizontal">
+        <TextBlock Text="{Binding Title, ElementName=Root}"
+                   Style="{StaticResource LessAsr.Text.CardTitle}"
+                   VerticalAlignment="Center"/>
+        <Button Style="{StaticResource LessAsr.HelpButton}"
+                Margin="4,0,0,0"
+                Tag="{Binding HelpText, ElementName=Root}"
+                ToolTipService.InitialShowDelay="300"
+                ToolTipService.BetweenShowDelay="100"
+                ToolTipService.ShowDuration="30000"
+                ToolTipService.ShowsToolTipOnKeyboardFocus="True"
+                AutomationProperties.Name="{Binding Title, ElementName=Root, StringFormat={}{0}帮助}"
+                AutomationProperties.HelpText="{Binding HelpText, ElementName=Root}">
+            <Button.ToolTip>
+                <ToolTip MaxWidth="340"
+                         Padding="12,9"
+                         Placement="Bottom">
+                    <TextBlock Text="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource AncestorType=ToolTip}}"
+                               TextWrapping="Wrap"
+                               LineHeight="20"/>
+                </ToolTip>
+            </Button.ToolTip>
+            <ui:SymbolIcon Symbol="QuestionCircle24"
+                           FontSize="15"/>
+        </Button>
+    </StackPanel>
+</UserControl>
