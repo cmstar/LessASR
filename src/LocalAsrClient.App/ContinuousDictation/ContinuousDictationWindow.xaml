@@ -3,15 +3,54 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         xmlns:infra="clr-namespace:LocalAsrClient.App.Infrastructure"
+        xmlns:dictation="clr-namespace:LocalAsrClient.Core.Dictation;assembly=LocalAsrClient.Core"
         Title="连续听写"
         Topmost="True"
         ShowInTaskbar="True"
         ShowActivated="True"
         Width="560"
-        Height="680"
+        Height="560"
         MinWidth="430"
-        MinHeight="440"
+        MinHeight="360"
         Background="{StaticResource LessAsr.Brush.AppBackground}">
+    <ui:FluentWindow.Resources>
+        <Style x:Key="ContinuousDictation.BorderlessTextBox" TargetType="TextBox">
+            <Setter Property="Foreground" Value="{StaticResource LessAsr.Brush.TextPrimary}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="MinHeight" Value="24"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <ScrollViewer x:Name="PART_ContentHost"
+                                      Background="Transparent"
+                                      BorderThickness="0"
+                                      Focusable="False"
+                                      HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}"
+                                      VerticalScrollBarVisibility="{TemplateBinding VerticalScrollBarVisibility}"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ContinuousDictation.SecondaryButton"
+               TargetType="Button"
+               BasedOn="{StaticResource LessAsr.SecondaryButton}">
+            <Setter Property="MinHeight" Value="36"/>
+            <Setter Property="Padding" Value="14,6"/>
+        </Style>
+
+        <Style x:Key="ContinuousDictation.PrimaryButton"
+               TargetType="Button"
+               BasedOn="{StaticResource LessAsr.PrimaryButton}">
+            <Setter Property="MinHeight" Value="36"/>
+            <Setter Property="Padding" Value="14,6"/>
+        </Style>
+    </ui:FluentWindow.Resources>
+
     <Grid x:Name="ScreenshotRoot">
         <Grid.RowDefinitions>
             <RowDefinition Height="48"/>
@@ -23,21 +62,72 @@
 
         <ui:TitleBar Title="连续听写" Padding="12,0,0,0"/>
 
-        <Border Grid.Row="1" Style="{StaticResource LessAsr.Card}" Margin="12,4,12,10" Padding="16">
+        <Border Grid.Row="1"
+                Background="{StaticResource LessAsr.Brush.CardBackground}"
+                BorderBrush="{StaticResource LessAsr.Brush.Border}"
+                BorderThickness="0,0,0,1"
+                Padding="18,12">
             <Grid>
-                <StackPanel>
-                    <TextBlock Text="{Binding HeaderText}" Style="{StaticResource LessAsr.Text.SectionTitle}"/>
-                    <TextBlock Text="按右 Ctrl 分段，按 F9 结束本轮录音。" Style="{StaticResource LessAsr.Text.Caption}" Margin="0,5,0,0"/>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <WrapPanel VerticalAlignment="Center">
+                    <TextBlock Text="{Binding HeaderText}"
+                               Style="{StaticResource LessAsr.Text.SectionTitle}"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Text="右 Ctrl 分段 · F9 结束录音"
+                               Style="{StaticResource LessAsr.Text.Caption}"
+                               Margin="12,2,0,0"
+                               VerticalAlignment="Center"/>
                     <TextBlock Text="演示模式 · 内容为固定示例数据"
                                Foreground="{StaticResource LessAsr.Brush.Accent}"
                                FontSize="12"
-                               Margin="0,4,0,0"
+                               Margin="12,2,0,0"
+                               VerticalAlignment="Center"
                                Visibility="{Binding IsDemoMode, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                </StackPanel>
-                <Border Style="{StaticResource LessAsr.StatusBadge}" HorizontalAlignment="Right" VerticalAlignment="Center">
+                </WrapPanel>
+                <Border Grid.Column="1"
+                        CornerRadius="12"
+                        Padding="9,4"
+                        Margin="12,0,0,0"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Background" Value="{StaticResource LessAsr.Brush.AccentSoft}"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsRecordingActive}" Value="True">
+                                    <Setter Property="Background" Value="{StaticResource LessAsr.Brush.Accent}"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
                     <StackPanel Orientation="Horizontal">
-                        <Ellipse Width="8" Height="8" Fill="{StaticResource LessAsr.Brush.Accent}" Margin="0,0,7,0"/>
-                        <TextBlock Text="{Binding RecordingStatusText}" Foreground="{StaticResource LessAsr.Brush.Accent}"/>
+                        <Ellipse Width="7" Height="7" Margin="0,0,6,0">
+                            <Ellipse.Style>
+                                <Style TargetType="Ellipse">
+                                    <Setter Property="Fill" Value="{StaticResource LessAsr.Brush.Accent}"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsRecordingActive}" Value="True">
+                                            <Setter Property="Fill" Value="White"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Ellipse.Style>
+                        </Ellipse>
+                        <TextBlock Text="{Binding RecordingStatusText}" FontSize="12">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{StaticResource LessAsr.Brush.Accent}"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsRecordingActive}" Value="True">
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                     </StackPanel>
                 </Border>
             </Grid>
@@ -49,7 +139,7 @@
                 BorderThickness="1"
                 CornerRadius="10"
                 Padding="12,8"
-                Margin="12,0,12,10"
+                Margin="12,8,12,0"
                 Visibility="{Binding HasBanner, Converter={StaticResource BooleanToVisibilityConverter}}">
             <TextBlock Text="{Binding BannerMessage}" Foreground="{StaticResource LessAsr.Brush.Warning}" TextWrapping="Wrap"/>
         </Border>
@@ -59,7 +149,8 @@
                       VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled"
                       CanContentScroll="False"
-                      Padding="12,0,8,0">
+                      Background="{StaticResource LessAsr.Brush.CardBackground}"
+                      Padding="12,6,8,6">
             <ItemsControl ItemsSource="{Binding Segments}" VerticalAlignment="Top">
                 <ItemsControl.ItemContainerStyle>
                     <Style TargetType="ContentPresenter">
@@ -69,58 +160,110 @@
                 </ItemsControl.ItemContainerStyle>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Border Margin="0,0,4,10" Padding="14" CornerRadius="14" BorderThickness="1">
-                            <Border.Style>
-                                <Style TargetType="Border" BasedOn="{StaticResource LessAsr.Card}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsFailed}" Value="True">
-                                            <Setter Property="BorderBrush" Value="{StaticResource LessAsr.Brush.Error}"/>
-                                            <Setter Property="Background" Value="{StaticResource LessAsr.Brush.ErrorSoft}"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Border.Style>
-                            <StackPanel>
-                                <Grid Margin="0,0,0,8">
-                                    <TextBlock Text="听写分段" Style="{StaticResource LessAsr.Text.Caption}" VerticalAlignment="Center"/>
-                                    <Border Background="{StaticResource LessAsr.Brush.AccentSoft}" CornerRadius="9" Padding="8,3" HorizontalAlignment="Right">
-                                        <TextBlock Text="{Binding StateLabel}" Foreground="{StaticResource LessAsr.Brush.Accent}" FontSize="12"/>
-                                    </Border>
-                                </Grid>
+                        <Border Margin="0,0,4,2"
+                                Padding="6,8"
+                                Background="Transparent">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
                                 <Grid>
                                     <TextBox Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}"
-                                             Style="{StaticResource LessAsr.TextBox}"
+                                             Style="{StaticResource ContinuousDictation.BorderlessTextBox}"
                                              TextWrapping="Wrap"
                                              AcceptsReturn="True"
                                              VerticalAlignment="Top"
                                              VerticalScrollBarVisibility="Disabled"
                                              VerticalContentAlignment="Top"
-                                             MinHeight="44"
-                                             Background="Transparent"
-                                             BorderThickness="0"
-                                             Padding="0"
                                              infra:AutoGrowTextBox.Enable="True"
                                              infra:ScrollViewerWheelForwarder.Enable="True"
+                                             AutomationProperties.Name="听写正文"
                                              IsReadOnly="{Binding IsEditable, Converter={StaticResource InverseBooleanConverter}}"/>
                                     <TextBlock Text="{Binding Placeholder}"
-                                               Style="{StaticResource LessAsr.Text.Secondary}"
                                                VerticalAlignment="Center"
                                                IsHitTestVisible="False"
-                                               Visibility="{Binding ShowPlaceholder, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                               Visibility="{Binding ShowPlaceholder, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource LessAsr.Text.Secondary}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsFailed}" Value="True">
+                                                        <Setter Property="Foreground" Value="{StaticResource LessAsr.Brush.Error}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
                                 </Grid>
-                            </StackPanel>
+                                <Border Grid.Column="1"
+                                        MinWidth="54"
+                                        CornerRadius="10"
+                                        Padding="7,3"
+                                        Margin="12,0,0,0"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Top">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="{StaticResource LessAsr.Brush.AccentSoft}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding State}" Value="{x:Static dictation:ContinuousSegmentState.WaitingInput}">
+                                                    <Setter Property="Background" Value="{StaticResource LessAsr.Brush.ControlPressed}"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding State}" Value="{x:Static dictation:ContinuousSegmentState.Transcribing}">
+                                                    <Setter Property="Background" Value="{StaticResource LessAsr.Brush.Accent}"/>
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding IsFailed}" Value="True">
+                                                    <Setter Property="Background" Value="{StaticResource LessAsr.Brush.ErrorSoft}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="{Binding StateLabel}"
+                                               FontSize="12"
+                                               TextAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{StaticResource LessAsr.Brush.Accent}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding State}" Value="{x:Static dictation:ContinuousSegmentState.WaitingInput}">
+                                                        <Setter Property="Foreground" Value="{StaticResource LessAsr.Brush.TextSecondary}"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding State}" Value="{x:Static dictation:ContinuousSegmentState.Transcribing}">
+                                                        <Setter Property="Foreground" Value="White"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding IsFailed}" Value="True">
+                                                        <Setter Property="Foreground" Value="{StaticResource LessAsr.Brush.Error}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Border>
+                            </Grid>
                         </Border>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
         </ScrollViewer>
 
-        <Border Grid.Row="4" Style="{StaticResource LessAsr.Card}" Margin="12,10,12,12" Padding="12">
+        <Border Grid.Row="4"
+                Background="{StaticResource LessAsr.Brush.CardBackground}"
+                BorderBrush="{StaticResource LessAsr.Brush.Border}"
+                BorderThickness="0,1,0,0"
+                Padding="18,12">
             <Grid>
-                <Button Content="关闭" Command="{Binding CloseCommand}" Style="{StaticResource LessAsr.SecondaryButton}" HorizontalAlignment="Left"/>
+                <Button Content="关闭"
+                        Command="{Binding CloseCommand}"
+                        Style="{StaticResource ContinuousDictation.SecondaryButton}"
+                        HorizontalAlignment="Left"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button Content="复制全部" Command="{Binding CopyCommand}" Style="{StaticResource LessAsr.SecondaryButton}" Margin="0,0,8,0"/>
-                    <Button Content="结束录制" Command="{Binding EndRecordingCommand}" Style="{StaticResource LessAsr.PrimaryButton}"/>
+                    <Button Content="复制全部"
+                            Command="{Binding CopyCommand}"
+                            Style="{StaticResource ContinuousDictation.SecondaryButton}"
+                            Margin="0,0,8,0"/>
+                    <Button Content="结束录制"
+                            Command="{Binding EndRecordingCommand}"
+                            Style="{StaticResource ContinuousDictation.PrimaryButton}"/>
                 </StackPanel>
             </Grid>
         </Border>
