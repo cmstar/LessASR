@@ -18,7 +18,9 @@ public partial class DictationOverlayWindow : Window
     private readonly IDiagnosticEventSink _diagnostics;
     private readonly OverlayViewModel _viewModel;
     private readonly WindowInteropHelper _interopHelper;
+    private readonly LoopingWaveformPreview _waveformPreview = new();
     private OverlayFocusSnapshot _focusSnapshotBeforeShow;
+    private System.Windows.Threading.DispatcherTimer? _waveformPreviewTimer;
 
     public DictationOverlayWindow()
         : this(NullDiagnosticEventSink.Instance)
@@ -44,11 +46,52 @@ public partial class DictationOverlayWindow : Window
 
     public event Action? SubmitRequested;
 
+    public void SetRecordingLevel(float level)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            if (!Dispatcher.HasShutdownStarted)
+            {
+                _ = Dispatcher.BeginInvoke(
+                    System.Windows.Threading.DispatcherPriority.Render,
+                    () => SetRecordingLevel(level));
+            }
+
+            return;
+        }
+
+        if (!_viewModel.ShowRecordingLayout)
+        {
+            return;
+        }
+
+        RecordingWaveformView.PushLevel(level);
+    }
+
+    public void ShowRecordingPreview()
+    {
+        ShowOverlay(OverlayState.Recording, "聆听中");
+        _waveformPreview.Reset();
+        for (var index = 0; index < WaveformHistory.DefaultBarCount; index++)
+        {
+            RecordingWaveformView.PushLevel(_waveformPreview.NextLevel());
+        }
+
+        _waveformPreviewTimer = new System.Windows.Threading.DispatcherTimer(
+            LoopingWaveformPreview.FrameInterval,
+            System.Windows.Threading.DispatcherPriority.Render,
+            OnWaveformPreviewTick,
+            Dispatcher);
+        _waveformPreviewTimer.Start();
+    }
+
     public void ShowOverlay(OverlayState state, string message, string resultText = "", string? errorMessage = null)
     {
+        StopWaveformPreview();
         _focusSnapshotBeforeShow = OverlayFocusGuard.Capture();
         _ = _diagnostics.WriteAsync(CreateEvent("Overlay.Show.Before", state));
 
+        RecordingWaveformView.Reset();
         _viewModel.ShowState(state, message, resultText, errorMessage);
         ApplyHeightConstraints();
         ShowWithoutActivation();
@@ -61,6 +104,8 @@ public partial class DictationOverlayWindow : Window
 
     public void HideOverlay()
     {
+        StopWaveformPreview();
+        RecordingWaveformView.Reset();
         var handle = _interopHelper.Handle;
         if (handle != IntPtr.Zero)
         {
@@ -77,6 +122,23 @@ public partial class DictationOverlayWindow : Window
     private void OnSubmitRequested()
     {
         SubmitRequested?.Invoke();
+    }
+
+    private void OnWaveformPreviewTick(object? sender, EventArgs e)
+    {
+        RecordingWaveformView.PushLevel(_waveformPreview.NextLevel());
+    }
+
+    private void StopWaveformPreview()
+    {
+        if (_waveformPreviewTimer is null)
+        {
+            return;
+        }
+
+        _waveformPreviewTimer.Stop();
+        _waveformPreviewTimer.Tick -= OnWaveformPreviewTick;
+        _waveformPreviewTimer = null;
     }
 
     protected override void OnSourceInitialized(EventArgs e)

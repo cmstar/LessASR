@@ -231,17 +231,13 @@
                               StrokeEndLineCap="Round"/>
                     </Grid>
                 </Button>
-                <StackPanel Grid.Column="1"
-                            Orientation="Horizontal"
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center">
-                    <Rectangle Width="2" Height="6" RadiusX="1" Fill="{StaticResource LessAsr.Brush.OverlayForeground}" Margin="1,0" Opacity="0.68"/>
-                    <Rectangle Width="2" Height="12" RadiusX="1" Fill="{StaticResource LessAsr.Brush.OverlayForeground}" Margin="1,0"/>
-                    <Rectangle Width="2" Height="16" RadiusX="1" Fill="{StaticResource LessAsr.Brush.OverlayForeground}" Margin="1,0"/>
-                    <Rectangle Width="2" Height="9" RadiusX="1" Fill="{StaticResource LessAsr.Brush.OverlayForeground}" Margin="1,0" Opacity="0.8"/>
-                    <Rectangle Width="2" Height="14" RadiusX="1" Fill="{StaticResource LessAsr.Brush.OverlayForeground}" Margin="1,0"/>
-                    <Rectangle Width="2" Height="8" RadiusX="1" Fill="{StaticResource LessAsr.Brush.OverlayForeground}" Margin="1,0" Opacity="0.72"/>
-                </StackPanel>
+                <overlay:RecordingWaveform x:Name="RecordingWaveformView"
+                                           Grid.Column="1"
+                                           Width="48"
+                                           Height="18"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           WaveformBrush="{StaticResource LessAsr.Brush.OverlayForeground}"/>
                 <Button Grid.Column="2"
                         Style="{StaticResource Overlay.ConfirmButton}"
                         Command="{Binding SubmitCommand}"

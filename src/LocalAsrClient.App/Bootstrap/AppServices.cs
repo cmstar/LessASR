@@ -323,6 +323,11 @@ public sealed class AppServices : IAsyncDisposable
 
         var overlayWindow = new DictationOverlayWindow(diagnosticSink);
 
+        if (singleRecorder is IAudioLevelSource audioLevelSource)
+        {
+            audioLevelSource.AudioLevelChanged += overlayWindow.SetRecordingLevel;
+        }
+
         var hotkeyListener = new GlobalHotkeyListener(DictationHotkey.ToggleVirtualKey, diagnosticSink);
 
         var f9Listener = new GlobalHotkeyListener(ContinuousDictationHotkey.ToggleVirtualKey, diagnosticSink);

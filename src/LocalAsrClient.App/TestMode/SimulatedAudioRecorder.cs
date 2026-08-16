@@ -1,21 +1,41 @@
 using LocalAsrClient.Core.Abstractions;
 using LocalAsrClient.Core.Dictation;
+using Timer = System.Threading.Timer;
 
 namespace LocalAsrClient.App.TestMode;
 
-public sealed class SimulatedAudioRecorder : IAudioRecorder
+public sealed class SimulatedAudioRecorder : IAudioRecorder, IAudioLevelSource
 {
     private static readonly TimeSpan MinDuration = TimeSpan.FromMilliseconds(500);
     private DateTimeOffset _startedAt;
+    private Timer? _levelTimer;
+    private int _levelTick;
+
+    public event Action<float>? AudioLevelChanged;
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
         _startedAt = DateTimeOffset.Now;
+        _levelTick = 0;
+        _levelTimer = new Timer(
+            _ =>
+            {
+                var tick = Interlocked.Increment(ref _levelTick);
+                var level = 0.18f + (0.62f * MathF.Abs(MathF.Sin(tick * 0.58f)));
+                AudioLevelChanged?.Invoke(level);
+            },
+            null,
+            TimeSpan.Zero,
+            TimeSpan.FromMilliseconds(50));
         return Task.CompletedTask;
     }
 
     public Task<RecordingResult> StopAsync(CancellationToken cancellationToken)
     {
+        _levelTimer?.Dispose();
+        _levelTimer = null;
+        AudioLevelChanged?.Invoke(0);
+
         var duration = DateTimeOffset.Now - _startedAt;
         if (duration < MinDuration)
         {
