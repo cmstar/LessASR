@@ -446,6 +446,26 @@ public sealed class AppServices : IAsyncDisposable
 
         };
 
+        overlayWindow.SubmitRequested += () =>
+        {
+            if (orchestrator.State != DictationState.Recording)
+            {
+                return;
+            }
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await orchestrator.ToggleAsync(CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    AppExceptionLogger.Report(ex, "结束录音失败", showDialog: false);
+                }
+            });
+        };
+
 
 
         hotkeyListener.Triggered += () =>
@@ -457,7 +477,6 @@ public sealed class AppServices : IAsyncDisposable
             }
 
             if (orchestrator.State is DictationState.Idle
-                or DictationState.Ready
                 or DictationState.Error
                 or DictationState.ResultNeedsAction)
             {

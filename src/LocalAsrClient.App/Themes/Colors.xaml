@@ -21,6 +21,12 @@
     <Color x:Key="LessAsr.Color.ErrorHover">#A93630</Color>
     <Color x:Key="LessAsr.Color.ErrorPressed">#8F2D29</Color>
     <Color x:Key="LessAsr.Color.ErrorSoft">#FFF0EF</Color>
+    <Color x:Key="LessAsr.Color.OverlaySurface">#121316</Color>
+    <Color x:Key="LessAsr.Color.OverlaySurfaceRaised">#24262B</Color>
+    <Color x:Key="LessAsr.Color.OverlayForeground">#FFFFFF</Color>
+    <Color x:Key="LessAsr.Color.OverlayMuted">#B9BDC6</Color>
+    <Color x:Key="LessAsr.Color.OverlayBorder">#454850</Color>
+    <Color x:Key="LessAsr.Color.OverlayShadow">#000000</Color>
 
     <SolidColorBrush x:Key="LessAsr.Brush.AppBackground" Color="{StaticResource LessAsr.Color.AppBackground}"/>
     <SolidColorBrush x:Key="LessAsr.Brush.SidebarBackground" Color="{StaticResource LessAsr.Color.SidebarBackground}"/>
@@ -43,6 +49,11 @@
     <SolidColorBrush x:Key="LessAsr.Brush.ErrorHover" Color="{StaticResource LessAsr.Color.ErrorHover}"/>
     <SolidColorBrush x:Key="LessAsr.Brush.ErrorPressed" Color="{StaticResource LessAsr.Color.ErrorPressed}"/>
     <SolidColorBrush x:Key="LessAsr.Brush.ErrorSoft" Color="{StaticResource LessAsr.Color.ErrorSoft}"/>
+    <SolidColorBrush x:Key="LessAsr.Brush.OverlaySurface" Color="{StaticResource LessAsr.Color.OverlaySurface}"/>
+    <SolidColorBrush x:Key="LessAsr.Brush.OverlaySurfaceRaised" Color="{StaticResource LessAsr.Color.OverlaySurfaceRaised}"/>
+    <SolidColorBrush x:Key="LessAsr.Brush.OverlayForeground" Color="{StaticResource LessAsr.Color.OverlayForeground}"/>
+    <SolidColorBrush x:Key="LessAsr.Brush.OverlayMuted" Color="{StaticResource LessAsr.Color.OverlayMuted}"/>
+    <SolidColorBrush x:Key="LessAsr.Brush.OverlayBorder" Color="{StaticResource LessAsr.Color.OverlayBorder}"/>
 
     <!-- Keep WPF-UI toggle switches aligned with the LessASR accent palette. -->
     <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="{StaticResource LessAsr.Color.Accent}"/>

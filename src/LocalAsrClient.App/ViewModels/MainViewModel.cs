@@ -165,7 +165,6 @@ public sealed class MainViewModel
         return state switch
         {
             DictationState.EnsuringModelReady => OverlayState.LoadingModel,
-            DictationState.Ready => OverlayState.Ready,
             DictationState.Recording => OverlayState.Recording,
             DictationState.Transcribing => OverlayState.Transcribing,
             DictationState.Injecting => OverlayState.Transcribing,

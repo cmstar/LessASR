@@ -12,7 +12,7 @@ public partial class DictationOverlayWindow : Window
     private const int WsExNoActivate = 0x08000000;
     private const int WsExToolWindow = 0x00000080;
     private const int SwShownoactivate = 4;
-    private const double BottomMargin = 20;
+    private const double BottomMargin = 15;
     private const double TopMargin = 16;
     private const double CopyLayoutChromeHeight = 148;
     private readonly IDiagnosticEventSink _diagnostics;
@@ -28,7 +28,7 @@ public partial class DictationOverlayWindow : Window
     public DictationOverlayWindow(IDiagnosticEventSink diagnostics)
     {
         _diagnostics = diagnostics;
-        _viewModel = new OverlayViewModel(OnCloseRequested);
+        _viewModel = new OverlayViewModel(OnCloseRequested, OnSubmitRequested);
         InitializeComponent();
         DataContext = _viewModel;
         _interopHelper = new WindowInteropHelper(this);
@@ -41,6 +41,8 @@ public partial class DictationOverlayWindow : Window
     }
 
     public event Action? CloseRequested;
+
+    public event Action? SubmitRequested;
 
     public void ShowOverlay(OverlayState state, string message, string resultText = "", string? errorMessage = null)
     {
@@ -70,6 +72,11 @@ public partial class DictationOverlayWindow : Window
     {
         HideOverlay();
         CloseRequested?.Invoke();
+    }
+
+    private void OnSubmitRequested()
+    {
+        SubmitRequested?.Invoke();
     }
 
     protected override void OnSourceInitialized(EventArgs e)

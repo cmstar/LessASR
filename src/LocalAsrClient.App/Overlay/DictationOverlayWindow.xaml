@@ -13,16 +13,172 @@
         Focusable="False"
         ResizeMode="NoResize"
         FontFamily="{StaticResource LessAsr.FontFamily}">
+    <Window.Resources>
+        <LinearGradientBrush x:Key="Overlay.RecordingBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="{StaticResource LessAsr.Color.OverlaySurfaceRaised}" Offset="0"/>
+            <GradientStop Color="{StaticResource LessAsr.Color.OverlaySurface}" Offset="1"/>
+        </LinearGradientBrush>
+
+        <Style x:Key="Overlay.CircleButton" TargetType="Button">
+            <Setter Property="Width" Value="26"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="MinWidth" Value="26"/>
+            <Setter Property="MinHeight" Value="26"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Foreground" Value="{StaticResource LessAsr.Brush.OverlayForeground}"/>
+            <Setter Property="Background" Value="{StaticResource LessAsr.Brush.OverlaySurfaceRaised}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="13">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Opacity" Value="0.86"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Opacity" Value="0.7"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="Overlay.ConfirmButton"
+               TargetType="Button"
+               BasedOn="{StaticResource Overlay.CircleButton}">
+            <Setter Property="Foreground" Value="{StaticResource LessAsr.Brush.OverlaySurface}"/>
+            <Setter Property="Background" Value="{StaticResource LessAsr.Brush.OverlayForeground}"/>
+        </Style>
+
+        <Style x:Key="Overlay.StatusIcon" TargetType="{x:Type ui:SymbolIcon}">
+            <Setter Property="Width" Value="16"/>
+            <Setter Property="Height" Value="16"/>
+            <Setter Property="Foreground" Value="{StaticResource LessAsr.Brush.OverlayForeground}"/>
+            <Setter Property="RenderTransform">
+                <Setter.Value>
+                    <TranslateTransform Y="1"/>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding State}" Value="{x:Static overlay:OverlayState.LoadingModel}">
+                    <Setter Property="Foreground" Value="{StaticResource LessAsr.Brush.Warning}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding State}" Value="{x:Static overlay:OverlayState.Injected}">
+                    <Setter Property="Foreground" Value="{StaticResource LessAsr.Brush.Success}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding State}" Value="{x:Static overlay:OverlayState.Error}">
+                    <Setter Property="Foreground" Value="{StaticResource LessAsr.Brush.Error}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding State}" Value="{x:Static overlay:OverlayState.ResultNeedsAction}">
+                    <Setter Property="Foreground" Value="{StaticResource LessAsr.Brush.Error}"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="Overlay.StatusText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource LessAsr.Brush.OverlayForeground}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="TextWrapping" Value="NoWrap"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding State}" Value="{x:Static overlay:OverlayState.LoadingModel}">
+                    <Setter Property="Foreground" Value="{StaticResource LessAsr.Brush.Warning}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding State}" Value="{x:Static overlay:OverlayState.Injected}">
+                    <Setter Property="Foreground" Value="{StaticResource LessAsr.Brush.Success}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding State}" Value="{x:Static overlay:OverlayState.Error}">
+                    <Setter Property="Foreground" Value="{StaticResource LessAsr.Brush.Error}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding State}" Value="{x:Static overlay:OverlayState.ResultNeedsAction}">
+                    <Setter Property="Foreground" Value="{StaticResource LessAsr.Brush.Error}"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="Overlay.CopySecondaryButton" TargetType="Button">
+            <Setter Property="MinHeight" Value="34"/>
+            <Setter Property="Padding" Value="13,5"/>
+            <Setter Property="Foreground" Value="{StaticResource LessAsr.Brush.OverlayForeground}"/>
+            <Setter Property="Background" Value="{StaticResource LessAsr.Brush.OverlaySurfaceRaised}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource LessAsr.Brush.OverlayBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="10"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Opacity" Value="0.86"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Opacity" Value="0.7"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="Overlay.CopyPrimaryButton"
+               TargetType="Button"
+               BasedOn="{StaticResource Overlay.CopySecondaryButton}">
+            <Setter Property="Foreground" Value="{StaticResource LessAsr.Brush.OverlaySurface}"/>
+            <Setter Property="Background" Value="{StaticResource LessAsr.Brush.OverlayForeground}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource LessAsr.Brush.OverlayForeground}"/>
+        </Style>
+
+        <Style x:Key="Overlay.CopyTextBox" TargetType="TextBox">
+            <Setter Property="Foreground" Value="{StaticResource LessAsr.Brush.OverlayForeground}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <ScrollViewer x:Name="PART_ContentHost"
+                                      Background="Transparent"
+                                      BorderThickness="0"
+                                      Focusable="False"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      VerticalScrollBarVisibility="{TemplateBinding VerticalScrollBarVisibility}"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
     <Border BorderThickness="1"
-            CornerRadius="16"
-            Padding="14"
-            MinWidth="{Binding OverlayMinWidth}"
+            Width="{Binding OverlayWidth}"
             MinHeight="{Binding OverlayMinHeight}">
         <Border.Style>
             <Style TargetType="Border">
-                <Setter Property="Background" Value="{StaticResource LessAsr.Brush.CardBackground}"/>
-                <Setter Property="BorderBrush" Value="{StaticResource LessAsr.Brush.Border}"/>
+                <Setter Property="Background" Value="{StaticResource LessAsr.Brush.OverlaySurface}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource LessAsr.Brush.OverlayBorder}"/>
+                <Setter Property="CornerRadius" Value="16"/>
+                <Setter Property="Padding" Value="0"/>
                 <Style.Triggers>
+                    <DataTrigger Binding="{Binding State}" Value="{x:Static overlay:OverlayState.Recording}">
+                        <Setter Property="Background" Value="{StaticResource Overlay.RecordingBrush}"/>
+                        <Setter Property="Padding" Value="2"/>
+                    </DataTrigger>
                     <DataTrigger Binding="{Binding State}" Value="{x:Static overlay:OverlayState.LoadingModel}">
                         <Setter Property="Background" Value="{StaticResource LessAsr.Brush.WarningSoft}"/>
                         <Setter Property="BorderBrush" Value="{StaticResource LessAsr.Brush.Warning}"/>
@@ -35,74 +191,169 @@
                         <Setter Property="Background" Value="{StaticResource LessAsr.Brush.ErrorSoft}"/>
                         <Setter Property="BorderBrush" Value="{StaticResource LessAsr.Brush.Error}"/>
                     </DataTrigger>
+                    <DataTrigger Binding="{Binding State}" Value="{x:Static overlay:OverlayState.ResultNeedsAction}">
+                        <Setter Property="Background" Value="{StaticResource LessAsr.Brush.ErrorSoft}"/>
+                        <Setter Property="BorderBrush" Value="{StaticResource LessAsr.Brush.Error}"/>
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding ShowCopyLayout}" Value="True">
+                        <Setter Property="Background" Value="{StaticResource LessAsr.Brush.OverlaySurface}"/>
+                        <Setter Property="BorderBrush" Value="{StaticResource LessAsr.Brush.OverlayBorder}"/>
+                        <Setter Property="CornerRadius" Value="18"/>
+                        <Setter Property="Padding" Value="12"/>
+                    </DataTrigger>
                 </Style.Triggers>
             </Style>
         </Border.Style>
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="10"
+                              ShadowDepth="3"
+                              Direction="270"
+                              Color="{StaticResource LessAsr.Color.OverlayShadow}"
+                              Opacity="0.25"/>
+        </Border.Effect>
 
         <Grid>
-            <Grid Visibility="{Binding ShowCompactLayout, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Grid Visibility="{Binding ShowRecordingLayout, Converter={StaticResource BooleanToVisibilityConverter}}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*" MinWidth="110"/>
+                    <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <Border Width="38" Height="38" CornerRadius="19" Background="{StaticResource LessAsr.Brush.AccentSoft}" VerticalAlignment="Center">
-                    <ui:SymbolIcon Symbol="MicPulse24" Foreground="{StaticResource LessAsr.Brush.Accent}"/>
-                </Border>
-                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0">
-                    <TextBlock Text="{Binding Message}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                    <TextBlock Text="{Binding ErrorMessage}"
-                               Style="{StaticResource LessAsr.Text.Caption}"
-                               Foreground="{StaticResource LessAsr.Brush.Error}"
-                               Margin="0,4,0,0"
-                               Visibility="{Binding ErrorMessage, Converter={StaticResource StringNotEmptyToVisibilityConverter}}"/>
+                <Button Style="{StaticResource Overlay.CircleButton}"
+                        Command="{Binding CloseCommand}"
+                        ToolTip="取消录音"
+                        AutomationProperties.Name="取消录音">
+                    <Grid Width="14" Height="14">
+                        <Path Data="M 2,2 L 12,12 M 12,2 L 2,12"
+                              Stroke="{StaticResource LessAsr.Brush.OverlayForeground}"
+                              StrokeThickness="1.8"
+                              StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round"/>
+                    </Grid>
+                </Button>
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center">
+                    <Rectangle Width="2" Height="6" RadiusX="1" Fill="{StaticResource LessAsr.Brush.OverlayForeground}" Margin="1,0" Opacity="0.68"/>
+                    <Rectangle Width="2" Height="12" RadiusX="1" Fill="{StaticResource LessAsr.Brush.OverlayForeground}" Margin="1,0"/>
+                    <Rectangle Width="2" Height="16" RadiusX="1" Fill="{StaticResource LessAsr.Brush.OverlayForeground}" Margin="1,0"/>
+                    <Rectangle Width="2" Height="9" RadiusX="1" Fill="{StaticResource LessAsr.Brush.OverlayForeground}" Margin="1,0" Opacity="0.8"/>
+                    <Rectangle Width="2" Height="14" RadiusX="1" Fill="{StaticResource LessAsr.Brush.OverlayForeground}" Margin="1,0"/>
+                    <Rectangle Width="2" Height="8" RadiusX="1" Fill="{StaticResource LessAsr.Brush.OverlayForeground}" Margin="1,0" Opacity="0.72"/>
                 </StackPanel>
                 <Button Grid.Column="2"
-                        Style="{StaticResource LessAsr.IconButton}"
-                        Width="30" Height="30" MinWidth="30" MinHeight="30"
-                        Focusable="False"
-                        Command="{Binding CloseCommand}"
-                        AutomationProperties.Name="关闭浮窗"
-                        Visibility="{Binding ShowCloseButton, Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <ui:SymbolIcon Symbol="Dismiss24" Width="16"/>
+                        Style="{StaticResource Overlay.ConfirmButton}"
+                        Command="{Binding SubmitCommand}"
+                        ToolTip="结束并识别"
+                        AutomationProperties.Name="结束录音并开始识别">
+                    <ui:SymbolIcon Symbol="Checkmark16" Width="14" Height="14"/>
                 </Button>
             </Grid>
 
-            <Grid Visibility="{Binding ShowCopyLayout, Converter={StaticResource BooleanToVisibilityConverter}}" MinWidth="300">
+            <Grid Visibility="{Binding ShowStatusLayout, Converter={StaticResource BooleanToVisibilityConverter}}"
+                  MinHeight="30"
+                  Margin="2,0"
+                  UseLayoutRounding="True"
+                  SnapsToDevicePixels="True"
+                  ToolTip="{Binding ErrorMessage}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            UseLayoutRounding="True">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding State}" Value="{x:Static overlay:OverlayState.Transcribing}">
+                                    <Setter Property="RenderTransform">
+                                        <Setter.Value>
+                                            <TranslateTransform X="-0.5"/>
+                                        </Setter.Value>
+                                    </Setter>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+                    <ui:SymbolIcon Symbol="{Binding StatusIcon}"
+                                   Style="{StaticResource Overlay.StatusIcon}"/>
+                    <TextBlock Text="{Binding Message}"
+                               Style="{StaticResource Overlay.StatusText}"
+                               Margin="5,0,0,0"
+                               AutomationProperties.Name="{Binding Message}"/>
+                </StackPanel>
+                <Button Grid.Column="1"
+                        Style="{StaticResource Overlay.CircleButton}"
+                        Margin="2,0,0,0"
+                        Command="{Binding CloseCommand}"
+                        ToolTip="关闭"
+                        AutomationProperties.Name="关闭浮窗"
+                        Visibility="{Binding ShowCloseButton, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Grid Width="14" Height="14">
+                        <Path Data="M 2,2 L 12,12 M 12,2 L 2,12"
+                              Stroke="{StaticResource LessAsr.Brush.OverlayForeground}"
+                              StrokeThickness="1.8"
+                              StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round"/>
+                    </Grid>
+                </Button>
+            </Grid>
+
+            <Grid Visibility="{Binding ShowCopyLayout, Converter={StaticResource BooleanToVisibilityConverter}}">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
-                <Grid>
-                    <TextBlock Text="{Binding Message}" FontSize="15" FontWeight="SemiBold" Margin="0,4,42,0"/>
-                    <Button Style="{StaticResource LessAsr.IconButton}"
-                            Width="30" Height="30" MinWidth="30" MinHeight="30"
-                            HorizontalAlignment="Right"
-                            Focusable="False"
-                            Command="{Binding CloseCommand}"
-                            AutomationProperties.Name="关闭浮窗">
-                        <ui:SymbolIcon Symbol="Dismiss24" Width="16"/>
-                    </Button>
-                </Grid>
-                <Border Grid.Row="1" Background="{StaticResource LessAsr.Brush.AppBackground}" BorderBrush="{StaticResource LessAsr.Brush.Border}" BorderThickness="1" CornerRadius="10" Padding="10" Margin="0,10,0,0">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <ui:SymbolIcon Symbol="ClipboardError20"
+                                   Width="16"
+                                   Height="16"
+                                   Foreground="{StaticResource LessAsr.Brush.OverlayForeground}"/>
+                    <TextBlock Text="{Binding Message}"
+                               Foreground="{StaticResource LessAsr.Brush.OverlayForeground}"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               TextWrapping="NoWrap"
+                               TextTrimming="CharacterEllipsis"
+                               Margin="7,0,0,0"/>
+                </StackPanel>
+                <Border Grid.Row="1"
+                        Background="{StaticResource LessAsr.Brush.OverlaySurfaceRaised}"
+                        BorderBrush="{StaticResource LessAsr.Brush.OverlayBorder}"
+                        BorderThickness="1"
+                        CornerRadius="10"
+                        Padding="10"
+                        Margin="0,10,0,0">
                     <TextBox Text="{Binding ResultText, Mode=OneWay}"
-                             Background="Transparent"
-                             BorderThickness="0"
+                             Style="{StaticResource Overlay.CopyTextBox}"
                              TextWrapping="Wrap"
-                             MinHeight="58"
+                             MinHeight="42"
                              MaxHeight="{Binding ResultMaxHeight}"
                              IsReadOnly="True"
                              Focusable="False"
                              VerticalScrollBarVisibility="Auto"/>
                 </Border>
-                <Button Grid.Row="2"
-                        Content="复制文本"
-                        Style="{StaticResource LessAsr.PrimaryButton}"
-                        HorizontalAlignment="Right"
-                        Margin="0,10,0,0"
-                        Focusable="False"
-                        Command="{Binding CopyCommand}"/>
+                <StackPanel Grid.Row="2"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Right"
+                            Margin="0,10,0,0">
+                    <Button Content="关闭"
+                            Style="{StaticResource Overlay.CopySecondaryButton}"
+                            Command="{Binding CloseCommand}"/>
+                    <Button Style="{StaticResource Overlay.CopyPrimaryButton}"
+                            Command="{Binding CopyCommand}"
+                            Margin="8,0,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="Copy16" Width="14" Height="14"/>
+                            <TextBlock Text="复制文本" Margin="5,0,0,0"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
             </Grid>
         </Grid>
     </Border>

@@ -4,7 +4,6 @@ public enum DictationState
 {
     Idle,
     EnsuringModelReady,
-    Ready,
     Recording,
     Transcribing,
     Injecting,

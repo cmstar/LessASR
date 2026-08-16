@@ -75,7 +75,7 @@ public sealed class DictationOrchestrator
 
     public void DismissOverlay()
     {
-        if (_state is not (DictationState.Error or DictationState.ResultNeedsAction or DictationState.Ready))
+        if (_state is not (DictationState.Error or DictationState.ResultNeedsAction))
         {
             return;
         }
@@ -128,7 +128,7 @@ public sealed class DictationOrchestrator
                 return;
             }
 
-            if (_state is DictationState.Idle or DictationState.Ready or DictationState.Error or DictationState.ResultNeedsAction)
+            if (_state is DictationState.Idle or DictationState.Error or DictationState.ResultNeedsAction)
             {
                 await StartRecordingAsync(cancellationToken);
                 return;

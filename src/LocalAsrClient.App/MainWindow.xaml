@@ -749,11 +749,10 @@
                                 <TextBlock Text="浮窗状态模拟" Style="{StaticResource LessAsr.Text.SectionTitle}" Margin="0,0,0,14"/>
                                 <UniformGrid Columns="4" HorizontalAlignment="Left" Margin="0,0,-8,-8">
                                     <Button Content="模型加载中" Command="{Binding Debug.ShowLoadingCommand}" Style="{StaticResource LessAsr.DiagnosticButton}"/>
-                                    <Button Content="待录音" Command="{Binding Debug.ShowReadyCommand}" Style="{StaticResource LessAsr.DiagnosticButton}"/>
                                     <Button Content="正在聆听" Command="{Binding Debug.ShowRecordingCommand}" Style="{StaticResource LessAsr.DiagnosticButton}"/>
                                     <Button Content="识别中" Command="{Binding Debug.ShowTranscribingCommand}" Style="{StaticResource LessAsr.DiagnosticButton}"/>
                                     <Button Content="已注入" Command="{Binding Debug.ShowInjectedCommand}" Style="{StaticResource LessAsr.DiagnosticButton}"/>
-                                    <Button Content="识别结果" Command="{Binding Debug.ShowResultCommand}" Style="{StaticResource LessAsr.DiagnosticButton}"/>
+                                    <Button Content="复制文本" Command="{Binding Debug.ShowCopyTextCommand}" Style="{StaticResource LessAsr.DiagnosticButton}"/>
                                     <Button Content="错误状态" Command="{Binding Debug.ShowErrorCommand}" Style="{StaticResource LessAsr.DiagnosticButton}"/>
                                     <Button Content="隐藏浮窗" Command="{Binding Debug.HideCommand}" Style="{StaticResource LessAsr.DiagnosticButton}"/>
                                 </UniformGrid>
