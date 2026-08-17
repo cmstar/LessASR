@@ -44,7 +44,11 @@ public sealed class GlobalHotkeyListener : IHotkeyListener
         _diagnostics = diagnostics;
         _suppressesSoloPress = suppressSoloPress;
         _callback = HookCallback;
-        _gesture = new HotkeyPressGesture(virtualKeyCode, suppressSoloPress);
+        _gesture = new HotkeyPressGesture(
+            virtualKeyCode,
+            suppressSoloPress,
+            deferSuppressionUntilKeyUp: suppressSoloPress
+                && Win32HotkeyNative.IsModifierKey(virtualKeyCode));
     }
 
     public event Action? Triggered;

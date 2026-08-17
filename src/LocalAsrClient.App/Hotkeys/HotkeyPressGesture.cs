@@ -6,16 +6,21 @@ namespace LocalAsrClient.App.Hotkeys;
 internal sealed class HotkeyPressGesture
 {
     private readonly HashSet<int> _pressedKeys = [];
+    private readonly bool _deferSuppressionUntilKeyUp;
     private readonly bool _suppressSoloPress;
     private readonly int _targetVirtualKeyCode;
     private bool _isChord;
     private bool _suppressCurrentPress;
     private bool _targetPressStarted;
 
-    public HotkeyPressGesture(int targetVirtualKeyCode, bool suppressSoloPress = false)
+    public HotkeyPressGesture(
+        int targetVirtualKeyCode,
+        bool suppressSoloPress = false,
+        bool deferSuppressionUntilKeyUp = false)
     {
         _targetVirtualKeyCode = targetVirtualKeyCode;
         _suppressSoloPress = suppressSoloPress;
+        _deferSuppressionUntilKeyUp = deferSuppressionUntilKeyUp;
     }
 
     public bool ShouldSuppressCurrentEvent { get; private set; }
@@ -56,7 +61,7 @@ internal sealed class HotkeyPressGesture
                 _suppressCurrentPress = _suppressSoloPress && !_isChord;
             }
 
-            ShouldSuppressCurrentEvent = _suppressCurrentPress;
+            ShouldSuppressCurrentEvent = _suppressCurrentPress && !_deferSuppressionUntilKeyUp;
             return false;
         }
 
@@ -76,8 +81,9 @@ internal sealed class HotkeyPressGesture
             return false;
         }
 
-        ShouldSuppressCurrentEvent = _suppressCurrentPress;
         var triggered = _targetPressStarted && !_isChord;
+        ShouldSuppressCurrentEvent = _suppressCurrentPress
+            && (!_deferSuppressionUntilKeyUp || triggered);
         ResetTargetPress();
         return triggered;
     }

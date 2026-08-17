@@ -132,6 +132,27 @@ public sealed class HotkeyPressGestureTests
     }
 
     [Fact]
+    public void DeferredModifierSuppression_PassesChordAndSuppressesOnlySoloKeyUp()
+    {
+        var gesture = new HotkeyPressGesture(
+            Win32HotkeyNative.VkRMenu,
+            suppressSoloPress: true,
+            deferSuppressionUntilKeyUp: true);
+
+        gesture.Process(Win32HotkeyNative.WmSysKeyDown, Win32HotkeyNative.VkRMenu);
+        Assert.False(gesture.ShouldSuppressCurrentEvent);
+        gesture.Process(Win32HotkeyNative.WmKeyDown, OtherKey);
+        gesture.Process(Win32HotkeyNative.WmKeyUp, OtherKey);
+        Assert.False(gesture.Process(Win32HotkeyNative.WmSysKeyUp, Win32HotkeyNative.VkRMenu));
+        Assert.False(gesture.ShouldSuppressCurrentEvent);
+
+        gesture.Process(Win32HotkeyNative.WmSysKeyDown, Win32HotkeyNative.VkRMenu);
+        Assert.False(gesture.ShouldSuppressCurrentEvent);
+        Assert.True(gesture.Process(Win32HotkeyNative.WmSysKeyUp, Win32HotkeyNative.VkRMenu));
+        Assert.True(gesture.ShouldSuppressCurrentEvent);
+    }
+
+    [Fact]
     public void DictationHotkeys_UseRightAltForToggleAndRightControlForSegmentBoundary()
     {
         Assert.Equal(Win32HotkeyNative.VkRMenu, DictationHotkey.ToggleVirtualKey);
