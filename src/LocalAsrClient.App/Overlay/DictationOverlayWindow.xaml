@@ -277,7 +277,7 @@
             </Border>
 
             <Grid Grid.Row="1"
-                  Margin="2"
+                  Margin="2,0"
                   Visibility="{Binding ShowRecordingLayout, Converter={StaticResource BooleanToVisibilityConverter}}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -298,9 +298,9 @@
                 </Button>
                 <overlay:RecordingWaveform x:Name="RecordingWaveformView"
                                            Grid.Column="1"
-                                           Width="48"
                                            Height="18"
-                                           HorizontalAlignment="Center"
+                                           Margin="8,0"
+                                           HorizontalAlignment="Stretch"
                                            VerticalAlignment="Center"
                                            WaveformBrush="{StaticResource LessAsr.Brush.OverlayForeground}"/>
                 <Button Grid.Column="2"

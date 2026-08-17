@@ -94,6 +94,22 @@ public sealed class InPlaceDictationOrchestratorTests
     }
 
     [Fact]
+    public async Task CancelOrDismissAsync_BeforeFirstBoundary_CancelsImmediately()
+    {
+        var fixture = new Fixture();
+        await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+
+        await fixture.Orchestrator.CancelOrDismissAsync(CancellationToken.None);
+
+        Assert.Equal(InPlaceDictationState.Idle, fixture.LastStatus.State);
+        Assert.False(fixture.Session.IsRecordingActive);
+        Assert.False(fixture.LastStatus.HasSegmented);
+        Assert.Empty(fixture.LastStatus.Segments);
+        Assert.Equal(0, fixture.Injector.CallCount);
+        Assert.Empty(fixture.History.Entries);
+    }
+
+    [Fact]
     public async Task ToggleAsync_FromReviewing_InjectsEditedCompletedSegments()
     {
         var fixture = new Fixture();
@@ -162,6 +178,7 @@ public sealed class InPlaceDictationOrchestratorTests
 
         var finishing = fixture.Orchestrator.ToggleAsync(CancellationToken.None);
         Assert.Equal(InPlaceDictationState.Finishing, fixture.LastStatus.State);
+        Assert.Equal("识别中", fixture.LastStatus.Message);
         await fixture.Orchestrator.CancelOrDismissAsync(CancellationToken.None);
         await finishing;
 

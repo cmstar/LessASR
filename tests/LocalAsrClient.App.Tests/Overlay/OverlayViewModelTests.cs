@@ -91,6 +91,7 @@ public sealed class OverlayViewModelTests
         Assert.True(viewModel.ShowSegmentLayout);
         Assert.True(viewModel.ShowRecordingLayout);
         Assert.Equal(360, viewModel.OverlayWidth);
+        Assert.Equal(32, viewModel.OverlayMinHeight);
         Assert.Collection(
             viewModel.Segments,
             first => Assert.Equal("第一句", first.Text),

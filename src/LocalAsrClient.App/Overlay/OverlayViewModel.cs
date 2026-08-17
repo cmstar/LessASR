@@ -220,7 +220,7 @@ public sealed class OverlayViewModel : INotifyPropertyChanged
                     OverlayState.Error or OverlayState.ResultNeedsAction => 142,
                     _ => 96
                 };
-        OverlayMinHeight = needsCopy ? 148 : ShowSegmentLayout ? 96 : 32;
+        OverlayMinHeight = needsCopy ? 148 : 32;
         ResultMaxHeight = 120;
     }
 

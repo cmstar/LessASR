@@ -2,7 +2,7 @@ namespace LocalAsrClient.App.Overlay;
 
 internal sealed class WaveformHistory
 {
-    public const int DefaultBarCount = 11;
+    public const int DefaultBarCount = 96;
     private readonly float[] _samples;
 
     public WaveformHistory(int barCount = DefaultBarCount)

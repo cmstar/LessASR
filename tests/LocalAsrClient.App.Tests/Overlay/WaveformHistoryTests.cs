@@ -5,11 +5,11 @@ namespace LocalAsrClient.App.Tests.Overlay;
 public sealed class WaveformHistoryTests
 {
     [Fact]
-    public void NewHistory_HasElevenSilentBars()
+    public void NewHistory_HasEnoughSilentBarsForExpandedRecordingRow()
     {
         var history = new WaveformHistory();
 
-        Assert.Equal(11, history.Samples.Count);
+        Assert.Equal(96, history.Samples.Count);
         Assert.All(history.Samples, sample => Assert.Equal(0, sample));
     }
 

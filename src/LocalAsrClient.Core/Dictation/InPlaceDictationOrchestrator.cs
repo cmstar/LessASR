@@ -127,6 +127,14 @@ public sealed class InPlaceDictationOrchestrator : IDisposable
         {
             if (_state == InPlaceDictationState.Recording)
             {
+                if (!_hasSegmented)
+                {
+                    await _session.TerminateAsync(cancellationToken);
+                    _state = InPlaceDictationState.Idle;
+                    Publish("已取消");
+                    return;
+                }
+
                 await _session.CancelCurrentSegmentAsync(cancellationToken);
                 _state = InPlaceDictationState.Reviewing;
                 Publish("检查已识别内容，再按一次 Esc 取消");
@@ -211,7 +219,7 @@ public sealed class InPlaceDictationOrchestrator : IDisposable
         _finishingCts = finishingCts;
         var finishingToken = finishingCts.Token;
         _state = InPlaceDictationState.Finishing;
-        Publish("正在完成听写...");
+        Publish("识别中");
 
         try
         {

@@ -27,11 +27,12 @@ public sealed class InjectionTargetCapture
         _ = _diagnostics.WriteAsync(CreateEvent("InjectionTargetCapture.Before", null));
 
         var foreground = Win32FocusNative.GetForegroundWindow();
-        if (foreground == IntPtr.Zero || BelongsToCurrentProcess(foreground))
+        var foregroundClassName = EditableFocusDetector.GetClassName(foreground);
+        if (foreground == IntPtr.Zero
+            || BelongsToCurrentProcess(foreground)
+            || InjectionTargetPolicy.IsDesktopShellClassName(foregroundClassName))
         {
-            ForegroundWindow = IntPtr.Zero;
-            FocusWindow = IntPtr.Zero;
-            RawFocusWindow = IntPtr.Zero;
+            Clear();
             WriteAfterEvent();
             return;
         }
@@ -50,7 +51,7 @@ public sealed class InjectionTargetCapture
         RawFocusWindow = IntPtr.Zero;
     }
 
-    public bool HasCapturedTarget => ForegroundWindow != IntPtr.Zero;
+    public bool HasCapturedTarget => GetRootWindow() != IntPtr.Zero;
 
     public IntPtr GetInjectionTarget()
     {
@@ -70,13 +71,14 @@ public sealed class InjectionTargetCapture
 
     public IntPtr GetRootWindow()
     {
-        if (ForegroundWindow != IntPtr.Zero && !BelongsToCurrentProcess(ForegroundWindow))
-        {
-            return ForegroundWindow;
-        }
-
-        var foreground = Win32FocusNative.GetForegroundWindow();
-        return BelongsToCurrentProcess(foreground) ? IntPtr.Zero : foreground;
+        var capturedWindow = ForegroundWindow;
+        return InjectionTargetPolicy.CanUseCapturedRoot(
+            hasCapturedWindow: capturedWindow != IntPtr.Zero,
+            capturedWindowExists: Win32FocusNative.IsWindow(capturedWindow),
+            belongsToCurrentProcess: BelongsToCurrentProcess(capturedWindow),
+            rootClassName: EditableFocusDetector.GetClassName(capturedWindow))
+            ? capturedWindow
+            : IntPtr.Zero;
     }
 
     private void WriteAfterEvent()

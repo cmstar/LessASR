@@ -10,6 +10,8 @@ namespace LocalAsrClient.App.Overlay;
 
 internal sealed class RecordingWaveform : FrameworkElement
 {
+    private const double PreferredBarSpacing = 4;
+
     public static readonly DependencyProperty WaveformBrushProperty = DependencyProperty.Register(
         nameof(WaveformBrush),
         typeof(Brush),
@@ -86,20 +88,25 @@ internal sealed class RecordingWaveform : FrameworkElement
         drawingContext.Pop();
 
         var samples = _history.Samples;
-        var spacing = samples.Count > 1 ? (right - left) / (samples.Count - 1) : 0;
+        var visibleBarCount = Math.Clamp(
+            (int)Math.Floor((right - left) / PreferredBarSpacing) + 1,
+            1,
+            samples.Count);
+        var firstVisibleIndex = samples.Count - visibleBarCount;
+        var spacing = visibleBarCount > 1 ? (right - left) / (visibleBarCount - 1) : 0;
         var maximumHalfHeight = Math.Max(1, Math.Min(8, (ActualHeight - 2) / 2));
         var barPen = CreatePen(WaveformBrush, 1.5);
 
-        for (var index = 0; index < samples.Count; index++)
+        for (var visibleIndex = 0; visibleIndex < visibleBarCount; visibleIndex++)
         {
-            var level = samples[index];
+            var level = samples[firstVisibleIndex + visibleIndex];
             if (level <= 0)
             {
                 continue;
             }
 
             var halfHeight = 1 + (Math.Pow(level, 0.72) * (maximumHalfHeight - 1));
-            var x = left + (index * spacing);
+            var x = left + (visibleIndex * spacing);
             drawingContext.DrawLine(
                 barPen,
                 new Point(x, centerY - halfHeight),
