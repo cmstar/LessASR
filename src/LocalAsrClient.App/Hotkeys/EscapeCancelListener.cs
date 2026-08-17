@@ -8,8 +8,8 @@ public sealed class EscapeCancelListener : IDisposable
 {
     private readonly Win32HotkeyNative.LowLevelKeyboardProc _callback;
     private readonly Func<bool> _canCancel;
+    private readonly HotkeyPressGesture _gesture = new(Win32HotkeyNative.VkEscape);
     private IntPtr _hook;
-    private bool _isDown;
 
     public EscapeCancelListener(Func<bool> canCancel)
     {
@@ -46,7 +46,7 @@ public sealed class EscapeCancelListener : IDisposable
             _hook = IntPtr.Zero;
         }
 
-        _isDown = false;
+        _gesture.Reset();
     }
 
     public void Dispose()
@@ -60,18 +60,9 @@ public sealed class EscapeCancelListener : IDisposable
         {
             var message = wParam.ToInt32();
             var data = Marshal.PtrToStructure<Win32HotkeyNative.KbdLlHookStruct>(lParam);
-            if ((message == Win32HotkeyNative.WmKeyDown || message == Win32HotkeyNative.WmSysKeyDown)
-                && data.VkCode == Win32HotkeyNative.VkEscape)
+            if (_gesture.Process(message, data.VkCode) && _canCancel())
             {
-                if (!_isDown && _canCancel())
-                {
-                    _isDown = true;
-                    CancelRequested?.Invoke();
-                }
-            }
-            else if (data.VkCode == Win32HotkeyNative.VkEscape)
-            {
-                _isDown = false;
+                CancelRequested?.Invoke();
             }
         }
 

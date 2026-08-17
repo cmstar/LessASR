@@ -51,8 +51,8 @@ OpenAI-compatible API (远程进程或服务)
 
 ### 单句听写
 
-1. 用户按下右 Ctrl（连续窗口未开）→ 捕获输入焦点 → `IHotkeyListener` 通知 `DictationOrchestrator`。
-2. 再次按下或超时 → 停止 `IAudioRecorder`，获得 WAV 数据。
+1. 用户单独按下并释放右 Ctrl（连续窗口未开，期间未按其他键）→ 捕获输入焦点 → `IHotkeyListener` 通知 `DictationOrchestrator`。
+2. 再次单独按下并释放或超时 → 停止 `IAudioRecorder`，获得 WAV 数据。
 3. Core 从最新设置取得语言，并通过 `IVocabularyRepository` 查询当前使用中的词汇表，构造可选 prompt；`SwitchableAsrBackend` 将请求路由到唯一的当前服务。本地后端确保 whisper-server 就绪；远程后端校验配置后直接调用用户填写的完整端点。
 4. 识别文本经 `TranscriptionScriptPostProcessor`（简繁 OpenCC；简中 / 繁中时规范化 CJK 标点）后由 `ITextInjector` 注入。
 5. 注入失败时进入 `ResultNeedsAction`，浮窗展示结果供复制。
@@ -60,8 +60,8 @@ OpenAI-compatible API (远程进程或服务)
 
 ### 连续听写
 
-1. 用户按下 F9 → `ContinuousDictationCoordinator` 创建或激活 `ContinuousDictationWindow`，启动 `ContinuousDictationSession` 录制状态。
-2. 右 Ctrl（连续窗口已开）→ Coordinator 通知 Session 分段：当前段入 FIFO 转写队列，新建 WaitingInput，录音不中断。
+1. 用户单独按下并释放 F9 → `ContinuousDictationCoordinator` 创建或激活 `ContinuousDictationWindow`，启动 `ContinuousDictationSession` 录制状态。
+2. 用户单独按下并释放右 Ctrl（连续窗口已开）→ Coordinator 通知 Session 分段：当前段入 FIFO 转写队列，新建 WaitingInput，录音不中断。
 3. Session 串行消费队列（最大 50 段）→ 每段经 `TranscriptionPipeline`（读取最新语言和当前使用中的词汇表 → ASR → 后处理）→ 段状态更新为 Completed / Failed，并写入 `IStatsRepository`。
 4. 识别结果通过 ViewModel 绑定回填至 `ContinuousDictationWindow` 对应段 TextBox；Completed 段可编辑。
 5. 关窗时 Coordinator 合并所有 Completed 段（`\n` 拼接，含用户编辑）写入一条 `ITextHistoryRepository`；「终止」清空会话且不写历史。

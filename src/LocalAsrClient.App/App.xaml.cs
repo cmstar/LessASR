@@ -43,8 +43,10 @@ public partial class App : System.Windows.Application
                 return;
             }
 
-            _services.HotkeyListener.Start();
             _services.ContinuousDictationHotkeyListener.Start();
+            // Start the modifier listener last so it observes any dedicated hotkey
+            // messages before another low-level hook suppresses a solo key press.
+            _services.HotkeyListener.Start();
             _services.EscapeCancelListener.Start();
         }
         catch (Exception ex)

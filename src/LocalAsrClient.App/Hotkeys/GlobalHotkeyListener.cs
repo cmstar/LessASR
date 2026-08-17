@@ -10,8 +10,8 @@ public sealed class GlobalHotkeyListener : IHotkeyListener
     private readonly int _virtualKeyCode;
     private readonly IDiagnosticEventSink _diagnostics;
     private readonly Win32HotkeyNative.LowLevelKeyboardProc _callback;
+    private readonly HotkeyPressGesture _gesture;
     private IntPtr _hook;
-    private bool _isDown;
 
     public GlobalHotkeyListener(int virtualKeyCode)
         : this(virtualKeyCode, NullDiagnosticEventSink.Instance)
@@ -23,6 +23,9 @@ public sealed class GlobalHotkeyListener : IHotkeyListener
         _virtualKeyCode = virtualKeyCode;
         _diagnostics = diagnostics;
         _callback = HookCallback;
+        _gesture = new HotkeyPressGesture(
+            virtualKeyCode,
+            suppressSoloPress: !Win32HotkeyNative.IsModifierKey(virtualKeyCode));
     }
 
     public event Action? Triggered;
@@ -53,7 +56,7 @@ public sealed class GlobalHotkeyListener : IHotkeyListener
             _hook = IntPtr.Zero;
         }
 
-        _isDown = false;
+        _gesture.Reset();
     }
 
     public void Dispose()
@@ -67,25 +70,15 @@ public sealed class GlobalHotkeyListener : IHotkeyListener
         {
             var message = wParam.ToInt32();
             var data = Marshal.PtrToStructure<Win32HotkeyNative.KbdLlHookStruct>(lParam);
-            if (data.VkCode == _virtualKeyCode)
+            if (_gesture.Process(message, data.VkCode))
             {
-                if (message is Win32HotkeyNative.WmKeyDown or Win32HotkeyNative.WmSysKeyDown)
-                {
-                    if (!_isDown)
-                    {
-                        _isDown = true;
-                        _ = _diagnostics.WriteAsync(CreateTriggeredEvent(message, data));
-                        Triggered?.Invoke();
-                    }
+                _ = _diagnostics.WriteAsync(CreateTriggeredEvent(message, data));
+                Triggered?.Invoke();
+            }
 
-                    return (IntPtr)1;
-                }
-
-                if (message is Win32HotkeyNative.WmKeyUp or Win32HotkeyNative.WmSysKeyUp)
-                {
-                    _isDown = false;
-                    return (IntPtr)1;
-                }
+            if (data.VkCode == _virtualKeyCode && _gesture.ShouldSuppressCurrentEvent)
+            {
+                return (IntPtr)1;
             }
         }
 

@@ -45,6 +45,7 @@ tests/LocalAsrClient.Core.Tests/
 
 - Core 项目不得引用 WPF、WinForms 或 NAudio。
 - Win32 interop 仅存在于 `LocalAsrClient.App`。
+- 全局热键在目标键完整按下并释放后触发；按键期间若有其他键参与则整次手势作废，修饰键热键必须继续传递给前台应用以保留组合键功能。
 
 ## 编码约定
 
