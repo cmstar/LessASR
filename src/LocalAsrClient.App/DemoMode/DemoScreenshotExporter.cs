@@ -52,13 +52,37 @@ public static class DemoScreenshotExporter
             Path.Combine(outputDirectory, "settings.png"),
             cancellationToken);
 
+        await PopulateInPlaceDictationAsync(services, cancellationToken);
+        await WaitForLayoutAsync(services.OverlayWindow, cancellationToken);
+        CaptureVisual(
+            services.OverlayWindow,
+            Path.Combine(outputDirectory, "in-place-dictation.png"));
+        await services.InPlaceOrchestrator.CancelOrDismissAsync(cancellationToken);
+        await services.InPlaceOrchestrator.CancelOrDismissAsync(cancellationToken);
+
         await PopulateContinuousDictationAsync(services, cancellationToken);
         var continuousWindow = services.ContinuousDictationCoordinator.CurrentWindow
-            ?? throw new InvalidOperationException("连续听写演示窗口没有成功打开。");
+            ?? throw new InvalidOperationException("独立听写演示窗口没有成功打开。");
         await WaitForLayoutAsync(continuousWindow, cancellationToken);
         CaptureVisual(
             continuousWindow,
-            Path.Combine(outputDirectory, "continuous-dictation.png"));
+            Path.Combine(outputDirectory, "independent-dictation.png"));
+    }
+
+    private static async Task PopulateInPlaceDictationAsync(
+        AppServices services,
+        CancellationToken cancellationToken)
+    {
+        var session = services.InPlaceDictationSession;
+        await services.InPlaceOrchestrator.ToggleAsync(cancellationToken);
+        for (var targetCompleted = 1; targetCompleted <= 2; targetCompleted++)
+        {
+            await WaitForSnapshotAfterAsync(
+                session,
+                () => services.InPlaceOrchestrator.CommitSegmentBoundaryAsync(cancellationToken),
+                snapshot => snapshot.CompletedCount >= targetCompleted,
+                cancellationToken);
+        }
     }
 
     private static async Task CaptureMainSectionAsync(

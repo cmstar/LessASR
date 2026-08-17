@@ -2,7 +2,7 @@ namespace LocalAsrClient.App.Tests.E2E;
 
 public static class DiagnosticLogReader
 {
-    public static string GetNewestDiagnosticsFile()
+    public static string GetNewestDiagnosticsFile(DateTimeOffset? notBefore = null)
     {
         var directory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
@@ -11,6 +11,8 @@ public static class DiagnosticLogReader
 
         var file = Directory
             .EnumerateFiles(directory, "diagnostics-*.jsonl")
+            .Where(path => notBefore is null
+                || File.GetLastWriteTimeUtc(path) >= notBefore.Value.UtcDateTime)
             .OrderByDescending(File.GetLastWriteTimeUtc)
             .FirstOrDefault();
 

@@ -23,7 +23,8 @@ $expectedScreenshots = @{
     'services.png' = @(1040, 760)
     'services-remote.png' = @(1040, 760)
     'settings.png' = @(1040, 760)
-    'continuous-dictation.png' = @(560, 680)
+    'in-place-dictation.png' = @(360, 150)
+    'independent-dictation.png' = @(560, 560)
 }
 
 Add-Type -AssemblyName System.Drawing

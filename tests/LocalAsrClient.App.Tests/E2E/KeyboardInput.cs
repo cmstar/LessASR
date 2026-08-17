@@ -5,14 +5,20 @@ namespace LocalAsrClient.App.Tests.E2E;
 
 public static class KeyboardInput
 {
-    private const ushort VirtualKeyRightControl = 0xA3;
+    // SendInput 使用通用修饰键 VK，KEYEVENTF_EXTENDEDKEY 决定右侧按键。
+    private const ushort VirtualKeyRightControl = 0x11;
+    private const ushort VirtualKeyRightAlt = 0x12;
 
-    public static void PressRightControl()
+    public static void PressRightControl() => Press(VirtualKeyRightControl);
+
+    public static void PressRightAlt() => Press(VirtualKeyRightAlt);
+
+    private static void Press(ushort virtualKey)
     {
         var inputs = new[]
         {
-            Create(VirtualKeyRightControl, keyUp: false),
-            Create(VirtualKeyRightControl, keyUp: true)
+            Create(virtualKey, keyUp: false),
+            Create(virtualKey, keyUp: true)
         };
 
         var sent = Win32InputNative.SendInput(
@@ -35,7 +41,8 @@ public static class KeyboardInput
             KeyboardInput = new Win32InputNative.KeyboardInput
             {
                 VirtualKey = virtualKey,
-                Flags = keyUp ? Win32InputNative.KeyEventFKeyUp : (ushort)0
+                Flags = (uint)(Win32InputNative.KeyEventFExtendedKey
+                    | (keyUp ? Win32InputNative.KeyEventFKeyUp : 0))
             }
         }
     };

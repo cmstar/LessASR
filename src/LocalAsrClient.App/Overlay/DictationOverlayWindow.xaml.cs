@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Interop;
 using LocalAsrClient.App.Diagnostics;
 using LocalAsrClient.App.TextInjection;
+using LocalAsrClient.Core.Dictation;
 
 namespace LocalAsrClient.App.Overlay;
 
@@ -21,6 +22,7 @@ public partial class DictationOverlayWindow : Window
     private readonly LoopingWaveformPreview _waveformPreview = new();
     private OverlayFocusSnapshot _focusSnapshotBeforeShow;
     private System.Windows.Threading.DispatcherTimer? _waveformPreviewTimer;
+    private bool _isReviewMode;
 
     public DictationOverlayWindow()
         : this(NullDiagnosticEventSink.Instance)
@@ -30,7 +32,7 @@ public partial class DictationOverlayWindow : Window
     public DictationOverlayWindow(IDiagnosticEventSink diagnostics)
     {
         _diagnostics = diagnostics;
-        _viewModel = new OverlayViewModel(OnCloseRequested, OnSubmitRequested);
+        _viewModel = new OverlayViewModel(OnCloseRequested, OnSubmitRequested, OnSegmentTextChanged);
         InitializeComponent();
         DataContext = _viewModel;
         _interopHelper = new WindowInteropHelper(this);
@@ -45,6 +47,8 @@ public partial class DictationOverlayWindow : Window
     public event Action? CloseRequested;
 
     public event Action? SubmitRequested;
+
+    public event Action<Guid, string>? SegmentTextChanged;
 
     public void SetRecordingLevel(float level)
     {
@@ -87,6 +91,7 @@ public partial class DictationOverlayWindow : Window
 
     public void ShowOverlay(OverlayState state, string message, string resultText = "", string? errorMessage = null)
     {
+        _isReviewMode = false;
         StopWaveformPreview();
         _focusSnapshotBeforeShow = OverlayFocusGuard.Capture();
         _ = _diagnostics.WriteAsync(CreateEvent("Overlay.Show.Before", state));
@@ -102,8 +107,48 @@ public partial class DictationOverlayWindow : Window
         _ = _diagnostics.WriteAsync(CreateEvent("Overlay.Show.After", state));
     }
 
+    public void ApplyInPlaceStatus(InPlaceDictationStatus status)
+    {
+        StopWaveformPreview();
+        var overlayState = ToOverlayState(status.State);
+        _ = _diagnostics.WriteAsync(CreateEvent("Overlay.Show.Before", overlayState));
+        var enteringReview = status.State == InPlaceDictationState.Reviewing && !_isReviewMode;
+        _isReviewMode = status.State == InPlaceDictationState.Reviewing;
+        if (!_isReviewMode)
+        {
+            _focusSnapshotBeforeShow = OverlayFocusGuard.Capture();
+        }
+
+        _viewModel.ApplyInPlaceStatus(status);
+        ApplyHeightConstraints();
+        if (_isReviewMode)
+        {
+            ShowForReview(enteringReview);
+        }
+        else
+        {
+            ShowWithoutActivation();
+        }
+
+        UpdateLayout();
+        PositionBottomCenterNoActivate();
+        if (!_isReviewMode)
+        {
+            OverlayFocusGuard.RestoreIfChanged(_focusSnapshotBeforeShow, _interopHelper.Handle);
+        }
+
+        Dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.Loaded,
+            () => InPlaceSegmentScrollViewer.ScrollToEnd());
+        _ = _diagnostics.WriteAsync(CreateEvent("Overlay.Show.After", overlayState));
+    }
+
     public void HideOverlay()
     {
+        _isReviewMode = false;
+        Focusable = false;
+        ShowActivated = false;
+        ConfigureNoActivateStyle(_interopHelper.Handle);
         StopWaveformPreview();
         RecordingWaveformView.Reset();
         var handle = _interopHelper.Handle;
@@ -115,13 +160,17 @@ public partial class DictationOverlayWindow : Window
 
     private void OnCloseRequested()
     {
-        HideOverlay();
         CloseRequested?.Invoke();
     }
 
     private void OnSubmitRequested()
     {
         SubmitRequested?.Invoke();
+    }
+
+    private void OnSegmentTextChanged(Guid segmentId, string text)
+    {
+        SegmentTextChanged?.Invoke(segmentId, text);
     }
 
     private void OnWaveformPreviewTick(object? sender, EventArgs e)
@@ -150,12 +199,17 @@ public partial class DictationOverlayWindow : Window
     protected override void OnActivated(EventArgs e)
     {
         base.OnActivated(e);
-        OverlayFocusGuard.RestoreIfChanged(_focusSnapshotBeforeShow, _interopHelper.Handle);
+        if (!_isReviewMode)
+        {
+            OverlayFocusGuard.RestoreIfChanged(_focusSnapshotBeforeShow, _interopHelper.Handle);
+        }
     }
 
     private void ShowWithoutActivation()
     {
         var handle = _interopHelper.Handle;
+        Focusable = false;
+        ShowActivated = false;
         ConfigureNoActivateStyle(handle);
         Visibility = Visibility.Visible;
         if (!IsVisible)
@@ -165,6 +219,24 @@ public partial class DictationOverlayWindow : Window
 
         ShowWindow(handle, SwShownoactivate);
         EnsureTopmostNoActivate(handle);
+    }
+
+    private void ShowForReview(bool activate)
+    {
+        var handle = _interopHelper.Handle;
+        ConfigureActivateStyle(handle);
+        Focusable = true;
+        ShowActivated = true;
+        Visibility = Visibility.Visible;
+        if (!IsVisible)
+        {
+            Show();
+        }
+
+        if (activate)
+        {
+            Activate();
+        }
     }
 
     private void PrimeLayoutWithoutActivation()
@@ -183,6 +255,12 @@ public partial class DictationOverlayWindow : Window
         SetWindowLong(handle, GwlExStyle, styles | WsExNoActivate | WsExToolWindow);
     }
 
+    private static void ConfigureActivateStyle(IntPtr handle)
+    {
+        var styles = GetWindowLong(handle, GwlExStyle);
+        SetWindowLong(handle, GwlExStyle, (styles | WsExToolWindow) & ~WsExNoActivate);
+    }
+
     private void ApplyHeightConstraints()
     {
         if (!_viewModel.ShowCopyLayout)
@@ -199,7 +277,7 @@ public partial class DictationOverlayWindow : Window
     {
         var area = SystemParameters.WorkArea;
 
-        Left = area.Left + (area.Width - Width) / 2;
+        Left = area.Left + (area.Width - ActualWidth) / 2;
         Top = area.Bottom - ActualHeight - BottomMargin;
 
         if (Top < area.Top + TopMargin)
@@ -265,6 +343,17 @@ public partial class DictationOverlayWindow : Window
             DiagnosticSnapshotCollector.Capture(),
             new Dictionary<string, string?>());
     }
+
+    private static OverlayState ToOverlayState(InPlaceDictationState state) => state switch
+    {
+        InPlaceDictationState.EnsuringModelReady => OverlayState.LoadingModel,
+        InPlaceDictationState.Recording => OverlayState.Recording,
+        InPlaceDictationState.Reviewing => OverlayState.Reviewing,
+        InPlaceDictationState.Finishing or InPlaceDictationState.Injecting => OverlayState.Transcribing,
+        InPlaceDictationState.ResultNeedsAction => OverlayState.ResultNeedsAction,
+        InPlaceDictationState.Error => OverlayState.Error,
+        _ => OverlayState.Injected
+    };
 
     private const int SwHide = 0;
 

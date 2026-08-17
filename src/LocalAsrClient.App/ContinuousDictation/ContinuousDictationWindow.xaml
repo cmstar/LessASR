@@ -4,7 +4,7 @@
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         xmlns:infra="clr-namespace:LocalAsrClient.App.Infrastructure"
         xmlns:dictation="clr-namespace:LocalAsrClient.Core.Dictation;assembly=LocalAsrClient.Core"
-        Title="连续听写"
+        Title="独立听写"
         Topmost="True"
         ShowInTaskbar="True"
         ShowActivated="True"
@@ -60,7 +60,7 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <ui:TitleBar Title="连续听写" Padding="12,0,0,0"/>
+        <ui:TitleBar Title="独立听写" Padding="12,0,0,0"/>
 
         <Border Grid.Row="1"
                 Background="{StaticResource LessAsr.Brush.CardBackground}"

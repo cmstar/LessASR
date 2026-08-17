@@ -30,7 +30,7 @@ public sealed class MainViewModel
             services,
             ConfirmHistoryRetentionCleanup);
         Debug = new DebugViewModel(services);
-        _services.Orchestrator.StatusChanged += OnDictationStatusChanged;
+        _services.InPlaceOrchestrator.StatusChanged += OnDictationStatusChanged;
         _services.HistoryRepository.Changed += OnHistoryChanged;
         Navigation.PropertyChanged += (_, args) =>
         {
@@ -124,22 +124,17 @@ public sealed class MainViewModel
                 Tone = ConfirmationDialogTone.Destructive
             });
 
-    private void OnDictationStatusChanged(DictationStatus status)
+    private void OnDictationStatusChanged(InPlaceDictationStatus status)
     {
         System.Windows.Application.Current.Dispatcher.Invoke(() =>
         {
             Status.Apply(status);
-            var overlayState = ToOverlayState(status.State);
-            _services.OverlayWindow.ShowOverlay(
-                overlayState,
-                status.Message,
-                status.ResultText ?? "",
-                status.ErrorMessage);
+            _services.OverlayWindow.ApplyInPlaceStatus(status);
 
-            if (status.State == DictationState.Idle && status.Message is "已输入" or "已取消")
+            if (status.State == InPlaceDictationState.Idle && status.Message is "已写入" or "已取消")
             {
                 _services.InjectionTargetCapture.Clear();
-                if (status.Message == "已输入")
+                if (status.Message == "已写入")
                 {
                     var timer = new System.Windows.Threading.DispatcherTimer
                     {
@@ -158,20 +153,6 @@ public sealed class MainViewModel
                 }
             }
         });
-    }
-
-    private static OverlayState ToOverlayState(DictationState state)
-    {
-        return state switch
-        {
-            DictationState.EnsuringModelReady => OverlayState.LoadingModel,
-            DictationState.Recording => OverlayState.Recording,
-            DictationState.Transcribing => OverlayState.Transcribing,
-            DictationState.Injecting => OverlayState.Transcribing,
-            DictationState.ResultNeedsAction => OverlayState.ResultNeedsAction,
-            DictationState.Error => OverlayState.Error,
-            _ => OverlayState.Injected
-        };
     }
 
     private void OnHistoryChanged()

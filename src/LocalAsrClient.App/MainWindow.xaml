@@ -179,16 +179,18 @@
                                             <TextBlock Text="{Binding Services.PrivacyNoticeText}" Foreground="{StaticResource LessAsr.Brush.Accent}" Margin="6,0,0,0"/>
                                         </StackPanel>
                                     </Border>
-                                    <TextBlock Text="按右 Ctrl 开始听写" FontSize="24" FontWeight="SemiBold" Margin="0,16,0,6"/>
-                                    <TextBlock Text="再按一次结束录音，识别文字会自动写入当前输入框。" Style="{StaticResource LessAsr.Text.Secondary}"/>
-                                    <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
+                                    <TextBlock Text="按右 Alt 开始就地听写" FontSize="24" FontWeight="SemiBold" Margin="0,16,0,6"/>
+                                    <TextBlock Text="完成后写入当前光标位置；录音中按右 Ctrl 可立即开始下一段。" Style="{StaticResource LessAsr.Text.Secondary}"/>
+                                    <WrapPanel Margin="0,18,0,0">
+                                        <Border Style="{StaticResource LessAsr.Keycap}"><TextBlock Text="Right Alt" FontWeight="SemiBold"/></Border>
+                                        <TextBlock Text="就地听写" Style="{StaticResource LessAsr.Text.Secondary}" Margin="8,0,16,0" VerticalAlignment="Center"/>
                                         <Border Style="{StaticResource LessAsr.Keycap}"><TextBlock Text="Right Ctrl" FontWeight="SemiBold"/></Border>
-                                        <TextBlock Text="单句听写" Style="{StaticResource LessAsr.Text.Secondary}" Margin="8,0,16,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="下一段" Style="{StaticResource LessAsr.Text.Secondary}" Margin="8,0,16,0" VerticalAlignment="Center"/>
                                         <Border Style="{StaticResource LessAsr.Keycap}"><TextBlock Text="F9" FontWeight="SemiBold"/></Border>
-                                        <TextBlock Text="连续听写" Style="{StaticResource LessAsr.Text.Secondary}" Margin="8,0,16,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="独立听写" Style="{StaticResource LessAsr.Text.Secondary}" Margin="8,0,16,0" VerticalAlignment="Center"/>
                                         <Border Style="{StaticResource LessAsr.Keycap}"><TextBlock Text="Esc" FontWeight="SemiBold"/></Border>
-                                        <TextBlock Text="取消录音" Style="{StaticResource LessAsr.Text.Secondary}" Margin="8,0,0,0" VerticalAlignment="Center"/>
-                                    </StackPanel>
+                                        <TextBlock Text="停止 / 取消" Style="{StaticResource LessAsr.Text.Secondary}" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                    </WrapPanel>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1"
                                             Orientation="Horizontal"

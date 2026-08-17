@@ -109,9 +109,36 @@ public sealed class HotkeyPressGestureTests
     }
 
     [Fact]
-    public void RightControl_IsModifierButF9IsNot()
+    public void SuppressedRightAltGesture_LeavesAltGrChordUntouched()
     {
+        var gesture = new HotkeyPressGesture(Win32HotkeyNative.VkRMenu, suppressSoloPress: true);
+
+        gesture.Process(Win32HotkeyNative.WmKeyDown, Win32HotkeyNative.VkLControl);
+        gesture.Process(Win32HotkeyNative.WmSysKeyDown, Win32HotkeyNative.VkRMenu);
+        Assert.False(gesture.ShouldSuppressCurrentEvent);
+
+        Assert.False(gesture.Process(Win32HotkeyNative.WmSysKeyUp, Win32HotkeyNative.VkRMenu));
+        Assert.False(gesture.ShouldSuppressCurrentEvent);
+    }
+
+    [Fact]
+    public void RightAltListener_CanSuppressItsSoloSystemGesture()
+    {
+        using var listener = new GlobalHotkeyListener(
+            Win32HotkeyNative.VkRMenu,
+            suppressSoloPress: true);
+
+        Assert.True(listener.SuppressesSoloPress);
+    }
+
+    [Fact]
+    public void DictationHotkeys_UseRightAltForToggleAndRightControlForSegmentBoundary()
+    {
+        Assert.Equal(Win32HotkeyNative.VkRMenu, DictationHotkey.ToggleVirtualKey);
+        Assert.Equal("右 Alt", DictationHotkey.ToggleDisplayName);
+        Assert.Equal(Win32HotkeyNative.VkRControl, InPlaceSegmentHotkey.VirtualKey);
         Assert.True(Win32HotkeyNative.IsModifierKey(Win32HotkeyNative.VkRControl));
+        Assert.True(Win32HotkeyNative.IsModifierKey(Win32HotkeyNative.VkRMenu));
         Assert.False(Win32HotkeyNative.IsModifierKey(Win32HotkeyNative.VkF9));
     }
 }

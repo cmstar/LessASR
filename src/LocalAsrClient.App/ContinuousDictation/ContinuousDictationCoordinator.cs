@@ -130,7 +130,7 @@ public sealed class ContinuousDictationCoordinator : IDisposable
         }
         catch (Exception ex)
         {
-            AppExceptionLogger.Report(ex, "F9 连续听写处理失败", showDialog: false);
+            AppExceptionLogger.Report(ex, "F9 独立听写处理失败", showDialog: false);
             await System.Windows.Application.Current.Dispatcher.InvokeAsync(
                 () => _viewModel?.SetBanner($"{ContinuousDictationStrings.PlaceholderFailedPrefix}：{ex.Message}"));
         }
@@ -191,7 +191,7 @@ public sealed class ContinuousDictationCoordinator : IDisposable
         }
         catch (Exception ex)
         {
-            AppExceptionLogger.Report(ex, "连续听写关窗处理失败", showDialog: false);
+            AppExceptionLogger.Report(ex, "独立听写关窗处理失败", showDialog: false);
         }
     }
 
@@ -213,7 +213,7 @@ public sealed class ContinuousDictationCoordinator : IDisposable
         }
         catch (Exception ex)
         {
-            AppExceptionLogger.Report(ex, "连续听写会话操作失败", showDialog: false);
+            AppExceptionLogger.Report(ex, "独立听写会话操作失败", showDialog: false);
         }
     }
 

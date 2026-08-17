@@ -61,11 +61,15 @@ public sealed class AppServices : IAsyncDisposable
 
         IHotkeyListener hotkeyListener,
 
+        GlobalHotkeyListener inPlaceSegmentHotkeyListener,
+
         GlobalHotkeyListener continuousDictationHotkeyListener,
 
         EscapeCancelListener escapeCancelListener,
 
-        DictationOrchestrator orchestrator,
+        InPlaceDictationOrchestrator inPlaceOrchestrator,
+
+        ContinuousDictationSession inPlaceDictationSession,
 
         ContinuousDictationCoordinator continuousDictationCoordinator,
 
@@ -107,11 +111,15 @@ public sealed class AppServices : IAsyncDisposable
 
         HotkeyListener = hotkeyListener;
 
+        InPlaceSegmentHotkeyListener = inPlaceSegmentHotkeyListener;
+
         ContinuousDictationHotkeyListener = continuousDictationHotkeyListener;
 
         EscapeCancelListener = escapeCancelListener;
 
-        Orchestrator = orchestrator;
+        InPlaceOrchestrator = inPlaceOrchestrator;
+
+        InPlaceDictationSession = inPlaceDictationSession;
 
         ContinuousDictationCoordinator = continuousDictationCoordinator;
 
@@ -155,11 +163,15 @@ public sealed class AppServices : IAsyncDisposable
 
     public IHotkeyListener HotkeyListener { get; }
 
+    public GlobalHotkeyListener InPlaceSegmentHotkeyListener { get; }
+
     public GlobalHotkeyListener ContinuousDictationHotkeyListener { get; }
 
     public EscapeCancelListener EscapeCancelListener { get; }
 
-    public DictationOrchestrator Orchestrator { get; }
+    public InPlaceDictationOrchestrator InPlaceOrchestrator { get; }
+
+    public ContinuousDictationSession InPlaceDictationSession { get; }
 
     public ContinuousDictationCoordinator ContinuousDictationCoordinator { get; }
 
@@ -189,10 +201,7 @@ public sealed class AppServices : IAsyncDisposable
 
     public bool IsDemoMode => StartupOptions.IsDemoMode;
 
-    public bool IsDictationBusy => Orchestrator.State is DictationState.Recording
-        or DictationState.Transcribing
-        or DictationState.Injecting
-        or DictationState.EnsuringModelReady
+    public bool IsDictationBusy => InPlaceOrchestrator.IsBusy
         || ContinuousDictationSession.IsBusy;
 
 
@@ -309,6 +318,11 @@ public sealed class AppServices : IAsyncDisposable
             transcriptionPipeline,
             activityGate);
 
+        var inPlaceSession = new ContinuousDictationSession(
+            singleRecorder,
+            transcriptionPipeline,
+            activityGate);
+
         var continuousCoordinator = new ContinuousDictationCoordinator(
             continuousSession,
             historyRepository,
@@ -328,31 +342,22 @@ public sealed class AppServices : IAsyncDisposable
             audioLevelSource.AudioLevelChanged += overlayWindow.SetRecordingLevel;
         }
 
-        var hotkeyListener = new GlobalHotkeyListener(DictationHotkey.ToggleVirtualKey, diagnosticSink);
+        var hotkeyListener = new GlobalHotkeyListener(
+            DictationHotkey.ToggleVirtualKey,
+            diagnosticSink,
+            suppressSoloPress: true);
+
+        var segmentListener = new GlobalHotkeyListener(InPlaceSegmentHotkey.VirtualKey, diagnosticSink);
 
         var f9Listener = new GlobalHotkeyListener(ContinuousDictationHotkey.ToggleVirtualKey, diagnosticSink);
 
-        var orchestrator = new DictationOrchestrator(
-
-            singleRecorder,
-
+        var inPlaceOrchestrator = new InPlaceDictationOrchestrator(
+            inPlaceSession,
             backend,
-
             injector,
-
-            statsRepository,
-
             historyRepository,
-
             settingsStore,
-
-            vocabularyRepository,
-
-            clock,
-
-            new TranscriptionScriptPostProcessor(settingsStore),
-
-            activityGate);
+            clock);
 
         var serviceCoordinator = new AsrServiceCoordinator(
             remoteApiProfileRepository,
@@ -367,10 +372,7 @@ public sealed class AppServices : IAsyncDisposable
                 secretProtector,
                 new OpenAiCompatibleTranscriptionClient(
                     remoteHttpClientPool.GetClient(profile.ProxyUrl))),
-            () => orchestrator.State is DictationState.Recording
-                or DictationState.Transcribing
-                or DictationState.Injecting
-                or DictationState.EnsuringModelReady
+            () => inPlaceOrchestrator.IsBusy
                 || continuousSession.IsBusy,
             activityGate,
             () => transcribeClient.Refresh(serverManager.BaseUri));
@@ -382,7 +384,7 @@ public sealed class AppServices : IAsyncDisposable
         }
 
         var transcribeAttempt = 0;
-        orchestrator.StatusChanged += status =>
+        inPlaceOrchestrator.StatusChanged += status =>
         {
             var data = new Dictionary<string, string?>
             {
@@ -390,7 +392,7 @@ public sealed class AppServices : IAsyncDisposable
                 ["resultTextLength"] = status.ResultText?.Length.ToString(),
                 ["errorMessage"] = status.ErrorMessage
             };
-            if (status.State == DictationState.Transcribing)
+            if (status.State == InPlaceDictationState.Finishing)
             {
                 data["transcribeAttempt"] = Interlocked.Increment(ref transcribeAttempt).ToString();
             }
@@ -407,136 +409,69 @@ public sealed class AppServices : IAsyncDisposable
 
         var escapeCancelListener = new EscapeCancelListener(() =>
             continuousCoordinator.IsWindowOpen && continuousSession.IsRecordingActive
-                || orchestrator.State == DictationState.Recording);
+                || inPlaceOrchestrator.IsSessionOpen);
 
 
 
-        overlayWindow.CloseRequested += () =>
-
+        void RunInPlace(Func<InPlaceDictationOrchestrator, Task> action, string errorContext)
         {
-
-            if (orchestrator.State == DictationState.Recording)
-
-            {
-
-                _ = Task.Run(async () =>
-
-                {
-
-                    try
-
-                    {
-
-                        await orchestrator.CancelRecordingAsync(CancellationToken.None);
-
-                    }
-
-                    catch (Exception ex)
-
-                    {
-
-                        AppExceptionLogger.Report(ex, "取消录音失败", showDialog: false);
-
-                    }
-
-                });
-
-                return;
-
-            }
-
-
-
-            orchestrator.DismissOverlay();
-
-        };
-
-        overlayWindow.SubmitRequested += () =>
-        {
-            if (orchestrator.State != DictationState.Recording)
-            {
-                return;
-            }
-
             _ = Task.Run(async () =>
             {
                 try
                 {
-                    await orchestrator.ToggleAsync(CancellationToken.None);
+                    await action(inPlaceOrchestrator);
                 }
                 catch (Exception ex)
                 {
-                    AppExceptionLogger.Report(ex, "结束录音失败", showDialog: false);
+                    AppExceptionLogger.Report(ex, errorContext, showDialog: false);
                 }
             });
-        };
+        }
 
+        overlayWindow.CloseRequested += () => RunInPlace(
+            value => value.CancelOrDismissAsync(CancellationToken.None),
+            "取消就地听写失败");
+        overlayWindow.SubmitRequested += () => RunInPlace(
+            value => value.ToggleAsync(CancellationToken.None),
+            "完成就地听写失败");
+        overlayWindow.SegmentTextChanged += inPlaceOrchestrator.UpdateSegmentText;
 
-
-        hotkeyListener.Triggered += () =>
-        {
-            if (continuousCoordinator.IsWindowOpen)
+        var hotkeyRouter = new DictationHotkeyRouter(
+            () => inPlaceOrchestrator.IsSessionOpen,
+            () => inPlaceOrchestrator.State == InPlaceDictationState.Recording,
+            () => continuousCoordinator.IsWindowOpen,
+            () =>
             {
-                continuousCoordinator.HandleRightControl();
-                return;
-            }
-
-            if (orchestrator.State is DictationState.Idle
-                or DictationState.Error
-                or DictationState.ResultNeedsAction)
-            {
-                injectionTargetCapture.Capture();
-            }
-
-            _ = Task.Run(async () =>
-            {
-                try
+                if (inPlaceOrchestrator.State == InPlaceDictationState.Idle)
                 {
-                    await orchestrator.ToggleAsync(CancellationToken.None);
+                    injectionTargetCapture.Capture();
                 }
-                catch (Exception ex)
-                {
-                    AppExceptionLogger.Report(ex, "听写热键处理失败", showDialog: false);
-                }
-            });
-        };
 
-        f9Listener.Triggered += () => continuousCoordinator.HandleF9();
+                RunInPlace(
+                    value => value.ToggleAsync(CancellationToken.None),
+                    "右 Alt 就地听写处理失败");
+            },
+            () => RunInPlace(
+                value => value.CommitSegmentBoundaryAsync(CancellationToken.None),
+                "右 Ctrl 分段失败"),
+            continuousCoordinator.HandleRightControl,
+            continuousCoordinator.HandleF9);
 
-
+        hotkeyListener.Triggered += hotkeyRouter.HandleRightAlt;
+        segmentListener.Triggered += hotkeyRouter.HandleRightControl;
+        f9Listener.Triggered += hotkeyRouter.HandleF9;
 
         escapeCancelListener.CancelRequested += () =>
-
         {
-
             if (continuousCoordinator.IsWindowOpen && continuousSession.IsRecordingActive)
             {
                 continuousCoordinator.HandleEscape();
                 return;
             }
 
-            _ = Task.Run(async () =>
-
-            {
-
-                try
-
-                {
-
-                    await orchestrator.CancelRecordingAsync(CancellationToken.None);
-
-                }
-
-                catch (Exception ex)
-
-                {
-
-                    AppExceptionLogger.Report(ex, "Esc 取消录音失败", showDialog: false);
-
-                }
-
-            });
-
+            RunInPlace(
+                value => value.CancelOrDismissAsync(CancellationToken.None),
+                "Esc 取消就地听写失败");
         };
 
 
@@ -569,11 +504,15 @@ public sealed class AppServices : IAsyncDisposable
 
             hotkeyListener,
 
+            segmentListener,
+
             f9Listener,
 
             escapeCancelListener,
 
-            orchestrator,
+            inPlaceOrchestrator,
+
+            inPlaceSession,
 
             continuousCoordinator,
 
@@ -634,11 +573,17 @@ public sealed class AppServices : IAsyncDisposable
 
         HotkeyListener.Dispose();
 
+        InPlaceSegmentHotkeyListener.Dispose();
+
         ContinuousDictationHotkeyListener.Dispose();
 
         EscapeCancelListener.Dispose();
 
         ContinuousDictationCoordinator.Dispose();
+
+        await InPlaceDictationSession.TerminateAsync(CancellationToken.None);
+
+        InPlaceOrchestrator.Dispose();
 
         TranscribeClient.Dispose();
 

@@ -9,7 +9,7 @@ public sealed class FocusDiagnosticsE2ETests
 
     [Fact]
     [Trait("Category", "UiE2E")]
-    public async Task RightControlDictationInjectsFakeAsrTextIntoNativeTarget()
+    public async Task RightAltThenControlSegmentThenAlt_InjectsOnceIntoNativeTarget()
     {
         await using var runner = new ProcessRunner();
         var repo = FindRepoRoot();
@@ -26,18 +26,33 @@ public sealed class FocusDiagnosticsE2ETests
         var clearButton = targetWindow.FindFirstDescendant(cf => cf.ByAutomationId("ClearButton"))!.AsButton();
         clearButton.Invoke();
 
+        var appStartedAt = DateTimeOffset.UtcNow;
         runner.Start(appExe, arguments: "--test-mode");
-        await Task.Delay(1000);
+        await WaitForDiagnosticsEventAsync(
+            "Hotkey.ListenerStarted",
+            null,
+            TimeSpan.FromSeconds(10),
+            appStartedAt);
 
         targetWindow.Focus();
         var focusButton = targetWindow.FindFirstDescendant(cf => cf.ByAutomationId("FocusNativeButton"))!.AsButton();
         focusButton.Invoke();
 
-        KeyboardInput.PressRightControl();
-        await WaitForDiagnosticsEventAsync("Dictation.StateChanged", "Recording", TimeSpan.FromSeconds(5));
+        KeyboardInput.PressRightAlt();
+        await WaitForDiagnosticsEventAsync(
+            "Dictation.StateChanged",
+            "Recording",
+            TimeSpan.FromSeconds(5),
+            appStartedAt);
 
         KeyboardInput.PressRightControl();
-        await WaitForDiagnosticsEventAsync("TextInjection.After", null, TimeSpan.FromSeconds(10));
+        await Task.Delay(100);
+        KeyboardInput.PressRightAlt();
+        await WaitForDiagnosticsEventAsync(
+            "TextInjection.After",
+            null,
+            TimeSpan.FromSeconds(10),
+            appStartedAt);
 
         await WaitUntilAsync(() =>
         {
@@ -47,11 +62,25 @@ public sealed class FocusDiagnosticsE2ETests
                 || screenLog.Text.Contains("WM_0x0102", StringComparison.Ordinal);
         }, TimeSpan.FromSeconds(5));
 
-        var diagnosticsPath = DiagnosticLogReader.GetNewestDiagnosticsFile();
+        var diagnosticsPath = DiagnosticLogReader.GetNewestDiagnosticsFile(appStartedAt);
         var diagnostics = DiagnosticLogReader.ReadAll(diagnosticsPath);
         Assert.Contains("InjectionTargetCapture.After", diagnostics);
         Assert.Contains("Overlay.Show.After", diagnostics);
         Assert.Contains("TextInjection.After", diagnostics);
+        Assert.Equal(1, CountOccurrences(diagnostics, "TextInjection.After"));
+    }
+
+    private static int CountOccurrences(string text, string value)
+    {
+        var count = 0;
+        var startIndex = 0;
+        while ((startIndex = text.IndexOf(value, startIndex, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            startIndex += value.Length;
+        }
+
+        return count;
     }
 
     private static string FindRepoRoot()
@@ -78,13 +107,17 @@ public sealed class FocusDiagnosticsE2ETests
         return window!;
     }
 
-    private static async Task WaitForDiagnosticsEventAsync(string eventName, string? state, TimeSpan timeout)
+    private static async Task WaitForDiagnosticsEventAsync(
+        string eventName,
+        string? state,
+        TimeSpan timeout,
+        DateTimeOffset notBefore)
     {
         await WaitUntilAsync(() =>
         {
             try
             {
-                var path = DiagnosticLogReader.GetNewestDiagnosticsFile();
+                var path = DiagnosticLogReader.GetNewestDiagnosticsFile(notBefore);
                 var text = DiagnosticLogReader.ReadAll(path);
                 return text.Contains(eventName, StringComparison.Ordinal)
                     && (state is null || text.Contains(state, StringComparison.Ordinal));

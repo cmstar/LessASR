@@ -23,7 +23,15 @@ public sealed class DebugViewModel
     public ICommand ShowCopyTextCommand => new RelayCommand(() => _services.OverlayWindow.ShowOverlay(OverlayState.ResultNeedsAction, "未找到可输入位置", SampleText));
     public ICommand ShowErrorCommand => new RelayCommand(() => _services.OverlayWindow.ShowOverlay(OverlayState.Error, "输入失败"));
     public ICommand HideCommand => new RelayCommand(_services.OverlayWindow.HideOverlay);
-    public ICommand TestInjectionCommand => new RelayCommand(async () => await _services.Orchestrator.ToggleAsync(CancellationToken.None));
+    public ICommand TestInjectionCommand => new RelayCommand(async () =>
+    {
+        if (_services.InPlaceOrchestrator.State == LocalAsrClient.Core.Dictation.InPlaceDictationState.Idle)
+        {
+            _services.InjectionTargetCapture.Capture();
+        }
+
+        await _services.InPlaceOrchestrator.ToggleAsync(CancellationToken.None);
+    });
 
     private sealed class RelayCommand : ICommand
     {

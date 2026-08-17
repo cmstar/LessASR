@@ -58,7 +58,7 @@ public sealed class ServiceViewModel : INotifyPropertyChanged
             confirmDelete,
             services.ActivityGate)
     {
-        services.Orchestrator.StatusChanged += _ => RefreshAvailabilityOnUiThread();
+        services.InPlaceOrchestrator.StatusChanged += _ => RefreshAvailabilityOnUiThread();
         services.ContinuousDictationSession.Changed += _ => RefreshAvailabilityOnUiThread();
     }
 

@@ -11,25 +11,45 @@ public sealed class GlobalHotkeyListener : IHotkeyListener
     private readonly IDiagnosticEventSink _diagnostics;
     private readonly Win32HotkeyNative.LowLevelKeyboardProc _callback;
     private readonly HotkeyPressGesture _gesture;
+    private readonly bool _suppressesSoloPress;
     private IntPtr _hook;
 
     public GlobalHotkeyListener(int virtualKeyCode)
-        : this(virtualKeyCode, NullDiagnosticEventSink.Instance)
+        : this(
+            virtualKeyCode,
+            NullDiagnosticEventSink.Instance,
+            suppressSoloPress: !Win32HotkeyNative.IsModifierKey(virtualKeyCode))
+    {
+    }
+
+    public GlobalHotkeyListener(int virtualKeyCode, bool suppressSoloPress)
+        : this(virtualKeyCode, NullDiagnosticEventSink.Instance, suppressSoloPress)
     {
     }
 
     public GlobalHotkeyListener(int virtualKeyCode, IDiagnosticEventSink diagnostics)
+        : this(
+            virtualKeyCode,
+            diagnostics,
+            suppressSoloPress: !Win32HotkeyNative.IsModifierKey(virtualKeyCode))
+    {
+    }
+
+    public GlobalHotkeyListener(
+        int virtualKeyCode,
+        IDiagnosticEventSink diagnostics,
+        bool suppressSoloPress)
     {
         _virtualKeyCode = virtualKeyCode;
         _diagnostics = diagnostics;
+        _suppressesSoloPress = suppressSoloPress;
         _callback = HookCallback;
-        _gesture = new HotkeyPressGesture(
-            virtualKeyCode,
-            suppressSoloPress: !Win32HotkeyNative.IsModifierKey(virtualKeyCode));
+        _gesture = new HotkeyPressGesture(virtualKeyCode, suppressSoloPress);
     }
 
     public event Action? Triggered;
     public bool IsRunning => _hook != IntPtr.Zero;
+    internal bool SuppressesSoloPress => _suppressesSoloPress;
 
     public void Start()
     {
@@ -46,6 +66,18 @@ public sealed class GlobalHotkeyListener : IHotkeyListener
         {
             throw new InvalidOperationException("无法注册全局键盘监听。");
         }
+
+        _ = _diagnostics.WriteAsync(new DiagnosticEvent(
+            0,
+            DateTimeOffset.Now,
+            "Hotkey.ListenerStarted",
+            null,
+            Environment.CurrentManagedThreadId,
+            DiagnosticSnapshotCollector.Capture(),
+            new Dictionary<string, string?>
+            {
+                ["vkCode"] = _virtualKeyCode.ToString()
+            }));
     }
 
     public void Stop()
@@ -72,7 +104,7 @@ public sealed class GlobalHotkeyListener : IHotkeyListener
             var data = Marshal.PtrToStructure<Win32HotkeyNative.KbdLlHookStruct>(lParam);
             if (_gesture.Process(message, data.VkCode))
             {
-                _ = _diagnostics.WriteAsync(CreateTriggeredEvent(message, data));
+                _ = _diagnostics.WriteAsync(CreateEvent("Hotkey.Triggered", message, data));
                 Triggered?.Invoke();
             }
 
@@ -85,12 +117,15 @@ public sealed class GlobalHotkeyListener : IHotkeyListener
         return Win32HotkeyNative.CallNextHookEx(_hook, nCode, wParam, lParam);
     }
 
-    private static DiagnosticEvent CreateTriggeredEvent(int message, Win32HotkeyNative.KbdLlHookStruct data)
+    private static DiagnosticEvent CreateEvent(
+        string eventName,
+        int message,
+        Win32HotkeyNative.KbdLlHookStruct data)
     {
         return new DiagnosticEvent(
             0,
             DateTimeOffset.Now,
-            "Hotkey.Triggered",
+            eventName,
             null,
             Environment.CurrentManagedThreadId,
             DiagnosticSnapshotCollector.Capture(),

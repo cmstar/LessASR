@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         xmlns:overlay="clr-namespace:LocalAsrClient.App.Overlay"
+        xmlns:dictation="clr-namespace:LocalAsrClient.Core.Dictation;assembly=LocalAsrClient.Core"
         SizeToContent="WidthAndHeight"
         MaxWidth="420"
         WindowStyle="None"
@@ -213,7 +214,71 @@
         </Border.Effect>
 
         <Grid>
-            <Grid Visibility="{Binding ShowRecordingLayout, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0"
+                    Margin="10,10,10,4"
+                    Padding="2,0"
+                    Visibility="{Binding ShowSegmentLayout, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <ScrollViewer x:Name="InPlaceSegmentScrollViewer"
+                              MaxHeight="230"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              CanContentScroll="False">
+                    <ItemsControl ItemsSource="{Binding Segments}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="2,5,4,7">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid>
+                                        <TextBox Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource Overlay.CopyTextBox}"
+                                                 Foreground="{StaticResource LessAsr.Brush.OverlayForeground}"
+                                                 FontSize="13"
+                                                 TextWrapping="Wrap"
+                                                 AcceptsReturn="True"
+                                                 IsReadOnly="{Binding IsEditable, Converter={StaticResource InverseBooleanConverter}}"
+                                                 Focusable="{Binding IsEditable}"
+                                                 VerticalScrollBarVisibility="Disabled"/>
+                                        <TextBlock Text="{Binding Placeholder}"
+                                                   FontSize="13"
+                                                   TextWrapping="Wrap"
+                                                   IsHitTestVisible="False"
+                                                   Visibility="{Binding ShowPlaceholder, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{StaticResource LessAsr.Brush.TextSecondary}"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsFailed}" Value="True">
+                                                            <Setter Property="Foreground" Value="{StaticResource LessAsr.Brush.Error}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Grid>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding StateLabel}"
+                                               Foreground="{StaticResource LessAsr.Brush.TextSecondary}"
+                                               FontSize="11"
+                                               Margin="12,2,0,0"
+                                               VerticalAlignment="Top"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Border>
+
+            <Grid Grid.Row="1"
+                  Margin="2"
+                  Visibility="{Binding ShowRecordingLayout, Converter={StaticResource BooleanToVisibilityConverter}}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
@@ -221,8 +286,8 @@
                 </Grid.ColumnDefinitions>
                 <Button Style="{StaticResource Overlay.CircleButton}"
                         Command="{Binding CloseCommand}"
-                        ToolTip="取消录音"
-                        AutomationProperties.Name="取消录音">
+                        ToolTip="停止录音"
+                        AutomationProperties.Name="停止录音并检查已识别内容">
                     <Grid Width="14" Height="14">
                         <Path Data="M 2,2 L 12,12 M 12,2 L 2,12"
                               Stroke="{StaticResource LessAsr.Brush.OverlayForeground}"
@@ -241,13 +306,50 @@
                 <Button Grid.Column="2"
                         Style="{StaticResource Overlay.ConfirmButton}"
                         Command="{Binding SubmitCommand}"
-                        ToolTip="结束并识别"
-                        AutomationProperties.Name="结束录音并开始识别">
+                        ToolTip="完成听写"
+                        AutomationProperties.Name="完成听写并写入">
                     <ui:SymbolIcon Symbol="Checkmark16" Width="14" Height="14"/>
                 </Button>
             </Grid>
 
-            <Grid Visibility="{Binding ShowStatusLayout, Converter={StaticResource BooleanToVisibilityConverter}}"
+            <Grid Grid.Row="1"
+                  Margin="2"
+                  Visibility="{Binding ShowReviewLayout, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Button Style="{StaticResource Overlay.CircleButton}"
+                        Command="{Binding CloseCommand}"
+                        ToolTip="取消全部"
+                        AutomationProperties.Name="取消全部听写内容">
+                    <Grid Width="14" Height="14">
+                        <Path Data="M 2,2 L 12,12 M 12,2 L 2,12"
+                              Stroke="{StaticResource LessAsr.Brush.OverlayForeground}"
+                              StrokeThickness="1.8"
+                              StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round"/>
+                    </Grid>
+                </Button>
+                <TextBlock Grid.Column="1"
+                           Text="按右 Alt 完成"
+                           Foreground="{StaticResource LessAsr.Brush.OverlayForeground}"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"/>
+                <Button Grid.Column="2"
+                        Style="{StaticResource Overlay.ConfirmButton}"
+                        Command="{Binding SubmitCommand}"
+                        ToolTip="完成听写"
+                        AutomationProperties.Name="完成听写并写入">
+                    <ui:SymbolIcon Symbol="Checkmark16" Width="14" Height="14"/>
+                </Button>
+            </Grid>
+
+            <Grid Grid.Row="1"
+                  Visibility="{Binding ShowStatusLayout, Converter={StaticResource BooleanToVisibilityConverter}}"
                   MinHeight="30"
                   Margin="2,0"
                   UseLayoutRounding="True"
@@ -299,7 +401,9 @@
                 </Button>
             </Grid>
 
-            <Grid Visibility="{Binding ShowCopyLayout, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Grid Grid.Row="0"
+                  Grid.RowSpan="2"
+                  Visibility="{Binding ShowCopyLayout, Converter={StaticResource BooleanToVisibilityConverter}}">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>

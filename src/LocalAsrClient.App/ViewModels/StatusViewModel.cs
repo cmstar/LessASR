@@ -27,6 +27,12 @@ public sealed class StatusViewModel : INotifyPropertyChanged
         LastResult = status.ResultText ?? LastResult;
     }
 
+    public void Apply(InPlaceDictationStatus status)
+    {
+        CurrentState = status.Message;
+        LastResult = status.ResultText ?? LastResult;
+    }
+
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));

@@ -4,6 +4,7 @@ public enum OverlayState
 {
     LoadingModel,
     Recording,
+    Reviewing,
     Transcribing,
     Injecting,
     Injected,

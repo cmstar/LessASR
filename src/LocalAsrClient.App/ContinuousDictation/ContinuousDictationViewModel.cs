@@ -35,7 +35,7 @@ public sealed class ContinuousDictationViewModel : INotifyPropertyChanged
 
     public bool IsDemoMode { get; }
 
-    public string HeaderText => $"连续听写 {CompletedCount}/{TotalCount}";
+    public string HeaderText => $"独立听写 {CompletedCount}/{TotalCount}";
 
     public int CompletedCount { get; private set; }
 
