@@ -84,27 +84,27 @@ public sealed class HotkeyPressGestureTests
     }
 
     [Fact]
-    public void SuppressedSoloGesture_SuppressesBothTargetEdges()
+    public void SuppressedSoloNonModifierGesture_SuppressesBothTargetEdges()
     {
-        var gesture = new HotkeyPressGesture(TargetKey, suppressSoloPress: true);
+        var gesture = new HotkeyPressGesture(Win32HotkeyNative.VkF9, suppressSoloPress: true);
 
-        gesture.Process(Win32HotkeyNative.WmKeyDown, TargetKey);
+        gesture.Process(Win32HotkeyNative.WmKeyDown, Win32HotkeyNative.VkF9);
         Assert.True(gesture.ShouldSuppressCurrentEvent);
 
-        Assert.True(gesture.Process(Win32HotkeyNative.WmKeyUp, TargetKey));
+        Assert.True(gesture.Process(Win32HotkeyNative.WmKeyUp, Win32HotkeyNative.VkF9));
         Assert.True(gesture.ShouldSuppressCurrentEvent);
     }
 
     [Fact]
     public void SuppressedGesture_WithExistingOtherKey_PassesTargetEdgesThrough()
     {
-        var gesture = new HotkeyPressGesture(TargetKey, suppressSoloPress: true);
+        var gesture = new HotkeyPressGesture(Win32HotkeyNative.VkF9, suppressSoloPress: true);
 
         gesture.Process(Win32HotkeyNative.WmKeyDown, OtherKey);
-        gesture.Process(Win32HotkeyNative.WmKeyDown, TargetKey);
+        gesture.Process(Win32HotkeyNative.WmKeyDown, Win32HotkeyNative.VkF9);
         Assert.False(gesture.ShouldSuppressCurrentEvent);
 
-        Assert.False(gesture.Process(Win32HotkeyNative.WmKeyUp, TargetKey));
+        Assert.False(gesture.Process(Win32HotkeyNative.WmKeyUp, Win32HotkeyNative.VkF9));
         Assert.False(gesture.ShouldSuppressCurrentEvent);
     }
 
@@ -122,34 +122,26 @@ public sealed class HotkeyPressGestureTests
     }
 
     [Fact]
-    public void RightAltListener_CanSuppressItsSoloSystemGesture()
+    public void RightAltListener_NeverSuppressesModifierEdges()
     {
         using var listener = new GlobalHotkeyListener(
             Win32HotkeyNative.VkRMenu,
             suppressSoloPress: true);
 
-        Assert.True(listener.SuppressesSoloPress);
+        Assert.False(listener.SuppressesSoloPress);
     }
 
     [Fact]
-    public void DeferredModifierSuppression_PassesChordAndSuppressesOnlySoloKeyUp()
+    public void ModifierGesture_PassesBothEdgesEvenWhenSuppressionIsRequested()
     {
         var gesture = new HotkeyPressGesture(
             Win32HotkeyNative.VkRMenu,
-            suppressSoloPress: true,
-            deferSuppressionUntilKeyUp: true);
-
-        gesture.Process(Win32HotkeyNative.WmSysKeyDown, Win32HotkeyNative.VkRMenu);
-        Assert.False(gesture.ShouldSuppressCurrentEvent);
-        gesture.Process(Win32HotkeyNative.WmKeyDown, OtherKey);
-        gesture.Process(Win32HotkeyNative.WmKeyUp, OtherKey);
-        Assert.False(gesture.Process(Win32HotkeyNative.WmSysKeyUp, Win32HotkeyNative.VkRMenu));
-        Assert.False(gesture.ShouldSuppressCurrentEvent);
+            suppressSoloPress: true);
 
         gesture.Process(Win32HotkeyNative.WmSysKeyDown, Win32HotkeyNative.VkRMenu);
         Assert.False(gesture.ShouldSuppressCurrentEvent);
         Assert.True(gesture.Process(Win32HotkeyNative.WmSysKeyUp, Win32HotkeyNative.VkRMenu));
-        Assert.True(gesture.ShouldSuppressCurrentEvent);
+        Assert.False(gesture.ShouldSuppressCurrentEvent);
     }
 
     [Fact]

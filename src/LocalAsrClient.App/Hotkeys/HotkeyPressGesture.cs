@@ -6,21 +6,19 @@ namespace LocalAsrClient.App.Hotkeys;
 internal sealed class HotkeyPressGesture
 {
     private readonly HashSet<int> _pressedKeys = [];
-    private readonly bool _deferSuppressionUntilKeyUp;
     private readonly bool _suppressSoloPress;
     private readonly int _targetVirtualKeyCode;
     private bool _isChord;
     private bool _suppressCurrentPress;
     private bool _targetPressStarted;
 
-    public HotkeyPressGesture(
-        int targetVirtualKeyCode,
-        bool suppressSoloPress = false,
-        bool deferSuppressionUntilKeyUp = false)
+    public HotkeyPressGesture(int targetVirtualKeyCode, bool suppressSoloPress = false)
     {
         _targetVirtualKeyCode = targetVirtualKeyCode;
-        _suppressSoloPress = suppressSoloPress;
-        _deferSuppressionUntilKeyUp = deferSuppressionUntilKeyUp;
+        // Modifier key edges must always be delivered as a pair. Suppressing only
+        // one edge leaves foreground applications believing the modifier is held.
+        _suppressSoloPress = suppressSoloPress
+            && !Win32HotkeyNative.IsModifierKey(targetVirtualKeyCode);
     }
 
     public bool ShouldSuppressCurrentEvent { get; private set; }
@@ -61,7 +59,7 @@ internal sealed class HotkeyPressGesture
                 _suppressCurrentPress = _suppressSoloPress && !_isChord;
             }
 
-            ShouldSuppressCurrentEvent = _suppressCurrentPress && !_deferSuppressionUntilKeyUp;
+            ShouldSuppressCurrentEvent = _suppressCurrentPress;
             return false;
         }
 
@@ -82,8 +80,7 @@ internal sealed class HotkeyPressGesture
         }
 
         var triggered = _targetPressStarted && !_isChord;
-        ShouldSuppressCurrentEvent = _suppressCurrentPress
-            && (!_deferSuppressionUntilKeyUp || triggered);
+        ShouldSuppressCurrentEvent = _suppressCurrentPress;
         ResetTargetPress();
         return triggered;
     }

@@ -345,7 +345,7 @@ public sealed class AppServices : IAsyncDisposable
         var hotkeyListener = new GlobalHotkeyListener(
             DictationHotkey.ToggleVirtualKey,
             diagnosticSink,
-            suppressSoloPress: true);
+            suppressSoloPress: false);
 
         var segmentListener = new GlobalHotkeyListener(InPlaceSegmentHotkey.VirtualKey, diagnosticSink);
 

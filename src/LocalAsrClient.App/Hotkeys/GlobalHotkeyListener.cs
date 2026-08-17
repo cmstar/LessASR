@@ -42,13 +42,10 @@ public sealed class GlobalHotkeyListener : IHotkeyListener
     {
         _virtualKeyCode = virtualKeyCode;
         _diagnostics = diagnostics;
-        _suppressesSoloPress = suppressSoloPress;
+        _suppressesSoloPress = suppressSoloPress
+            && !Win32HotkeyNative.IsModifierKey(virtualKeyCode);
         _callback = HookCallback;
-        _gesture = new HotkeyPressGesture(
-            virtualKeyCode,
-            suppressSoloPress,
-            deferSuppressionUntilKeyUp: suppressSoloPress
-                && Win32HotkeyNative.IsModifierKey(virtualKeyCode));
+        _gesture = new HotkeyPressGesture(virtualKeyCode, _suppressesSoloPress);
     }
 
     public event Action? Triggered;
