@@ -17,6 +17,7 @@ public sealed class ContinuousDictationSession
     private readonly Queue<(Guid SegmentId, RecordingResult Recording)> _pendingTranscriptions = new();
     private CancellationTokenSource? _workerCts;
     private Task? _workerTask;
+    private TaskCompletionSource<bool>? _drainCompletion;
     private volatile bool _isRecordingActive;
     private int _transcribingCount;
     private AsrActivityLease? _activityLease;
@@ -87,6 +88,19 @@ public sealed class ContinuousDictationSession
         }
     }
 
+    public Task WaitForPendingTranscriptionsAsync(CancellationToken cancellationToken)
+    {
+        Task drainTask;
+        lock (_queueLock)
+        {
+            drainTask = _transcribingCount == 0
+                ? Task.CompletedTask
+                : _drainCompletion?.Task ?? Task.CompletedTask;
+        }
+
+        return drainTask.WaitAsync(cancellationToken);
+    }
+
     public async Task TerminateAsync(CancellationToken cancellationToken)
     {
         var workerCts = _workerCts;
@@ -123,10 +137,11 @@ public sealed class ContinuousDictationSession
             lock (_queueLock)
             {
                 _pendingTranscriptions.Clear();
+                _transcribingCount = 0;
+                _drainCompletion?.TrySetResult(true);
             }
 
             _isRecordingActive = false;
-            Volatile.Write(ref _transcribingCount, 0);
             _workerCts = null;
             _workerTask = null;
             workerCts?.Dispose();
@@ -257,7 +272,6 @@ public sealed class ContinuousDictationSession
 
         var segmentId = _segments[waitingIndex].Id;
         _segments[waitingIndex] = _segments[waitingIndex] with { State = ContinuousSegmentState.Transcribing };
-        Interlocked.Increment(ref _transcribingCount);
         EnqueueTranscription(segmentId, recording);
 
         if (startNext)
@@ -281,6 +295,13 @@ public sealed class ContinuousDictationSession
     {
         lock (_queueLock)
         {
+            if (_transcribingCount == 0)
+            {
+                _drainCompletion = new TaskCompletionSource<bool>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+
+            _transcribingCount++;
             _pendingTranscriptions.Enqueue((segmentId, recording));
         }
 
@@ -350,9 +371,43 @@ public sealed class ContinuousDictationSession
                     _gate.Release();
                 }
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                await _gate.WaitAsync(CancellationToken.None);
+                try
+                {
+                    var index = _segments.FindIndex(s => s.Id == job.Value.SegmentId);
+                    if (index >= 0)
+                    {
+                        _segments[index] = _segments[index] with
+                        {
+                            State = ContinuousSegmentState.Failed,
+                            ErrorMessage = ex.Message
+                        };
+                    }
+                }
+                finally
+                {
+                    _gate.Release();
+                }
+            }
             finally
             {
-                Interlocked.Decrement(ref _transcribingCount);
+                TaskCompletionSource<bool>? completedDrain = null;
+                lock (_queueLock)
+                {
+                    _transcribingCount--;
+                    if (_transcribingCount == 0)
+                    {
+                        completedDrain = _drainCompletion;
+                    }
+                }
+
+                completedDrain?.TrySetResult(true);
                 await _gate.WaitAsync(CancellationToken.None);
                 try
                 {

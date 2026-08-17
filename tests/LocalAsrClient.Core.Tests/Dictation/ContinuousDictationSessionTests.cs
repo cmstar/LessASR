@@ -1,5 +1,7 @@
+using LocalAsrClient.Core.Abstractions;
 using LocalAsrClient.Core.Asr;
 using LocalAsrClient.Core.Dictation;
+using LocalAsrClient.Core.Persistence;
 
 namespace LocalAsrClient.Core.Tests.Dictation;
 
@@ -111,6 +113,40 @@ public sealed class ContinuousDictationSessionTests
     }
 
     [Fact]
+    public async Task WaitForPendingTranscriptionsAsync_WaitsUntilEveryQueuedSegmentCompletes()
+    {
+        var fixture = new SessionFixture();
+        fixture.Backend.TranscribeDelay = TimeSpan.FromMilliseconds(120);
+
+        await fixture.Session.ToggleRecordingAsync(CancellationToken.None);
+        await fixture.Session.CommitSegmentBoundaryAsync(CancellationToken.None);
+        await fixture.Session.ToggleRecordingAsync(CancellationToken.None);
+
+        var drainTask = fixture.Session.WaitForPendingTranscriptionsAsync(CancellationToken.None);
+
+        Assert.False(drainTask.IsCompleted);
+        await drainTask;
+        Assert.All(
+            fixture.LastSnapshot.Segments,
+            segment => Assert.Equal(ContinuousSegmentState.Completed, segment.State));
+    }
+
+    [Fact]
+    public async Task QueueWorker_WhenPipelineThrowsUnexpectedly_MarksSegmentFailedAndDrains()
+    {
+        var fixture = new SessionFixture(statsRepository: new ThrowingStatsRepository());
+
+        await fixture.Session.ToggleRecordingAsync(CancellationToken.None);
+        await fixture.Session.ToggleRecordingAsync(CancellationToken.None);
+        await fixture.Session.WaitForPendingTranscriptionsAsync(CancellationToken.None);
+
+        var segment = Assert.Single(fixture.LastSnapshot.Segments);
+        Assert.Equal(ContinuousSegmentState.Failed, segment.State);
+        Assert.Contains("统计写入失败", segment.ErrorMessage, StringComparison.Ordinal);
+        Assert.False(fixture.Session.IsBusy);
+    }
+
+    [Fact]
     public async Task CancelCurrentSegmentAsync_RemovesWaitingInputWithoutQueueing()
     {
         var fixture = new SessionFixture();
@@ -192,11 +228,11 @@ public sealed class ContinuousDictationSessionTests
 
     private sealed class SessionFixture
     {
-        public SessionFixture(AsrActivityGate? activityGate = null)
+        public SessionFixture(AsrActivityGate? activityGate = null, IStatsRepository? statsRepository = null)
         {
             Recorder = new StubRecorder();
             Backend = new StubBackend();
-            Stats = new StubStatsRepository();
+            Stats = statsRepository ?? new StubStatsRepository();
             Settings = new StubSettingsStore();
             Clock = new StubClock();
             Pipeline = new TranscriptionPipeline(
@@ -212,7 +248,7 @@ public sealed class ContinuousDictationSessionTests
 
         public StubRecorder Recorder { get; }
         public StubBackend Backend { get; }
-        public StubStatsRepository Stats { get; }
+        public IStatsRepository Stats { get; }
         public StubSettingsStore Settings { get; }
         public StubClock Clock { get; }
         public TranscriptionPipeline Pipeline { get; }
@@ -233,5 +269,19 @@ public sealed class ContinuousDictationSessionTests
                 await Task.Delay(20);
             }
         }
+    }
+
+    private sealed class ThrowingStatsRepository : IStatsRepository
+    {
+        public Task RecordAsync(DailyStatsDelta delta, CancellationToken cancellationToken) =>
+            Task.FromException(new IOException("统计写入失败"));
+
+        public Task<IReadOnlyList<DailyStatsSnapshot>> GetRangeAsync(
+            DateOnly start,
+            DateOnly end,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<DailyStatsSnapshot>>([]);
+
+        public Task PruneAsync(DateOnly today, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 }
