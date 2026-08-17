@@ -1,6 +1,6 @@
 # API
 
-LessASR 支持两种识别后端：由程序托管的本地 whisper.cpp，以及用户配置的 OpenAI 兼容 Audio Transcriptions API。两者通过同一个 `IAsrBackend` 路由供单句和连续听写使用，但请求协议、生命周期与失败恢复相互独立。
+LessASR 支持两种识别后端：由程序托管的本地 whisper.cpp，以及用户配置的 OpenAI 兼容 Audio Transcriptions API。两者通过同一个 `IAsrBackend` 路由供就地听写和独立听写使用，但请求协议、生命周期与失败恢复相互独立。
 
 ## 本地 whisper-server
 
@@ -139,7 +139,7 @@ Core 层平台抽象见 `src/LocalAsrClient.Core/Abstractions/`：
 | `ISecretProtector` | 密钥保护/解密抽象；Windows 实现在 App 层 |
 | `IAudioRecorder` | 录音开始/停止 |
 | `ITextInjector` | 文本注入 |
-| `IHotkeyListener` | 右 Ctrl 触发事件 |
+| `IHotkeyListener` | 平台无关的热键触发事件；App 层分别监听右 Alt、右 Ctrl 与 F9 并按活动模式路由 |
 | `ISettingsStore` | 应用设置读写，以及串行、事务化的字段更新 |
 | `IVocabularyRepository` | 多词汇表的查询、新建、更新、删除与使用中状态切换 |
 | `IStatsRepository` | 每日统计 |

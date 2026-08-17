@@ -60,7 +60,8 @@ tests/LocalAsrClient.Core.Tests/
 - 持久化测试使用 `SqliteDatabase.CreateInMemoryAsync()`。
 - ASR 后端测试 mock `HttpClient` 或进程管理器，避免依赖真实 whisper-server 或远程平台；远程请求测试必须验证无自动重试、可选 Bearer 和 multipart 字段。
 - API Key 测试只使用测试字符串；不得把明文 Key 写入 SQLite、日志、截图或测试快照。WPF 只通过 `PasswordBox` 在保存操作中传递本次输入，不建立明文双向绑定。
-- 服务变更测试必须覆盖共享 `AsrActivityGate`、whisper-server 启停竞态、设置并发更新、DPAPI 不可用状态，以及单句/连续历史的后端来源快照。
+- 服务变更测试必须覆盖共享 `AsrActivityGate`、whisper-server 启停竞态、设置并发更新、DPAPI 不可用状态，以及就地听写/独立听写历史的后端来源快照。
+- 听写测试必须分别覆盖右 Alt 最终提交、右 Ctrl 分段、F9 独立窗口、模式互斥、空闲右 Ctrl 放行、FIFO 顺序、50 段上限、失败占位与两阶段 Esc。
 - 提交前运行：`dotnet test LocalAsrClient.sln`
 
 ## 验证命令
@@ -112,7 +113,7 @@ dotnet run --project src/LocalAsrClient.App/LocalAsrClient.App.csproj -- --diagn
 dotnet run --project src/LocalAsrClient.App/LocalAsrClient.App.csproj -- --test-mode
 ```
 
-测试模式下 ASR 固定返回默认测试文本，不验证 whisper-server 识别准确率。仍使用双按右 Ctrl 完整听写链路，仅替换录音与 ASR 后端。
+测试模式下 ASR 固定返回默认测试文本，不验证 whisper-server 识别准确率。就地听写仍使用“右 Alt 开始 → 可选右 Ctrl 分段 → 右 Alt 完成”的完整链路，仅替换录音与 ASR 后端。
 测试模式使用内存 SQLite，不读取或修改用户正式的 `%USERPROFILE%\.lessasr\data\client.db`。
 
 ## 演示数据与文档截图
@@ -125,8 +126,7 @@ dotnet run --project src/LocalAsrClient.App/LocalAsrClient.App.csproj -- --test-
 .\tools\Start-LessAsrDemo.ps1
 ```
 
-演示数据通过当前 `SqliteDatabase` 和仓储 API 生成，不提交预制 `.db` 文件。模型页演示配置不含 API Key，演示模式也不会发起远程网络请求。连续听写截图
-复用 `ContinuousDictationSession`、内存录音替身与顺序演示 ASR，不依赖麦克风、模型文件或
+演示数据通过当前 `SqliteDatabase` 和仓储 API 生成，不提交预制 `.db` 文件。模型页演示配置不含 API Key，演示模式也不会发起远程网络请求。`in-place-dictation.png` 展示就地听写首次分段后的展开浮窗；`independent-dictation.png` 展示独立听写窗口。两者复用连续分段会话、内存录音替身与顺序演示 ASR，不依赖麦克风、模型文件或
 `whisper-server`。
 
 重新生成 README 与未来 Wiki 共用的产品截图：
@@ -147,7 +147,7 @@ dotnet run --project src/LocalAsrClient.App/LocalAsrClient.App.csproj -- --test-
 - 首页指标、统计范围或历史分组变化；
 - 设置项、导航、窗口尺寸、主题或通用控件样式变化；
 - 模型页、模型列表、本地详情、远程 API 详情或地址安全提示变化；
-- 连续听写状态、文案、布局或段落数量变化。
+- 就地听写或独立听写的状态、文案、布局、热键或段落数量变化。
 
 `StatsViewModel.SummaryDayCount` 与 `TrendDayCount` 是统计展示和演示数据的共同范围来源。
 修改统计窗口时应先更新这些定义，再调整相应测试和文档说明。
@@ -175,7 +175,7 @@ dotnet run --project tests/LocalAsrClient.TestTarget/LocalAsrClient.TestTarget.c
 dotnet run --project src/LocalAsrClient.App/LocalAsrClient.App.csproj -- --test-mode
 ```
 
-在 TestTarget 中聚焦 Native 输入框，按两次右 Ctrl 完成一次听写，然后查看屏幕日志与 `%USERPROFILE%\.lessasr\diagnostics\` 下的 JSONL。
+在 TestTarget 中聚焦 Native 输入框，按两次右 Alt 完成一次单段就地听写，然后查看屏幕日志与 `%USERPROFILE%\.lessasr\diagnostics\` 下的 JSONL。连续分段联调使用“右 Alt → 说第一句 → 右 Ctrl → 说第二句 → 右 Alt”；独立听写使用 F9 打开窗口并用右 Ctrl 分段。
 
 ## 实现计划
 

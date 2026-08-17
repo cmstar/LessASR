@@ -4,7 +4,7 @@
 [![Windows](https://img.shields.io/badge/platform-Windows-0078D4?style=flat&logo=windows)](https://www.microsoft.com/windows/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)](LICENSE)
 
-LessASR（代码仓库名仍为 `LocalAsrClient`）是一款 Windows 语音输入 GUI，可由程序托管 [whisper.cpp](https://github.com/ggerganov/whisper.cpp)，也可连接 OpenAI 兼容的 Audio Transcriptions API。程序常驻系统托盘，通过键盘右下角的 Ctrl 键触发听写，识别结果优先直接写入当前文本框；需要整理长段内容时，也可以使用连续听写窗口边说边分段、边识别边编辑。
+LessASR（代码仓库名仍为 `LocalAsrClient`）是一款 Windows 语音输入 GUI，可由程序托管 [whisper.cpp](https://github.com/ggerganov/whisper.cpp)，也可连接 OpenAI 兼容的 Audio Transcriptions API。程序常驻系统托盘：按右 Alt 使用就地听写，完成后写入开始时捕获的光标位置；按 F9 使用独立听写，在专用窗口中连续分段、识别和编辑。
 
 本项目**由 AI Agent 编码实现**，开发者负责提需求、产品设计、确定业务逻辑与边界条件、验收测试，但通常不直接阅读和修改源码。
 
@@ -13,9 +13,9 @@ LessASR（代码仓库名仍为 `LocalAsrClient`）是一款 Windows 语音输�
 - **本地或远程**：可在托管的本地 whisper.cpp 与多套 OpenAI 兼容 API 配置之间切换。
 - **独立代理**：每套远程 API 可单独配置 HTTP、HTTPS 或 SOCKS 代理；留空时沿用系统网络设置。
 - **密钥保护**：远程 API Key 可留空；填写后使用当前 Windows 用户的 DPAPI 加密保存。
-- **随处输入**：按右 Ctrl 开始和结束单句听写，结果优先写入当前输入框。
-- **连续听写**：按 F9 打开专用窗口，使用右 Ctrl 连续分段；上一段识别时可以继续录制下一段。
-- **可编辑结果**：连续听写完成的段落可以直接修订，也可以一次复制全部内容。
+- **就地听写**：按右 Alt 开始和完成；录音中按右 Ctrl 提交当前句并立即录下一句，最终一次性写入当前光标位置。
+- **独立听写**：按 F9 打开专用窗口，使用右 Ctrl 连续分段，不向外部输入框写入。
+- **可编辑结果**：两种模式都按顺序展示分段；独立听写可逐段修订，就地听写在审阅或复制回退时保留完整正文。
 - **历史与统计分离**：文本历史按保留策略存储；使用统计不包含听写原文，也不会保存音频。
 - **场景词汇表**：可为产品名、专业术语等内容建立词汇表，为 Whisper 提供识别提示。
 
@@ -48,15 +48,24 @@ LessASR（代码仓库名仍为 `LocalAsrClient`）是一款 Windows 语音输�
       <sub><b>设置</b></sub>
     </td>
     <td width="50%" align="center">
-      <img src="docs/assets/screenshots/product/continuous-dictation.png" width="260" alt="LessASR 连续听写"><br>
-      <sub><b>连续听写</b></sub>
+      <img src="docs/assets/screenshots/product/in-place-dictation.png" width="320" alt="LessASR 就地听写展开浮窗"><br>
+      <sub><b>就地听写</b></sub>
     </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <img src="docs/assets/screenshots/product/independent-dictation.png" width="260" alt="LessASR 独立听写"><br>
+      <sub><b>独立听写</b></sub>
+    </td>
+    <td width="50%"></td>
   </tr>
 </table>
 
-## 连续听写
+## 就地听写与独立听写
 
-连续听写适合会议纪要、文章草稿和长段思路整理。按 F9 打开窗口后，右 Ctrl 用作句子边界：当前段进入识别队列，同时立即开始下一段录制，因此上一段识别时仍可继续说下一段。完成的段落可以直接编辑或一次复制全部内容；关闭窗口时，已完成内容会按顺序合并为一条历史记录。
+**就地听写**适合直接向当前应用输入内容。按右 Alt 开始后，右 Ctrl 用作句子边界：当前段进入识别队列，同时立即开始下一段录制；再次按右 Alt 后，所有成功段按顺序合并并一次写入开始时捕获的光标位置。无法写入时会显示完整正文和“复制文本”按钮。
+
+**独立听写**适合会议纪要、文章草稿和长段思路整理。按 F9 打开窗口后，同样使用右 Ctrl 连续分段。完成的段落可以直接编辑或一次复制全部内容；关闭窗口时，成功段会按顺序合并为一条历史记录。
 
 ## 数据目录
 
@@ -138,6 +147,7 @@ dotnet publish src/LocalAsrClient.App/LocalAsrClient.App.csproj -c Release -r wi
 - 业务领域说明：`docs/domain.md`
 - 开发约定：`docs/development.md`
 - MVP 设计规格：`docs/superpowers/specs/2026-06-07-windows-asr-client-mvp-design.md`
+- 就地听写与独立听写规格：`docs/superpowers/specs/2026-08-18-in-place-and-independent-dictation-design.md`
 - 识别服务设计：`docs/superpowers/specs/2026-08-15-recognition-services-design.md`
 - 本地与远程转写接口：`docs/api.md`
 - Agent 工作入口：`AGENTS.md`

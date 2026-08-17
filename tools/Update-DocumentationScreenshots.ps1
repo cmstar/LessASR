@@ -23,7 +23,7 @@ $expectedScreenshots = @{
     'services.png' = @(1040, 760)
     'services-remote.png' = @(1040, 760)
     'settings.png' = @(1040, 760)
-    'in-place-dictation.png' = @(360, 150)
+    'in-place-dictation.png' = @(360, 143)
     'independent-dictation.png' = @(560, 560)
 }
 
