@@ -342,10 +342,9 @@ public sealed class AppServices : IAsyncDisposable
             audioLevelSource.AudioLevelChanged += overlayWindow.SetRecordingLevel;
         }
 
-        var hotkeyListener = new GlobalHotkeyListener(
+        var hotkeyListener = GlobalHotkeyListener.CreateExclusive(
             DictationHotkey.ToggleVirtualKey,
-            diagnosticSink,
-            suppressSoloPress: false);
+            diagnosticSink);
 
         var segmentListener = new GlobalHotkeyListener(InPlaceSegmentHotkey.VirtualKey, diagnosticSink);
 

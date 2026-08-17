@@ -1,22 +1,28 @@
 namespace LocalAsrClient.App.Hotkeys;
 
 /// <summary>
-/// Recognizes one complete, unmodified key press from low-level keyboard messages.
+/// Recognizes either a complete unmodified press or an exclusively captured initial key-down.
 /// </summary>
 internal sealed class HotkeyPressGesture
 {
     private readonly HashSet<int> _pressedKeys = [];
+    private readonly bool _captureTargetKeyExclusively;
     private readonly bool _suppressSoloPress;
     private readonly int _targetVirtualKeyCode;
     private bool _isChord;
     private bool _suppressCurrentPress;
     private bool _targetPressStarted;
 
-    public HotkeyPressGesture(int targetVirtualKeyCode, bool suppressSoloPress = false)
+    public HotkeyPressGesture(
+        int targetVirtualKeyCode,
+        bool suppressSoloPress = false,
+        bool captureTargetKeyExclusively = false)
     {
         _targetVirtualKeyCode = targetVirtualKeyCode;
+        _captureTargetKeyExclusively = captureTargetKeyExclusively;
         // Modifier key edges must always be delivered as a pair. Suppressing only
         // one edge leaves foreground applications believing the modifier is held.
+        // Exclusive capture is safe because it suppresses both edges unconditionally.
         _suppressSoloPress = suppressSoloPress
             && !Win32HotkeyNative.IsModifierKey(targetVirtualKeyCode);
     }
@@ -52,6 +58,12 @@ internal sealed class HotkeyPressGesture
         var isRepeatedMessage = !_pressedKeys.Add(virtualKeyCode);
         if (virtualKeyCode == _targetVirtualKeyCode)
         {
+            if (_captureTargetKeyExclusively)
+            {
+                ShouldSuppressCurrentEvent = true;
+                return !isRepeatedMessage;
+            }
+
             if (!isRepeatedMessage)
             {
                 _targetPressStarted = true;
@@ -76,6 +88,13 @@ internal sealed class HotkeyPressGesture
         _pressedKeys.Remove(virtualKeyCode);
         if (virtualKeyCode != _targetVirtualKeyCode)
         {
+            return false;
+        }
+
+        if (_captureTargetKeyExclusively)
+        {
+            ShouldSuppressCurrentEvent = true;
+            ResetTargetPress();
             return false;
         }
 

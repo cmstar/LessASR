@@ -7,6 +7,7 @@ namespace LocalAsrClient.App.Hotkeys;
 
 public sealed class GlobalHotkeyListener : IHotkeyListener
 {
+    private readonly bool _capturesTargetKeyExclusively;
     private readonly int _virtualKeyCode;
     private readonly IDiagnosticEventSink _diagnostics;
     private readonly Win32HotkeyNative.LowLevelKeyboardProc _callback;
@@ -39,17 +40,44 @@ public sealed class GlobalHotkeyListener : IHotkeyListener
         int virtualKeyCode,
         IDiagnosticEventSink diagnostics,
         bool suppressSoloPress)
+        : this(
+            virtualKeyCode,
+            diagnostics,
+            suppressSoloPress,
+            captureTargetKeyExclusively: false)
+    {
+    }
+
+    private GlobalHotkeyListener(
+        int virtualKeyCode,
+        IDiagnosticEventSink diagnostics,
+        bool suppressSoloPress,
+        bool captureTargetKeyExclusively)
     {
         _virtualKeyCode = virtualKeyCode;
         _diagnostics = diagnostics;
+        _capturesTargetKeyExclusively = captureTargetKeyExclusively;
         _suppressesSoloPress = suppressSoloPress
             && !Win32HotkeyNative.IsModifierKey(virtualKeyCode);
         _callback = HookCallback;
-        _gesture = new HotkeyPressGesture(virtualKeyCode, _suppressesSoloPress);
+        _gesture = new HotkeyPressGesture(
+            virtualKeyCode,
+            _suppressesSoloPress,
+            captureTargetKeyExclusively);
     }
+
+    public static GlobalHotkeyListener CreateExclusive(
+        int virtualKeyCode,
+        IDiagnosticEventSink diagnostics) =>
+        new(
+            virtualKeyCode,
+            diagnostics,
+            suppressSoloPress: false,
+            captureTargetKeyExclusively: true);
 
     public event Action? Triggered;
     public bool IsRunning => _hook != IntPtr.Zero;
+    internal bool CapturesTargetKeyExclusively => _capturesTargetKeyExclusively;
     internal bool SuppressesSoloPress => _suppressesSoloPress;
 
     public void Start()

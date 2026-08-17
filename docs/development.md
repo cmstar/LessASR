@@ -45,7 +45,7 @@ tests/LocalAsrClient.Core.Tests/
 
 - Core 项目不得引用 WPF、WinForms 或 NAudio。
 - Win32 interop 仅存在于 `LocalAsrClient.App`。
-- 全局热键在目标键完整按下并释放后触发；按键期间若有其他键参与则整次手势作废，修饰键热键必须继续传递给前台应用以保留组合键功能。
+- 右 Alt 是 LessASR 专用键：首次按下即触发，按下、系统重复与松开事件都由监听器完整拦截，不能只拦截其中一个边缘。右 Ctrl、F9 与 Esc 仍在目标键完整按下并释放后触发；按键期间若有其他键参与则整次手势作废并保持原始事件透传。
 
 ## 编码约定
 

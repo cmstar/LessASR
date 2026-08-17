@@ -1,3 +1,4 @@
+using LocalAsrClient.App.Diagnostics;
 using LocalAsrClient.App.Hotkeys;
 
 namespace LocalAsrClient.App.Tests.Hotkeys;
@@ -142,6 +143,34 @@ public sealed class HotkeyPressGestureTests
         Assert.False(gesture.ShouldSuppressCurrentEvent);
         Assert.True(gesture.Process(Win32HotkeyNative.WmSysKeyUp, Win32HotkeyNative.VkRMenu));
         Assert.False(gesture.ShouldSuppressCurrentEvent);
+    }
+
+    [Fact]
+    public void ExclusiveModifierGesture_TriggersOnInitialDownAndSuppressesEveryTargetEdge()
+    {
+        var gesture = new HotkeyPressGesture(
+            Win32HotkeyNative.VkRMenu,
+            captureTargetKeyExclusively: true);
+
+        Assert.True(gesture.Process(Win32HotkeyNative.WmSysKeyDown, Win32HotkeyNative.VkRMenu));
+        Assert.True(gesture.ShouldSuppressCurrentEvent);
+
+        Assert.False(gesture.Process(Win32HotkeyNative.WmSysKeyDown, Win32HotkeyNative.VkRMenu));
+        Assert.True(gesture.ShouldSuppressCurrentEvent);
+
+        Assert.False(gesture.Process(Win32HotkeyNative.WmSysKeyUp, Win32HotkeyNative.VkRMenu));
+        Assert.True(gesture.ShouldSuppressCurrentEvent);
+    }
+
+    [Fact]
+    public void ExclusiveRightAltListener_DeclaresDedicatedKeyCapture()
+    {
+        using var listener = GlobalHotkeyListener.CreateExclusive(
+            Win32HotkeyNative.VkRMenu,
+            NullDiagnosticEventSink.Instance);
+
+        Assert.True(listener.CapturesTargetKeyExclusively);
+        Assert.False(listener.SuppressesSoloPress);
     }
 
     [Fact]
