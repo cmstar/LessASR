@@ -23,6 +23,19 @@ public sealed class InPlaceDictationOrchestratorTests
     }
 
     [Fact]
+    public async Task ToggleAsync_WhenRecorderCannotStart_PublishesDismissibleError()
+    {
+        var fixture = new Fixture();
+        fixture.Recorder.StartThrows = new InvalidOperationException("找不到麦克风");
+
+        await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
+
+        Assert.Equal(InPlaceDictationState.Error, fixture.LastStatus.State);
+        Assert.Equal("找不到麦克风", fixture.LastStatus.ErrorMessage);
+        Assert.True(fixture.Orchestrator.IsSessionOpen);
+    }
+
+    [Fact]
     public async Task CommitSegmentBoundaryAsync_WhileRecording_QueuesRecognitionAndImmediatelyRecordsNextSegment()
     {
         var fixture = new Fixture();

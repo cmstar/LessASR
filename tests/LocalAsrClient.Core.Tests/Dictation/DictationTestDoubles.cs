@@ -9,9 +9,15 @@ public sealed class StubRecorder : IAudioRecorder
 {
     public bool Started { get; private set; }
     public TimeSpan DurationOverride { get; set; } = TimeSpan.FromSeconds(2);
+    public Exception? StartThrows { get; set; }
 
     public Task StartAsync(CancellationToken cancellationToken)
     {
+        if (StartThrows is not null)
+        {
+            throw StartThrows;
+        }
+
         Started = true;
         return Task.CompletedTask;
     }

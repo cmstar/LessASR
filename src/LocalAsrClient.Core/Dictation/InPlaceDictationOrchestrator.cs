@@ -188,9 +188,21 @@ public sealed class InPlaceDictationOrchestrator : IDisposable
             }
         }
 
-        await _session.ToggleRecordingAsync(cancellationToken);
-        _state = InPlaceDictationState.Recording;
-        Publish("聆听中");
+        try
+        {
+            await _session.ToggleRecordingAsync(cancellationToken);
+            _state = InPlaceDictationState.Recording;
+            Publish("聆听中");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _state = InPlaceDictationState.Error;
+            Publish("无法开始录音", errorMessage: ex.Message);
+        }
     }
 
     private async Task FinishAsync(bool commitCurrentSegment, CancellationToken cancellationToken)
