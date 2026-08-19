@@ -10,7 +10,8 @@ namespace LocalAsrClient.App.ContinuousDictation;
 
 public sealed class ContinuousDictationViewModel : INotifyPropertyChanged
 {
-    private readonly ContinuousDictationSession _session;
+    private readonly Action<Guid, string> _updateSegmentText;
+    private readonly Func<string> _buildHistoryText;
     private string _bannerMessage = string.Empty;
     private bool _isRecordingActive;
 
@@ -19,8 +20,24 @@ public sealed class ContinuousDictationViewModel : INotifyPropertyChanged
         Action onClose,
         Action onEndRecording,
         bool isDemoMode = false)
+        : this(
+            session.UpdateSegmentText,
+            session.BuildHistoryText,
+            onClose,
+            onEndRecording,
+            isDemoMode)
     {
-        _session = session;
+    }
+
+    internal ContinuousDictationViewModel(
+        Action<Guid, string> updateSegmentText,
+        Func<string> buildHistoryText,
+        Action onClose,
+        Action onEndRecording,
+        bool isDemoMode = false)
+    {
+        _updateSegmentText = updateSegmentText;
+        _buildHistoryText = buildHistoryText;
         CloseCommand = new RelayCommand(onClose);
         EndRecordingCommand = new RelayCommand(onEndRecording);
         CopyCommand = new RelayCommand(OnCopy);
@@ -96,25 +113,47 @@ public sealed class ContinuousDictationViewModel : INotifyPropertyChanged
         }
 
         var previousCount = Segments.Count;
-        var existingMap = Segments.ToDictionary(segment => segment.Id);
-        Segments.Clear();
-        foreach (var segment in snapshot.Segments)
+        for (var targetIndex = 0; targetIndex < snapshot.Segments.Count; targetIndex++)
         {
-            if (existingMap.TryGetValue(segment.Id, out var viewModel))
+            var segment = snapshot.Segments[targetIndex];
+            var currentIndex = FindSegmentIndex(segment.Id, targetIndex);
+            if (currentIndex < 0)
             {
-                viewModel.UpdateFrom(segment);
-                Segments.Add(viewModel);
+                Segments.Insert(targetIndex, new ContinuousSegmentViewModel(segment, OnSegmentTextChanged));
             }
             else
             {
-                Segments.Add(new ContinuousSegmentViewModel(segment, OnSegmentTextChanged));
+                if (currentIndex != targetIndex)
+                {
+                    Segments.Move(currentIndex, targetIndex);
+                }
+
+                Segments[targetIndex].UpdateFrom(segment);
             }
+        }
+
+        while (Segments.Count > snapshot.Segments.Count)
+        {
+            Segments.RemoveAt(Segments.Count - 1);
         }
 
         if (snapshot.Segments.Count > previousCount)
         {
             ScrollToBottomRequested?.Invoke();
         }
+    }
+
+    private int FindSegmentIndex(Guid segmentId, int startIndex)
+    {
+        for (var index = startIndex; index < Segments.Count; index++)
+        {
+            if (Segments[index].Id == segmentId)
+            {
+                return index;
+            }
+        }
+
+        return -1;
     }
 
     public void SetBanner(string? message)
@@ -134,12 +173,12 @@ public sealed class ContinuousDictationViewModel : INotifyPropertyChanged
 
     private void OnSegmentTextChanged(Guid segmentId, string text)
     {
-        _session.UpdateSegmentText(segmentId, text);
+        _updateSegmentText(segmentId, text);
     }
 
     private void OnCopy()
     {
-        var text = _session.BuildHistoryText();
+        var text = _buildHistoryText();
         if (!string.IsNullOrWhiteSpace(text))
         {
             System.Windows.Clipboard.SetText(text);

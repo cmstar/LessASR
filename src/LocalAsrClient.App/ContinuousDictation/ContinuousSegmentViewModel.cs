@@ -95,8 +95,12 @@ public sealed class ContinuousSegmentViewModel : INotifyPropertyChanged
         {
             State = segment.State;
             _errorMessage = segment.ErrorMessage;
-            _text = segment.Text;
-            OnPropertyChanged(nameof(Text));
+            if (_text != segment.Text)
+            {
+                _text = segment.Text;
+                OnPropertyChanged(nameof(Text));
+            }
+
             OnPropertyChanged(nameof(Placeholder));
         }
         finally
