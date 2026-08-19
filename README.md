@@ -34,30 +34,23 @@ LessASR（代码仓库名仍为 `LocalAsrClient`）是一款 Windows 语音输�
   </tr>
   <tr>
     <td width="50%" align="center">
-      <img src="docs/assets/screenshots/product/services.png" width="420" alt="LessASR 本地 Whisper 模型"><br>
-      <sub><b>本地模型</b></sub>
+      <img src="docs/assets/screenshots/product/services-remote.png" width="420" alt="LessASR 模型远程 API 配置"><br>
+      <sub><b>模型</b></sub>
     </td>
     <td width="50%" align="center">
-      <img src="docs/assets/screenshots/product/services-remote.png" width="420" alt="LessASR 远程 API 配置"><br>
-      <sub><b>远程 API</b></sub>
+      <img src="docs/assets/screenshots/product/vocabulary.png" width="420" alt="LessASR 词汇表"><br>
+      <sub><b>词汇表</b></sub>
     </td>
   </tr>
   <tr>
-    <td width="50%" align="center">
-      <img src="docs/assets/screenshots/product/settings.png" width="420" alt="LessASR 设置"><br>
-      <sub><b>设置</b></sub>
-    </td>
     <td width="50%" align="center">
       <img src="docs/assets/screenshots/product/in-place-dictation.png" width="320" alt="LessASR 就地听写展开浮窗"><br>
       <sub><b>就地听写</b></sub>
     </td>
-  </tr>
-  <tr>
     <td width="50%" align="center">
       <img src="docs/assets/screenshots/product/independent-dictation.png" width="260" alt="LessASR 独立听写"><br>
       <sub><b>独立听写</b></sub>
     </td>
-    <td width="50%"></td>
   </tr>
 </table>
 

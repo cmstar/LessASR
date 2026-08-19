@@ -3,6 +3,7 @@ using LocalAsrClient.App.DemoMode;
 using LocalAsrClient.App.ViewModels;
 using LocalAsrClient.Core.Asr;
 using LocalAsrClient.Core.Persistence;
+using LocalAsrClient.Core.Utilities;
 
 namespace LocalAsrClient.App.Tests.DemoMode;
 
@@ -80,6 +81,8 @@ public sealed class DemoModeTests
         var settings = await new SqliteSettingsStore(database).LoadAsync(CancellationToken.None);
         var remoteProfiles = await new SqliteRemoteApiProfileRepository(database)
             .GetAllAsync(CancellationToken.None);
+        var vocabularyProfiles = await new SqliteVocabularyRepository(database, new SystemClock())
+            .GetAllAsync(CancellationToken.None);
 
         Assert.Equal(
             StatsViewModel.SummaryDayCount,
@@ -97,5 +100,11 @@ public sealed class DemoModeTests
         Assert.Equal("局域网 Whisper", remote.Name);
         Assert.False(remote.UseVocabulary);
         Assert.Null(remote.ProtectedApiKey);
+        Assert.Equal(DemoDataScenario.VocabularyProfiles.Count, vocabularyProfiles.Count);
+        var activeVocabulary = Assert.Single(vocabularyProfiles, profile => profile.IsActive);
+        Assert.Equal(DemoDataScenario.VocabularyProfiles[0].Name, activeVocabulary.Name);
+        Assert.Equal(
+            WhisperVocabulary.Parse(DemoDataScenario.VocabularyProfiles[0].EntriesText).NormalizedText,
+            activeVocabulary.EntriesText);
     }
 }

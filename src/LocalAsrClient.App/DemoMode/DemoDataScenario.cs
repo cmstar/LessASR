@@ -1,7 +1,19 @@
 namespace LocalAsrClient.App.DemoMode;
 
+public sealed record DemoVocabularyProfile(string Name, string EntriesText);
+
 public static class DemoDataScenario
 {
+    public static IReadOnlyList<DemoVocabularyProfile> VocabularyProfiles { get; } =
+    [
+        new(
+            "产品与技术",
+            "LessASR\nwhisper.cpp\nWhisper large-v3-turbo\nWPF\n.NET 8\nSQLite\nOpenAI API"),
+        new(
+            "会议与写作",
+            "会议纪要\n项目周报\n待办事项\n验收测试\n发布时间\n内容编辑")
+    ];
+
     public static IReadOnlyList<string> ContinuousDictationSegments { get; } =
     [
         "今天先把首页的信息层级整理清楚，让用户打开软件后立刻知道如何开始听写。",

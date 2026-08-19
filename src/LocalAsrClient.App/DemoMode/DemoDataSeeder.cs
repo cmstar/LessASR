@@ -1,4 +1,5 @@
 using LocalAsrClient.App.ViewModels;
+using LocalAsrClient.Core.Abstractions;
 using LocalAsrClient.Core.Persistence;
 using LocalAsrClient.Core.Utilities;
 
@@ -33,6 +34,17 @@ public static class DemoDataSeeder
             protectedApiKey: null,
             useVocabulary: false,
             cancellationToken);
+
+        var vocabularyRepository = new SqliteVocabularyRepository(database, new DemoClock(now));
+        foreach (var profile in DemoDataScenario.VocabularyProfiles)
+        {
+            var created = await vocabularyRepository.CreateAsync(profile.Name, cancellationToken);
+            await vocabularyRepository.UpdateAsync(
+                created.Id,
+                profile.Name,
+                profile.EntriesText,
+                cancellationToken);
+        }
 
         var statsRepository = new SqliteStatsRepository(database);
         var today = DateOnly.FromDateTime(now.Date);
@@ -92,5 +104,12 @@ public static class DemoDataSeeder
         bytes[3] = 0x52;
         BitConverter.TryWriteBytes(bytes[12..], index + 1);
         return new Guid(bytes);
+    }
+
+    private sealed class DemoClock(DateTimeOffset now) : IClock
+    {
+        public DateTimeOffset Now => now;
+
+        public DateOnly Today => DateOnly.FromDateTime(now.Date);
     }
 }

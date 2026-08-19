@@ -8,7 +8,7 @@ $outputDirectory = Join-Path $repositoryRoot 'docs\assets\screenshots\product'
 
 Push-Location $repositoryRoot
 try {
-    & dotnet run --project $projectPath -- --demo-mode --export-demo-screenshots $outputDirectory
+    & dotnet run --configuration Release --project $projectPath -- --demo-mode --export-demo-screenshots $outputDirectory
     if ($LASTEXITCODE -ne 0) {
         throw "LessASR 文档截图更新失败，退出码：$LASTEXITCODE"
     }
@@ -20,10 +20,9 @@ finally {
 $expectedScreenshots = @{
     'home.png' = @(1040, 760)
     'history.png' = @(1040, 760)
-    'services.png' = @(1040, 760)
     'services-remote.png' = @(1040, 760)
-    'settings.png' = @(1040, 760)
-    'in-place-dictation.png' = @(360, 143)
+    'vocabulary.png' = @(1040, 760)
+    'in-place-dictation.png' = @(360, 139)
     'independent-dictation.png' = @(560, 560)
 }
 
