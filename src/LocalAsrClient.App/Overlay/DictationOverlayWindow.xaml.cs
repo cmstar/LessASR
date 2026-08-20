@@ -21,8 +21,10 @@ public partial class DictationOverlayWindow : Window
     private readonly WindowInteropHelper _interopHelper;
     private readonly LoopingWaveformPreview _waveformPreview = new();
     private OverlayFocusSnapshot _focusSnapshotBeforeShow;
+    private IntPtr _placementMonitor;
     private System.Windows.Threading.DispatcherTimer? _waveformPreviewTimer;
     private bool _isReviewMode;
+    private bool _isPositioning;
 
     public DictationOverlayWindow()
         : this(NullDiagnosticEventSink.Instance)
@@ -49,6 +51,11 @@ public partial class DictationOverlayWindow : Window
     public event Action? SubmitRequested;
 
     public event Action<Guid, string>? SegmentTextChanged;
+
+    internal void LockPlacementToWindow(IntPtr targetWindow)
+    {
+        _placementMonitor = OverlayMonitorPlacement.CaptureMonitor(targetWindow);
+    }
 
     public void SetRecordingLevel(float level)
     {
@@ -94,6 +101,7 @@ public partial class DictationOverlayWindow : Window
         _isReviewMode = false;
         StopWaveformPreview();
         _focusSnapshotBeforeShow = OverlayFocusGuard.Capture();
+        EnsurePlacementMonitor(_focusSnapshotBeforeShow.ForegroundWindow);
         _ = _diagnostics.WriteAsync(CreateEvent("Overlay.Show.Before", state));
 
         RecordingWaveformView.Reset();
@@ -117,6 +125,7 @@ public partial class DictationOverlayWindow : Window
         if (!_isReviewMode)
         {
             _focusSnapshotBeforeShow = OverlayFocusGuard.Capture();
+            EnsurePlacementMonitor(_focusSnapshotBeforeShow.ForegroundWindow);
         }
 
         _viewModel.ApplyInPlaceStatus(status);
@@ -156,6 +165,8 @@ public partial class DictationOverlayWindow : Window
         {
             ShowWindow(handle, SwHide);
         }
+
+        _placementMonitor = IntPtr.Zero;
     }
 
     private void OnCloseRequested()
@@ -268,56 +279,104 @@ public partial class DictationOverlayWindow : Window
             return;
         }
 
-        var area = SystemParameters.WorkArea;
-        var availableHeight = area.Height - BottomMargin - TopMargin;
+        var availableHeight = GetAvailableHeight();
         _viewModel.ResultMaxHeight = Math.Max(60, Math.Min(180, availableHeight - CopyLayoutChromeHeight));
     }
 
     private void PositionBottomCenterNoActivate()
     {
-        var area = SystemParameters.WorkArea;
-
-        Left = area.Left + (area.Width - ActualWidth) / 2;
-        Top = area.Bottom - ActualHeight - BottomMargin;
-
-        if (Top < area.Top + TopMargin)
+        if (_isPositioning)
         {
-            Top = area.Top + TopMargin;
+            return;
         }
 
         var handle = _interopHelper.Handle;
-        if (handle == IntPtr.Zero)
+        if (handle == IntPtr.Zero || !TryGetWorkingArea(out var workingArea))
         {
             return;
         }
 
-        var source = PresentationSource.FromVisual(this);
-        if (source?.CompositionTarget is null)
+        _isPositioning = true;
+        try
         {
-            Win32FocusNative.SetWindowPos(
-                handle,
-                Win32FocusNative.HwndTopmost,
-                0,
-                0,
-                0,
-                0,
-                Win32FocusNative.SwpNoActivate | Win32FocusNative.SwpNomove | Win32FocusNative.SwpNosize | Win32FocusNative.SwpShowWindow);
-            return;
+            // The first move can change the window DPI. A second pass uses the
+            // resulting native size and DPI so mixed-scale monitors stay centered.
+            PositionOnWorkingArea(handle, workingArea);
+            PositionOnWorkingArea(handle, workingArea);
         }
+        finally
+        {
+            _isPositioning = false;
+        }
+    }
 
-        var transform = source.CompositionTarget.TransformToDevice;
-        var physicalLeft = (int)(Left * transform.M11);
-        var physicalTop = (int)(Top * transform.M22);
-        var physicalWidth = Math.Max(1, (int)(ActualWidth * transform.M11));
-        var physicalHeight = Math.Max(1, (int)(ActualHeight * transform.M22));
+    private void PositionOnWorkingArea(IntPtr handle, OverlayPixelRectangle workingArea)
+    {
+        var dpi = OverlayMonitorPlacement.GetWindowDpiOrDefault(handle);
+        var windowBounds = GetWindowBounds(handle, dpi);
+        var position = OverlayPlacementCalculator.BottomCenter(
+            workingArea,
+            windowBounds.Width,
+            windowBounds.Height,
+            OverlayPlacementCalculator.DevicePixels(TopMargin, dpi),
+            OverlayPlacementCalculator.DevicePixels(BottomMargin, dpi));
+
         Win32FocusNative.SetWindowPos(
             handle,
             Win32FocusNative.HwndTopmost,
-            physicalLeft,
-            physicalTop,
-            physicalWidth,
-            physicalHeight,
-            Win32FocusNative.SwpNoActivate | Win32FocusNative.SwpShowWindow);
+            position.Left,
+            position.Top,
+            0,
+            0,
+            Win32FocusNative.SwpNoActivate | Win32FocusNative.SwpNosize | Win32FocusNative.SwpShowWindow);
+    }
+
+    private OverlayPixelRectangle GetWindowBounds(IntPtr handle, uint dpi)
+    {
+        if (OverlayMonitorPlacement.TryGetWindowBounds(handle, out var windowBounds))
+        {
+            return windowBounds;
+        }
+
+        var width = Math.Max(1, OverlayPlacementCalculator.DevicePixels(ActualWidth, dpi));
+        var height = Math.Max(1, OverlayPlacementCalculator.DevicePixels(ActualHeight, dpi));
+        return new OverlayPixelRectangle(0, 0, width, height);
+    }
+
+    private double GetAvailableHeight()
+    {
+        if (!TryGetWorkingArea(out var workingArea))
+        {
+            return SystemParameters.WorkArea.Height - BottomMargin - TopMargin;
+        }
+
+        var dpi = OverlayMonitorPlacement.GetWindowDpiOrDefault(_interopHelper.Handle);
+        return workingArea.Height * (double)OverlayMonitorPlacement.DefaultDpi / dpi - BottomMargin - TopMargin;
+    }
+
+    private bool TryGetWorkingArea(out OverlayPixelRectangle workingArea)
+    {
+        var monitor = _placementMonitor;
+        if (monitor == IntPtr.Zero)
+        {
+            monitor = OverlayMonitorPlacement.CaptureMonitor(_focusSnapshotBeforeShow.ForegroundWindow);
+        }
+
+        if (OverlayMonitorPlacement.TryGetWorkingArea(monitor, out workingArea))
+        {
+            return true;
+        }
+
+        monitor = OverlayMonitorPlacement.CaptureMonitor(IntPtr.Zero);
+        return OverlayMonitorPlacement.TryGetWorkingArea(monitor, out workingArea);
+    }
+
+    private void EnsurePlacementMonitor(IntPtr targetWindow)
+    {
+        if (_placementMonitor == IntPtr.Zero)
+        {
+            _placementMonitor = OverlayMonitorPlacement.CaptureMonitor(targetWindow);
+        }
     }
 
     private static void EnsureTopmostNoActivate(IntPtr handle)

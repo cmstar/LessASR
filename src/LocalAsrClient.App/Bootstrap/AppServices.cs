@@ -444,6 +444,7 @@ public sealed class AppServices : IAsyncDisposable
                 if (inPlaceOrchestrator.State == InPlaceDictationState.Idle)
                 {
                     injectionTargetCapture.Capture();
+                    overlayWindow.LockPlacementToWindow(injectionTargetCapture.ForegroundWindow);
                 }
 
                 RunInPlace(
