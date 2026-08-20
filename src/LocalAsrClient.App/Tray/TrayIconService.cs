@@ -8,6 +8,7 @@ public sealed class TrayIconService : IDisposable
 {
     private readonly MainWindow _window;
     private readonly TrayWindowActivator _windowActivator;
+    private readonly TrayContextMenu _trayMenu;
     private readonly Forms.NotifyIcon _notifyIcon;
     private System.Drawing.Icon? _trayIcon;
     private bool _disposed;
@@ -18,11 +19,11 @@ public sealed class TrayIconService : IDisposable
         _windowActivator = new TrayWindowActivator(
             new WpfTrayWindow(window),
             new Win32TrayForegroundService());
+        _trayMenu = new TrayContextMenu(ShowWindow, ExitApplication);
         _notifyIcon = new Forms.NotifyIcon
         {
             Text = LessAsrPaths.ProductName,
-            Visible = false,
-            ContextMenuStrip = BuildMenu()
+            Visible = false
         };
         UpdateTrayIcon();
         SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
@@ -30,19 +31,17 @@ public sealed class TrayIconService : IDisposable
         _notifyIcon.MouseClick += OnMouseClick;
     }
 
-    private Forms.ContextMenuStrip BuildMenu()
-    {
-        var menu = new Forms.ContextMenuStrip();
-        menu.Items.Add("打开窗口", null, (_, _) => ShowWindow());
-        menu.Items.Add("退出程序", null, (_, _) => ExitApplication());
-        return menu;
-    }
-
     private void OnMouseClick(object? sender, Forms.MouseEventArgs e)
     {
         if (e.Button == Forms.MouseButtons.Left)
         {
             ShowWindow();
+            return;
+        }
+
+        if (e.Button == Forms.MouseButtons.Right)
+        {
+            _trayMenu.ShowAtPointer();
         }
     }
 
@@ -90,6 +89,7 @@ public sealed class TrayIconService : IDisposable
 
         _disposed = true;
         SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
+        _trayMenu.IsOpen = false;
         _notifyIcon.Visible = false;
         _notifyIcon.Icon = null;
         _trayIcon?.Dispose();
