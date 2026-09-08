@@ -97,7 +97,7 @@ OpenAI-compatible API (远程进程或服务)
 - Core/App 分离以支持无头测试与后续替换 UI 层。
 - 当前 ASR 选择通过可替换路由统一供就地听写与独立听写使用，避免两条链路分别判断本地/远程。
 - 文本注入优先使用 Win32 控件直写；现代应用或未知控件无法直写时，使用“保存剪贴板 → 写入识别文本 → Ctrl+V → 恢复剪贴板”的兼容回退。
-- 简繁后处理：`TranscriptionScriptPostProcessor` + OpenCC（`t2s` / `s2t`）；简中 / 繁中偏好时经 `ITranscriptionPunctuationPolicy` 判定后由 `CjkPunctuationNormalizer` 规范化标点；LLM 后处理接口仍保留。
+- 文本后处理：`TranscriptionScriptPostProcessor` 先使用 OpenCC（`t2s` / `s2t`）转换简繁；简中 / 繁中偏好时经 `ITranscriptionPunctuationPolicy` 判定后由 `CjkPunctuationNormalizer` 规范化标点；最后统一调用 Core 内的纯文本函数 `CjkLatinSpacingNormalizer`，为中日韩文字及中文标点与拉丁文字的边界补空格。该步骤不依赖首选语言，保护明确的词内例外、完整外语引文和技术文本内部边界。`TranscriptionPipeline` 返回处理后的同一份文本，后续显示、注入、复制与历史复用它，用户手动编辑后不重复处理；LLM 后处理接口仍保留。
 - Whisper 词汇表是独立持久化实体，可创建多份但同一时间最多一份处于使用中；就地听写与独立听写在每次 ASR 请求前查询当前词汇表并构造 `prompt`。词汇表支持混合 Unicode 语言，只提供识别软偏向，不覆盖首选语言。
 - 用户数据目录固定为 `%USERPROFILE%\.lessasr\`（`LessAsrPaths`），设置项仅存于该目录下的 SQLite，避免「路径配置与数据库位置」循环依赖。
 - `--test-mode` 使用内存 SQLite，桌面验收与 UI 自动化不得接触用户的生产数据库。

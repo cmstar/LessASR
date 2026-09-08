@@ -8,6 +8,24 @@ namespace LocalAsrClient.Core.Tests.Dictation;
 public sealed class TranscriptionPipelineTests
 {
     [Fact]
+    public async Task TranscribeAsync_ReturnsFormattedTextForDisplayInjectionAndHistory()
+    {
+        var backend = new StubBackend { Status = AsrBackendStatus.Ready, TranscribeText = "使用Windows和café" };
+        var settings = new StubSettingsStore();
+        var stats = new StubStatsRepository();
+        var pipeline = new TranscriptionPipeline(
+            backend, settings, new StubVocabularyRepository(),
+            new TranscriptionScriptPostProcessor(settings), stats, new StubClock());
+
+        var result = await pipeline.TranscribeAsync(
+            new RecordingResult(new byte[16], TimeSpan.FromSeconds(1), 16000, 1), CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("使用 Windows 和 café", result.Text);
+        Assert.True(Assert.Single(stats.Recorded).Succeeded);
+    }
+
+    [Fact]
     public async Task TranscribeAsync_OnSuccess_RecordsSucceededStats()
     {
         var backend = new StubBackend { Status = AsrBackendStatus.Ready, TranscribeText = "你好" };

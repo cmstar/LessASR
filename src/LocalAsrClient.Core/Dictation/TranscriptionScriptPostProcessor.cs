@@ -26,6 +26,6 @@ public sealed class TranscriptionScriptPostProcessor : ITextPostProcessor
             text = CjkPunctuationNormalizer.Normalize(text);
         }
 
-        return text;
+        return CjkLatinSpacingNormalizer.Normalize(text);
     }
 }

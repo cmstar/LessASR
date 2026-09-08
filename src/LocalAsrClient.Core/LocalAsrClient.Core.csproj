@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <Using Include="System.Text" />
+    <EmbeddedResource Include="Dictation/Data/MixedScriptProtectedWords.txt" LogicalName="LocalAsrClient.Core.Dictation.MixedScriptProtectedWords.txt" />
   </ItemGroup>
 </Project>
 
