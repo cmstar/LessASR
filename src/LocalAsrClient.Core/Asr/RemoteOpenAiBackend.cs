@@ -44,7 +44,8 @@ public sealed class RemoteOpenAiBackend : IAsrBackend
             configuration.ApiKey,
             audio,
             request.Language,
-            _profile.UseVocabulary ? request.InitialPrompt : null,
+            TranscriptionPromptComposer.Compose(
+                _profile.UseVocabulary ? request.InitialPrompt : null, request.LanguageStylePrompt),
             cancellationToken);
     }
 

@@ -8,6 +8,35 @@ namespace LocalAsrClient.Core.Tests.Dictation;
 public sealed class TranscriptionPipelineTests
 {
     [Fact]
+    public async Task TranscribeAsync_RefreshesLanguageStyleEachSegment_WithoutChangingResultOrVocabulary()
+    {
+        const string text = "第一段\nSecond part, unchanged\n";
+        var backend = new StubBackend { Status = AsrBackendStatus.Ready, TranscribeText = text };
+        var settings = new StubSettingsStore();
+        var pipeline = new TranscriptionPipeline(
+            backend, settings, new StubVocabularyRepository(), new NoOpTextPostProcessor(),
+            new StubStatsRepository(), new StubClock());
+        var samples = new (string Id, string? Language, string? Style)[]
+        {
+            ("zh-Hans", "zh", "以下是普通话的句子。"),
+            ("zh-Hant", "zh", "以下是普通話的句子。"),
+            ("en", "en", "This is a sentence in English."),
+            ("auto", null, null)
+        };
+        foreach (var sample in samples)
+        {
+            settings.Settings = settings.Settings with { PreferredTranscriptionLanguageId = sample.Id };
+            var result = await pipeline.TranscribeAsync(
+                new RecordingResult(new byte[16], TimeSpan.FromSeconds(1), 16000, 1), CancellationToken.None);
+
+            Assert.Equal(sample.Language, backend.LastRequest?.Language);
+            Assert.Equal(sample.Style, backend.LastRequest?.LanguageStylePrompt);
+            Assert.Null(backend.LastRequest?.InitialPrompt);
+            Assert.Equal(text, result.Text);
+        }
+    }
+
+    [Fact]
     public async Task TranscribeAsync_ReturnsFormattedTextForDisplayInjectionAndHistory()
     {
         var backend = new StubBackend { Status = AsrBackendStatus.Ready, TranscribeText = "使用Windows和café" };

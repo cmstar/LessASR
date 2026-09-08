@@ -36,6 +36,8 @@ public sealed class WhisperServerClient : IWhisperServerClient
         audioContent.Headers.ContentType = new MediaTypeHeaderValue("audio/wav");
         content.Add(audioContent, "file", "dictation.wav");
         content.Add(new StringContent("json"), "response_format");
+        // 禁用词元时间戳，绕过 whisper.cpp 部分版本默认固定长度折行的问题（上游 #3968）。
+        content.Add(new StringContent("false"), "token_timestamps");
         if (!string.IsNullOrWhiteSpace(language))
         {
             content.Add(new StringContent(language), "language");

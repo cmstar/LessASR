@@ -51,6 +51,7 @@ public sealed class ManagedWhisperServerBackend : IAsrBackend
         }
 
         await EnsureReadyAsync(cancellationToken);
-        return await _client.TranscribeAsync(audio, request.Language, request.InitialPrompt, cancellationToken);
+        var prompt = TranscriptionPromptComposer.Compose(request.InitialPrompt, request.LanguageStylePrompt);
+        return await _client.TranscribeAsync(audio, request.Language, prompt, cancellationToken);
     }
 }

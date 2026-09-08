@@ -285,6 +285,7 @@ public sealed class DictationOrchestratorTests
         await fixture.Orchestrator.ToggleAsync(CancellationToken.None);
 
         Assert.Equal("zh", fixture.Backend.LastRequest?.Language);
+        Assert.Equal("以下是普通话的句子。", fixture.Backend.LastRequest?.LanguageStylePrompt);
     }
 
     [Fact]
