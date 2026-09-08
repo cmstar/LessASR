@@ -48,7 +48,9 @@ public sealed class TranscriptionPipeline
                     new InMemoryAudioInput(recording.WavData, "wav", recording.SampleRate, recording.Channels),
                     Language: language,
                     Options: new Dictionary<string, string>(),
-                    InitialPrompt: initialPrompt),
+                    InitialPrompt: initialPrompt,
+                    LanguageStylePrompt: TranscriptionPromptComposer.GetLanguageStylePrompt(
+                        settings.PreferredTranscriptionLanguageId)),
                 cancellationToken);
 
             var finalText = await _postProcessor.ProcessAsync(asrResult.Text, cancellationToken);

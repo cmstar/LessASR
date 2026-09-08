@@ -181,6 +181,7 @@ public sealed class AsrServiceCoordinatorTests
         await fixture.Coordinator.TestRemoteAsync(profile.Id, CancellationToken.None);
 
         Assert.Equal("zh", fixture.LastRemoteRequest?.Language);
+        Assert.Equal("以下是普通话的句子。", fixture.LastRemoteRequest?.LanguageStylePrompt);
     }
 
     [Theory]

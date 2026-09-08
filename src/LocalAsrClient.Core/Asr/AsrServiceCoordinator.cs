@@ -256,7 +256,9 @@ public sealed class AsrServiceCoordinator : IAsrServiceCoordinator
                 new InMemoryAudioInput(CreateSilentWav(), "wav", 16000, 1),
                 Language: language,
                 Options: new Dictionary<string, string>(),
-                InitialPrompt: initialPrompt),
+                InitialPrompt: initialPrompt,
+                LanguageStylePrompt: TranscriptionPromptComposer.GetLanguageStylePrompt(
+                    settings.PreferredTranscriptionLanguageId)),
             cancellationToken);
     }
 

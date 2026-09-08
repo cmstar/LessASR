@@ -6,6 +6,23 @@ namespace LocalAsrClient.Core.Tests.Asr;
 
 public sealed class RemoteOpenAiBackendTests
 {
+    [Theory]
+    [InlineData(false, "以下是普通話的句子。")]
+    [InlineData(true, "LessASR, 专业词汇\n以下是普通話的句子。")]
+    public async Task TranscribeAsync_LanguageStyleDoesNotDependOnVocabularySwitch(bool useVocabulary, string expected)
+    {
+        var client = new StubClient();
+        var backend = new RemoteOpenAiBackend(
+            Profile(useVocabulary, protectedApiKey: null), new StubSecretProtector("unused"), client);
+
+        await backend.TranscribeAsync(Request("LessASR, 专业词汇") with
+        {
+            LanguageStylePrompt = "以下是普通話的句子。"
+        }, CancellationToken.None);
+
+        Assert.Equal(expected, client.Prompt);
+    }
+
     [Fact]
     public async Task TranscribeAsync_WhenVocabularyIsDisabled_DropsPromptAndUsesDecryptedKey()
     {

@@ -14,11 +14,13 @@ public sealed record FileAudioInput(
     int SampleRate,
     int Channels) : AudioInput(Format, SampleRate, Channels);
 
+// 词汇提示与语言行文示例分开传递，后端的词汇表开关只控制 InitialPrompt。
 public sealed record AsrRequest(
     AudioInput Audio,
     string? Language,
     IReadOnlyDictionary<string, string> Options,
-    string? InitialPrompt = null);
+    string? InitialPrompt = null,
+    string? LanguageStylePrompt = null);
 
 public sealed record AsrResult(
     string Text,
