@@ -80,6 +80,11 @@ dotnet test tests/LocalAsrClient.Core.Tests/LocalAsrClient.Core.Tests.csproj --f
 
 ## 焦点诊断自动化测试
 
+人工验收统一使用仓库根目录的 `.release/LocalAsrClient.App.exe`，通过
+`dotnet publish src/LocalAsrClient.App/LocalAsrClient.App.csproj -c Release -o .release`
+更新。发布前检查正在运行的 LessASR 实例；目标文件被占用时，先请用户从托盘退出后再更新。
+不得为绕过文件占用而让用户改用其他输出目录，也不要自动启动额外的正式实例；临时构建仅供隔离验证。
+
 焦点诊断 E2E 测试只依赖本地 TestTarget，不依赖记事本、VS Code、浏览器或真实 whisper-server。
 
 运行前先构建：

@@ -9,7 +9,7 @@ public sealed class WaveformHistoryTests
     {
         var history = new WaveformHistory();
 
-        Assert.Equal(96, history.Samples.Count);
+        Assert.Equal(144, history.Samples.Count);
         Assert.All(history.Samples, sample => Assert.Equal(0, sample));
     }
 
