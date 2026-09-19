@@ -83,9 +83,9 @@ public partial class DictationOverlayWindow : Window
     {
         ShowOverlay(OverlayState.Recording, "聆听中");
         _waveformPreview.Reset();
-        for (var index = 0; index < WaveformHistory.DefaultBarCount; index++)
+        for (var index = 0; index < WaveformHistory.DefaultBarCount * RecordingWaveform.InputLevelsPerBar; index++)
         {
-            RecordingWaveformView.PushLevel(_waveformPreview.NextLevel());
+            RecordingWaveformView.PushLevel(_waveformPreview.NextLevel(), animate: false);
         }
 
         _waveformPreviewTimer = new System.Windows.Threading.DispatcherTimer(
