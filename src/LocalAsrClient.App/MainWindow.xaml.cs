@@ -17,6 +17,13 @@ public partial class MainWindow : FluentWindow
         InitializeComponent();
         ViewModel = new MainViewModel(services);
         DataContext = ViewModel;
+        IsVisibleChanged += (_, _) =>
+        {
+            if (IsVisible)
+            {
+                _ = ViewModel.RefreshStatsAsync();
+            }
+        };
     }
 
     public MainViewModel ViewModel { get; }

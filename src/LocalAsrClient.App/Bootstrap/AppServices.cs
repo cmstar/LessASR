@@ -53,7 +53,7 @@ public sealed class AppServices : IAsyncDisposable
 
         SqliteVocabularyRepository vocabularyRepository,
 
-        SqliteStatsRepository statsRepository,
+        CachedStatsRepository statsRepository,
 
         NotifyingTextHistoryRepository historyRepository,
 
@@ -155,7 +155,7 @@ public sealed class AppServices : IAsyncDisposable
 
     public SqliteVocabularyRepository VocabularyRepository { get; }
 
-    public SqliteStatsRepository StatsRepository { get; }
+    public CachedStatsRepository StatsRepository { get; }
 
     public NotifyingTextHistoryRepository HistoryRepository { get; }
 
@@ -292,7 +292,8 @@ public sealed class AppServices : IAsyncDisposable
 
         var vocabularyRepository = new SqliteVocabularyRepository(database, clock);
 
-        var statsRepository = new SqliteStatsRepository(database);
+        var statsRepository = await CachedStatsRepository.CreateAsync(
+            new SqliteStatsRepository(database), cancellationToken);
 
         var historyRepository = new NotifyingTextHistoryRepository(
             new SqliteTextHistoryRepository(database));

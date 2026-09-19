@@ -11,6 +11,7 @@ public sealed class MainViewModel
 {
     private readonly AppServices _services;
     private readonly SemaphoreSlim _historyRefreshLock = new(1, 1);
+    private readonly SemaphoreSlim _statsRefreshLock = new(1, 1);
 
     public MainViewModel(AppServices services)
     {
@@ -38,6 +39,12 @@ public sealed class MainViewModel
                 && Navigation.SelectedSection == MainSection.History)
             {
                 OnHistoryChanged();
+            }
+
+            if (args.PropertyName == nameof(MainNavigationViewModel.SelectedSection)
+                && Navigation.SelectedSection is MainSection.Home or MainSection.Stats)
+            {
+                _ = RefreshStatsAsync();
             }
         };
         Initialization = LoadAsync();
@@ -186,15 +193,40 @@ public sealed class MainViewModel
         }
     }
 
+    public async Task RefreshStatsAsync()
+    {
+        await _statsRefreshLock.WaitAsync();
+        try
+        {
+            var end = DateOnly.FromDateTime(DateTime.Now);
+            var start = end.AddDays(-(StatsViewModel.SummaryDayCount - 1));
+            var stats = await _services.StatsRepository.GetRangeAsync(start, end, CancellationToken.None);
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
+            if (dispatcher is null || dispatcher.CheckAccess())
+            {
+                Stats.Load(stats, end);
+            }
+            else
+            {
+                await dispatcher.InvokeAsync(() => Stats.Load(stats, end));
+            }
+        }
+        catch (Exception ex)
+        {
+            AppExceptionLogger.Report(ex, "刷新使用统计失败", showDialog: false);
+        }
+        finally
+        {
+            _statsRefreshLock.Release();
+        }
+    }
+
     private async Task LoadAsync()
     {
         await Vocabulary.LoadAsync();
         await Settings.LoadAsync();
         await Services.LoadAsync();
         await RefreshHistoryAsync();
-        var end = DateOnly.FromDateTime(DateTime.Now);
-        var start = end.AddDays(-(StatsViewModel.SummaryDayCount - 1));
-        var stats = await _services.StatsRepository.GetRangeAsync(start, end, CancellationToken.None);
-        Stats.Load(stats);
+        await RefreshStatsAsync();
     }
 }
