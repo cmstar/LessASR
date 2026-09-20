@@ -44,6 +44,11 @@ internal static class Win32HotkeyNative
     [DllImport("user32.dll")]
     public static extern IntPtr CallNextHookEx(IntPtr hook, int nCode, IntPtr wParam, IntPtr lParam);
 
+    [DllImport("user32.dll")]
+    private static extern short GetAsyncKeyState(int virtualKeyCode);
+
+    public static bool IsKeyDown(int virtualKeyCode) => (GetAsyncKeyState(virtualKeyCode) & 0x8000) != 0;
+
     [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     public static extern IntPtr GetModuleHandle(string? moduleName);
 

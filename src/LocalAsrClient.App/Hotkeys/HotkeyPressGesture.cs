@@ -9,6 +9,7 @@ internal sealed class HotkeyPressGesture
     private readonly bool _captureTargetKeyExclusively;
     private readonly bool _suppressSoloPress;
     private readonly int _targetVirtualKeyCode;
+    private readonly Func<int, bool>? _isKeyDown;
     private bool _isChord;
     private bool _suppressCurrentPress;
     private bool _targetPressStarted;
@@ -16,9 +17,11 @@ internal sealed class HotkeyPressGesture
     public HotkeyPressGesture(
         int targetVirtualKeyCode,
         bool suppressSoloPress = false,
-        bool captureTargetKeyExclusively = false)
+        bool captureTargetKeyExclusively = false,
+        Func<int, bool>? isKeyDown = null)
     {
         _targetVirtualKeyCode = targetVirtualKeyCode;
+        _isKeyDown = isKeyDown;
         _captureTargetKeyExclusively = captureTargetKeyExclusively;
         // Modifier key edges must always be delivered as a pair. Suppressing only
         // one edge leaves foreground applications believing the modifier is held.
@@ -55,6 +58,17 @@ internal sealed class HotkeyPressGesture
 
     private bool ProcessKeyDown(int virtualKeyCode)
     {
+        if (virtualKeyCode == _targetVirtualKeyCode && !_targetPressStarted && _isKeyDown is not null)
+        {
+            // Reconcile other keys before a new gesture, so a missed key-up cannot
+            // permanently turn solo presses into chords. The current key's async
+            // state has not been updated yet inside a low-level keyboard callback.
+            // Dedicated right Alt is suppressed, so only its hook events are reliable.
+            _pressedKeys.RemoveWhere(key => key != _targetVirtualKeyCode
+                && key != Win32HotkeyNative.VkRMenu
+                && !_isKeyDown(key));
+        }
+
         var isRepeatedMessage = !_pressedKeys.Add(virtualKeyCode);
         if (virtualKeyCode == _targetVirtualKeyCode)
         {

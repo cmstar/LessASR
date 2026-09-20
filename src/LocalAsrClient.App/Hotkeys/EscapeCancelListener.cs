@@ -8,7 +8,9 @@ public sealed class EscapeCancelListener : IDisposable
 {
     private readonly Win32HotkeyNative.LowLevelKeyboardProc _callback;
     private readonly Func<bool> _canCancel;
-    private readonly HotkeyPressGesture _gesture = new(Win32HotkeyNative.VkEscape);
+    private readonly HotkeyPressGesture _gesture = new(
+        Win32HotkeyNative.VkEscape,
+        isKeyDown: Win32HotkeyNative.IsKeyDown);
     private IntPtr _hook;
 
     public EscapeCancelListener(Func<bool> canCancel)

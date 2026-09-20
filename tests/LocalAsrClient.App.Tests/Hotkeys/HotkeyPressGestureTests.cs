@@ -9,6 +9,56 @@ public sealed class HotkeyPressGestureTests
     private const int OtherKey = 0x43;
 
     [Fact]
+    public void Escape_AfterMissedOtherKeyRelease_StillTriggers()
+    {
+        var pressedKeys = new HashSet<int> { OtherKey };
+        var gesture = new HotkeyPressGesture(Win32HotkeyNative.VkEscape, isKeyDown: pressedKeys.Contains);
+        gesture.Process(Win32HotkeyNative.WmKeyDown, OtherKey);
+
+        // Another hook consumed the release, but Windows now reports the key as up.
+        pressedKeys.Clear();
+        gesture.Process(Win32HotkeyNative.WmKeyDown, Win32HotkeyNative.VkEscape);
+
+        Assert.True(gesture.Process(Win32HotkeyNative.WmKeyUp, Win32HotkeyNative.VkEscape));
+    }
+
+    [Fact]
+    public void Escape_WithOtherKeyStillHeld_DoesNotTrigger()
+    {
+        var gesture = new HotkeyPressGesture(Win32HotkeyNative.VkEscape, isKeyDown: key => key == OtherKey);
+        gesture.Process(Win32HotkeyNative.WmKeyDown, OtherKey);
+        gesture.Process(Win32HotkeyNative.WmKeyDown, Win32HotkeyNative.VkEscape);
+
+        Assert.False(gesture.Process(Win32HotkeyNative.WmKeyUp, Win32HotkeyNative.VkEscape));
+    }
+
+    [Fact]
+    public void Escape_WithExclusivelyCapturedRightAltHeld_DoesNotTrigger()
+    {
+        // Suppressed right Alt never becomes down in the Windows async key state.
+        var gesture = new HotkeyPressGesture(Win32HotkeyNative.VkEscape, isKeyDown: _ => false);
+        gesture.Process(Win32HotkeyNative.WmSysKeyDown, Win32HotkeyNative.VkRMenu);
+        gesture.Process(Win32HotkeyNative.WmKeyDown, Win32HotkeyNative.VkEscape);
+        Assert.False(gesture.Process(Win32HotkeyNative.WmKeyUp, Win32HotkeyNative.VkEscape));
+
+        gesture.Process(Win32HotkeyNative.WmSysKeyUp, Win32HotkeyNative.VkRMenu);
+        gesture.Process(Win32HotkeyNative.WmKeyDown, Win32HotkeyNative.VkEscape);
+        Assert.True(gesture.Process(Win32HotkeyNative.WmKeyUp, Win32HotkeyNative.VkEscape));
+    }
+
+    [Fact]
+    public void Escape_KeyPressedDuringGesture_RemainsAChordAfterRelease()
+    {
+        var gesture = new HotkeyPressGesture(Win32HotkeyNative.VkEscape, isKeyDown: _ => false);
+        gesture.Process(Win32HotkeyNative.WmKeyDown, Win32HotkeyNative.VkEscape);
+        gesture.Process(Win32HotkeyNative.WmKeyDown, OtherKey);
+        gesture.Process(Win32HotkeyNative.WmKeyUp, OtherKey);
+        gesture.Process(Win32HotkeyNative.WmKeyDown, Win32HotkeyNative.VkEscape);
+
+        Assert.False(gesture.Process(Win32HotkeyNative.WmKeyUp, Win32HotkeyNative.VkEscape));
+    }
+
+    [Fact]
     public void TargetKey_TriggersOnlyAfterKeyUp()
     {
         var gesture = new HotkeyPressGesture(TargetKey);
