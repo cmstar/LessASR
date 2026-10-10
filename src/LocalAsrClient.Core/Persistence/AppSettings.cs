@@ -11,7 +11,8 @@ public sealed record AppSettings(
     bool MinimizeToTrayOnClose = true,
     int? WhisperServerThreadCount = null,
     string PreferredTranscriptionLanguageId = TranscriptionLanguageCatalog.DefaultId,
-    Guid? ActiveRemoteApiProfileId = null)
+    Guid? ActiveRemoteApiProfileId = null,
+    bool MinimizeToTrayOnStartup = false)
 {
     public const int DefaultWhisperServerPort = 8080;
 

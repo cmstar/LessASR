@@ -20,7 +20,8 @@ public sealed class SqliteRepositoryTests
             StartModelOnAppStartup: true,
             MinimizeToTrayOnClose: false,
             WhisperServerThreadCount: 8,
-            PreferredTranscriptionLanguageId: "zh-Hans");
+            PreferredTranscriptionLanguageId: "zh-Hans",
+            MinimizeToTrayOnStartup: true);
 
         await store.SaveAsync(settings, CancellationToken.None);
         var loaded = await store.LoadAsync(CancellationToken.None);
@@ -37,6 +38,39 @@ public sealed class SqliteRepositoryTests
         var loaded = await store.LoadAsync(CancellationToken.None);
 
         Assert.True(loaded.MinimizeToTrayOnClose);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("invalid")]
+    public async Task SettingsStore_DefaultsToShowingWindowWhenStartupSettingIsMissingOrInvalid(string? value)
+    {
+        await using var database = await SqliteDatabase.CreateInMemoryAsync();
+        if (value is not null)
+        {
+            using var command = database.Connection.CreateCommand();
+            command.CommandText = "INSERT INTO settings(key, value) VALUES('MinimizeToTrayOnStartup', $value)";
+            command.Parameters.AddWithValue("$value", value);
+            await command.ExecuteNonQueryAsync();
+        }
+
+        var loaded = await new SqliteSettingsStore(database).LoadAsync(CancellationToken.None);
+
+        Assert.False(loaded.MinimizeToTrayOnStartup);
+    }
+
+    [Fact]
+    public async Task SettingsStore_CanDisableMinimizeToTrayOnStartupAfterEnablingIt()
+    {
+        await using var database = await SqliteDatabase.CreateInMemoryAsync();
+        var store = new SqliteSettingsStore(database);
+        await store.SaveAsync(AppSettings.CreateDefault() with { MinimizeToTrayOnStartup = true }, CancellationToken.None);
+
+        await store.UpdateAsync(settings => settings with { MinimizeToTrayOnStartup = false }, CancellationToken.None);
+
+        var loaded = await new SqliteSettingsStore(database).LoadAsync(CancellationToken.None);
+        Assert.False(loaded.MinimizeToTrayOnStartup);
     }
 
     [Fact]

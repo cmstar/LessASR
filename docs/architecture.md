@@ -74,6 +74,10 @@ OpenAI-compatible API (远程进程或服务)
 
 设置页缩短文本历史保留期时，先通过 `ITextHistoryRepository.CountPrunableAsync` 计算超出新期限的记录数量；数量大于零时使用通用危险确认窗口提示用户。只有确认后才保存新策略并立即调用 `PruneAsync`，取消时设置与历史均保持不变；使用统计存储不参与该流程。
 
+## 客户端启动与托盘
+
+`App.OnStartup` 读取持久化的 `AppSettings.MinimizeToTrayOnStartup`（缺失或无效时为 `false`），始终创建主窗口对象与托盘图标，仅在未启用“启动后自动最小化”时显示主窗口。启用时不调用 `Show()`，避免窗口闪现；ViewModel 初始化与热键监听仍照常执行，托盘沿用 `TrayWindowActivator` 显示并激活窗口。演示截图导出仍显示主窗口以完成捕获。
+
 ## 识别服务管理
 
 - 模型页左侧列表固定以不可删除的本地 Whisper 开头，并可保存任意数量的远程 API 配置；右侧只展示当前选中项的详情。`AppSettings.ActiveRemoteApiProfileId == null` 表示本地服务。

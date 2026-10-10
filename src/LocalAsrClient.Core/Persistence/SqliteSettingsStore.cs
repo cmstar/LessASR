@@ -54,6 +54,7 @@ public sealed class SqliteSettingsStore : ISettingsStore
                 out var policy) ? policy : defaults.TranscriptRetentionPolicy,
             StartModelOnAppStartup = bool.TryParse(values.GetValueOrDefault("StartModelOnAppStartup"), out var start) && start,
             MinimizeToTrayOnClose = !bool.TryParse(values.GetValueOrDefault("MinimizeToTrayOnClose"), out var minimize) || minimize,
+            MinimizeToTrayOnStartup = bool.TryParse(values.GetValueOrDefault("MinimizeToTrayOnStartup"), out var minimizeOnStartup) && minimizeOnStartup,
             PreferredTranscriptionLanguageId = TranscriptionLanguageCatalog.NormalizeId(
                 values.GetValueOrDefault("PreferredTranscriptionLanguageId")),
             ActiveRemoteApiProfileId = Guid.TryParse(
@@ -105,6 +106,7 @@ public sealed class SqliteSettingsStore : ISettingsStore
             ["TranscriptRetentionPolicy"] = settings.TranscriptRetentionPolicy.ToString(),
             ["StartModelOnAppStartup"] = settings.StartModelOnAppStartup.ToString(),
             ["MinimizeToTrayOnClose"] = settings.MinimizeToTrayOnClose.ToString(),
+            ["MinimizeToTrayOnStartup"] = settings.MinimizeToTrayOnStartup.ToString(),
             ["PreferredTranscriptionLanguageId"] = settings.PreferredTranscriptionLanguageId,
             ["ActiveRemoteApiProfileId"] = settings.ActiveRemoteApiProfileId?.ToString() ?? string.Empty
         };

@@ -26,10 +26,14 @@ public partial class App : System.Windows.Application
             TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
 
             _services = await AppServices.CreateAsync(startupOptions, CancellationToken.None);
+            var settings = await _services.SettingsStore.LoadAsync(CancellationToken.None);
             _mainWindow = new MainWindow(_services);
             MainWindow = _mainWindow;
             _trayIconService = new TrayIconService(_mainWindow);
-            _mainWindow.Show();
+            if (!settings.MinimizeToTrayOnStartup || startupOptions.DemoScreenshotOutputDirectory is not null)
+            {
+                _mainWindow.Show();
+            }
 
             if (startupOptions.DemoScreenshotOutputDirectory is not null)
             {

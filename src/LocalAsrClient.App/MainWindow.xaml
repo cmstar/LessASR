@@ -718,6 +718,19 @@
                             <Border Grid.Column="2" Style="{StaticResource LessAsr.Card}">
                                 <StackPanel>
                                     <TextBlock Text="应用行为" Style="{StaticResource LessAsr.Text.SectionTitle}" Margin="0,0,0,14"/>
+                                    <Grid Margin="0,0,0,14">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <controls:HelpLabel Title="启动后自动最小化"
+                                                            HelpText="开启并保存后，下次启动时不显示主窗口，直接进入系统托盘。单击托盘图标可打开主窗口。"
+                                                            VerticalAlignment="Center"/>
+                                        <ui:ToggleSwitch Grid.Column="1"
+                                                         IsChecked="{Binding Settings.MinimizeToTrayOnStartup}"
+                                                         VerticalAlignment="Center"
+                                                         AutomationProperties.Name="启动后自动最小化"/>
+                                    </Grid>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>

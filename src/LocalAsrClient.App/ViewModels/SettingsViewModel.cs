@@ -19,6 +19,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     private readonly string _logsDirectoryPath;
     private TranscriptRetentionPolicy _transcriptRetentionPolicy = TranscriptRetentionPolicy.SevenDays;
     private bool _minimizeToTrayOnClose = true;
+    private bool _minimizeToTrayOnStartup;
     private string _preferredTranscriptionLanguageId = TranscriptionLanguageCatalog.DefaultId;
     private bool _isLoading;
     private bool _hasUnsavedChanges;
@@ -66,6 +67,12 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
     {
         get => _minimizeToTrayOnClose;
         set => SetField(ref _minimizeToTrayOnClose, value);
+    }
+
+    public bool MinimizeToTrayOnStartup
+    {
+        get => _minimizeToTrayOnStartup;
+        set => SetField(ref _minimizeToTrayOnStartup, value);
     }
 
     public IReadOnlyList<TranscriptionLanguageOption> TranscriptionLanguageOptions { get; } =
@@ -134,6 +141,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             {
                 TranscriptRetentionPolicy = TranscriptRetentionPolicy,
                 MinimizeToTrayOnClose = MinimizeToTrayOnClose,
+                MinimizeToTrayOnStartup = MinimizeToTrayOnStartup,
                 PreferredTranscriptionLanguageId = PreferredTranscriptionLanguageId
             }, CancellationToken.None);
             await _historyRepository.PruneAsync(now, TranscriptRetentionPolicy, CancellationToken.None);
@@ -155,6 +163,7 @@ public sealed class SettingsViewModel : INotifyPropertyChanged
             var settings = await _settingsStore.LoadAsync(CancellationToken.None);
             TranscriptRetentionPolicy = settings.TranscriptRetentionPolicy;
             MinimizeToTrayOnClose = settings.MinimizeToTrayOnClose;
+            MinimizeToTrayOnStartup = settings.MinimizeToTrayOnStartup;
             PreferredTranscriptionLanguageId = settings.PreferredTranscriptionLanguageId;
         }
         finally
